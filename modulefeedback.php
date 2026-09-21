@@ -1,0 +1,1116 @@
+<script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+
+<?php
+/**
+ * modulefeedback.php - Unified Presentation Component for Course Outcome & Questionnaire Feedback
+ * Displays KPI summary cards, structured feedback tables, interactive charts, and enhanced download actions.
+ */
+
+// Determine active view mode and feedback dataset
+$hasNewServiceData = !empty($feedbackData) && is_array($feedbackData) && ($feedbackData['status'] ?? 0) == 1;
+
+// Resolve effective view level cleanly
+$viewLevelCandidate = $view_level ?? 'subject';
+if ((isset($selected_sub_id) && $selected_sub_id === 'all') || ($viewLevelCandidate === 'class')) {
+    $activeViewLevel = 'class';
+} elseif ($viewLevelCandidate === 'faculty') {
+    $activeViewLevel = 'faculty';
+} elseif ($viewLevelCandidate === 'department') {
+    $activeViewLevel = 'department';
+} else {
+    $activeViewLevel = (!empty($selected_sub_id) && $selected_sub_id !== 'all') ? 'subject' : (!empty($selected_cls_id) ? 'class' : 'subject');
+}
+
+// Normalize summary metrics
+$kpi_enrolled = 0;
+$kpi_responded = 0;
+$kpi_response_rate = 0;
+$kpi_overall_avg = 0;
+$kpi_positive_pct = 0;
+
+if ($hasNewServiceData) {
+    if ($activeViewLevel === 'subject') {
+        $kpi_enrolled = $feedbackData['total_enrolled'] ?? 0;
+        $kpi_responded = $feedbackData['total_responded'] ?? 0;
+        $kpi_response_rate = $feedbackData['response_rate'] ?? 0;
+        $kpi_overall_avg = $feedbackData['summary']['overall_avg'] ?? 0;
+        $kpi_positive_pct = $feedbackData['summary']['positive_response_pct'] ?? 0;
+    } elseif ($activeViewLevel === 'class') {
+        $kpi_enrolled = $feedbackData['total_students'] ?? 0;
+        $kpi_responded = $feedbackData['total_responded'] ?? 0;
+        $kpi_response_rate = $feedbackData['response_rate'] ?? 0;
+        $kpi_overall_avg = $feedbackData['summary']['overall_avg'] ?? 0;
+        $kpi_positive_pct = $feedbackData['summary']['positive_response_pct'] ?? 0;
+    } elseif ($activeViewLevel === 'faculty') {
+        $kpi_overall_avg = $feedbackData['summary']['overall_co_avg'] ?? 0;
+        $kpi_positive_pct = $feedbackData['summary']['positive_response_pct'] ?? 0;
+    } elseif ($activeViewLevel === 'department') {
+        $kpi_enrolled = $feedbackData['summary']['total_students'] ?? 0;
+        $kpi_responded = $feedbackData['summary']['total_responses'] ?? 0;
+        $kpi_overall_avg = $feedbackData['summary']['overall_avg'] ?? 0;
+        if ($kpi_enrolled > 0) {
+            $kpi_response_rate = round(($kpi_responded / $kpi_enrolled) * 100, 1);
+        }
+    }
+} else {
+    // Legacy fallback calculations
+    if (!empty($coFeedbackReport) && is_array($coFeedbackReport)) {
+        $sum = 0;
+        $cnt = 0;
+        $maxResp = 0;
+        foreach ($coFeedbackReport as $co) {
+            $sum += floatval($co['average_rating'] ?? 0);
+            $cnt++;
+            if (intval($co['total_responses'] ?? 0) > $maxResp) {
+                $maxResp = intval($co['total_responses']);
+            }
+        }
+        $kpi_overall_avg = $cnt > 0 ? round($sum / $cnt, 2) : 0;
+        $kpi_responded = $maxResp;
+        $kpi_enrolled = $totalStudents ?? 0;
+        if ($kpi_enrolled > 0) {
+            $kpi_response_rate = round(($kpi_responded / $kpi_enrolled) * 100, 1);
+        }
+    }
+}
+
+// Check whether we have data to render and whether valid parameters exist for export
+$hasContent = $hasNewServiceData || !empty($coFeedbackReport) || !empty($qnFeedbackReport);
+
+$canExport = $hasContent && (
+    ($activeViewLevel === 'subject' && !empty($selected_sub_id) && $selected_sub_id !== 'all') ||
+    ($activeViewLevel === 'class' && !empty($selected_cls_id)) ||
+    ($activeViewLevel === 'faculty' && !empty($selected_fac_id)) ||
+    ($activeViewLevel === 'department' && !empty($selected_dept_id))
+);
+
+$exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $selected_sub_id;
+?>
+
+<?php if ($hasContent): ?>
+    <div class="card mt-3 shadow-sm border-0">
+        <div class="card-header bg-primary-subtle d-flex justify-content-between align-items-center py-2">
+            <h6 class="mb-0">
+                <i class="bi bi-bar-chart-line-fill me-2"></i>Feedback Analytics &amp; Reports
+            </h6>
+            <?php if ($canExport): ?>
+                <div class="d-flex gap-2">
+                    <!-- Download Action Buttons -->
+                    <form action="download_feedback_excel.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="xlsx">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-light text-success fw-bold shadow-sm">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Download Excel
+                        </button>
+                    </form>
+
+                    <form action="download_feedback_enhanced.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="csv">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-light text-secondary fw-bold shadow-sm">
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Download CSV
+                        </button>
+                    </form>
+
+                    <form action="download_feedback_enhanced.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="pdf">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-light text-danger fw-bold shadow-sm">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+
+        <div class="card-body">
+            <!-- KPI Summary Cards -->
+            <div class="row g-3 mb-4">
+                <?php if ($activeViewLevel === 'department'): ?>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Active Classes</div>
+                            <h3 class="mt-2 mb-0 text-primary"><?= $feedbackData['summary']['total_classes'] ?? 0 ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Total Courses</div>
+                            <h3 class="mt-2 mb-0 text-primary"><?= $feedbackData['summary']['total_subjects'] ?? 0 ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Total Responses</div>
+                            <h3 class="mt-2 mb-0 text-success"><?= $kpi_responded ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Dept Average</div>
+                            <h3 class="mt-2 mb-0 text-dark"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                        </div>
+                    </div>
+
+                <?php elseif ($activeViewLevel === 'faculty'): ?>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Assigned Courses</div>
+                            <h3 class="mt-2 mb-0 text-primary"><?= $feedbackData['summary']['total_subjects'] ?? count($subjects ?? []) ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">CO Feedback Average</div>
+                            <h3 class="mt-2 mb-0 text-success"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-4">
+                        <div class="p-3 bg-light border rounded text-center">
+                            <div class="text-muted small text-uppercase fw-semibold">Faculty Survey Score</div>
+                            <h3 class="mt-2 mb-0 text-dark">
+                                <?= !empty($feedbackData['faculty_evaluations']['avg_score']) ? number_format($feedbackData['faculty_evaluations']['avg_score'], 2) : 'N/A' ?>
+                            </h3>
+                        </div>
+                    </div>
+
+                <?php else: ?>
+                    <div class="col-md-2 col-sm-6">
+                        <div class="p-3 bg-light border rounded text-center h-100">
+                            <div class="text-muted small text-uppercase fw-semibold">Total Enrolled</div>
+                            <h3 class="mt-2 mb-0 text-primary"><?= $kpi_enrolled ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-6">
+                        <div class="p-3 bg-light border rounded text-center h-100">
+                            <div class="text-muted small text-uppercase fw-semibold">Responses</div>
+                            <h3 class="mt-2 mb-0 text-success">
+                                <?= $kpi_responded ?>
+                                <?php if ($kpi_response_rate > 0): ?>
+                                    <small class="text-muted fs-6 d-block">(<?= $kpi_response_rate ?>%)</small>
+                                <?php endif; ?>
+                            </h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-6">
+                        <div class="p-3 bg-light border rounded text-center h-100">
+                            <div class="text-muted small text-uppercase fw-semibold">Average Rating</div>
+                            <h3 class="mt-2 mb-0 text-dark"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-2 col-sm-6">
+                        <div class="p-3 bg-light border rounded text-center h-100">
+                            <div class="text-muted small text-uppercase fw-semibold">Positive Rate (&ge;3★)</div>
+                            <h3 class="mt-2 mb-0 text-info"><?= $kpi_positive_pct > 0 ? $kpi_positive_pct . '%' : 'N/A' ?></h3>
+                        </div>
+                    </div>
+                    <div class="col-md-3 col-sm-12">
+                        <div class="p-3 bg-light border rounded text-center h-100">
+                            <div class="text-muted small text-uppercase fw-semibold">Indirect Attainment</div>
+                            <?php 
+                                $avgLvl = floatval($feedbackData['summary']['avg_indirect_level'] ?? 0);
+                                $lvlBadge = $avgLvl >= 2.5 ? 'bg-success' : ($avgLvl >= 1.5 ? 'bg-primary' : ($avgLvl >= 0.5 ? 'bg-warning text-dark' : 'bg-secondary'));
+                            ?>
+                            <div class="mt-1">
+                                <span class="badge <?= $lvlBadge ?> fs-6 py-1 px-3">
+                                    Level <?= number_format($avgLvl, 1) ?> / 3.0
+                                </span>
+                                <?php if (!empty($feedbackData['summary']['avg_target_pct'])): ?>
+                                    <small class="text-muted d-block mt-1"><?= $feedbackData['summary']['avg_target_pct'] ?>% students &ge; 60% target</small>
+                                <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                <?php endif; ?>
+            </div>
+
+            <!-- VIEW LEVEL SPECIFIC CONTENT -->
+            <?php if ($activeViewLevel === 'department' && !empty($feedbackData['classes'])): ?>
+                <!-- Department Level Roll-up Table -->
+                <h5 class="fw-bold text-secondary mb-3">Class-Wise Feedback Performance Overview</h5>
+                <div class="table-responsive">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 40%;">Class Name</th>
+                                <th style="width: 15%;">Academic Year</th>
+                                <th style="width: 10%;" class="text-center">Courses</th>
+                                <th style="width: 15%;" class="text-center">Responses</th>
+                                <th style="width: 15%;" class="text-center">Average (1-5)</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $sno = 1; foreach ($feedbackData['classes'] as $cls): 
+                                $stats = $cls['stats'] ?? [];
+                                $avg = floatval($stats['overall_avg'] ?? 0);
+                            ?>
+                                <tr>
+                                    <td><?= $sno++ ?></td>
+                                    <td><strong><?= htmlspecialchars($cls['classname']) ?></strong></td>
+                                    <td><?= htmlspecialchars($cls['acad_year']) ?></td>
+                                    <td class="text-center"><?= $stats['total_subjects'] ?? 0 ?></td>
+                                    <td class="text-center">
+                                        <?= $stats['total_responded'] ?? 0 ?>
+                                        <?php if (!empty($stats['response_rate'])): ?>
+                                            <span class="badge bg-light text-dark border ms-1"><?= $stats['response_rate'] ?>%</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge <?= $avg >= 3.5 ? 'bg-success' : ($avg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                            <?= number_format($avg, 2) ?>
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Department Level Chart -->
+                <div class="row mt-4">
+                    <div class="col-md-12">
+                        <div class="card p-3 shadow-none border">
+                            <h6 class="fw-bold text-secondary text-center mb-3">Class Performance Comparison (Average Rating 1-5)</h6>
+                            <canvas id="deptClassChart" style="max-height: 320px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    (function() {
+                        function initDeptChart() {
+                            const ctx = document.getElementById('deptClassChart');
+                            if (!ctx) return;
+                            const classLabels = <?= json_encode(array_map(fn($c) => ($c['classname'] ?? '') . ' (' . ($c['acad_year'] ?? '') . ')', $feedbackData['classes'])) ?>;
+                            const classRatings = <?= json_encode(array_map(fn($c) => round(floatval($c['stats']['overall_avg'] ?? 0), 2), $feedbackData['classes'])) ?>;
+
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: classLabels,
+                                    datasets: [{
+                                        label: 'Class Average Rating',
+                                        data: classRatings,
+                                        backgroundColor: classRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 2.5 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(255, 193, 7, 0.8)')),
+                                        borderColor: classRatings.map(r => r >= 3.5 ? '#198754' : (r >= 2.5 ? '#0d6efd' : '#ffc107')),
+                                        borderWidth: 1,
+                                        borderRadius: 4
+                                    }]
+                                },
+                                options: {
+                                    indexAxis: 'y',
+                                    responsive: true,
+                                    scales: {
+                                        x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+                                    }
+                                }
+                            });
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initDeptChart);
+                        } else {
+                            initDeptChart();
+                        }
+                    })();
+                </script>
+
+            <?php elseif ($activeViewLevel === 'faculty' && !empty($feedbackData['subjects'])): ?>
+                <!-- Faculty Level Overview -->
+                <h5 class="fw-bold text-secondary mb-3">Assigned Courses Feedback</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Class</th>
+                                <th>Subject Code</th>
+                                <th>Subject Name</th>
+                                <th class="text-center">Academic Year</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($feedbackData['subjects'] as $sub): ?>
+                                <tr>
+                                    <td><?= htmlspecialchars($sub['classname']) ?></td>
+                                    <td><strong><?= htmlspecialchars($sub['subcode']) ?></strong></td>
+                                    <td><?= htmlspecialchars($sub['sub_fullname']) ?></td>
+                                    <td class="text-center"><?= htmlspecialchars($sub['acad_year']) ?></td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <?php if (!empty($feedbackData['co_feedback'])): ?>
+                    <h5 class="fw-bold text-secondary mb-3">Course Outcomes Breakdown</h5>
+                    <div class="table-responsive">
+                        <table class="table table-striped table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Class</th>
+                                    <th>Subject</th>
+                                    <th class="text-center">CO No</th>
+                                    <th>Description</th>
+                                    <th class="text-center">Average (1-5)</th>
+                                    <th class="text-center">Responses</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($feedbackData['co_feedback'] as $co): ?>
+                                    <tr>
+                                        <td><small><?= htmlspecialchars($co['classname']) ?></small></td>
+                                        <td><strong><?= htmlspecialchars($co['subcode']) ?></strong></td>
+                                        <td class="text-center">CO<?= htmlspecialchars($co['co_number']) ?></td>
+                                        <td><?= htmlspecialchars($co['co_description']) ?></td>
+                                        <td class="text-center fw-bold"><?= number_format($co['average_rating'], 2) ?></td>
+                                        <td class="text-center"><?= htmlspecialchars($co['total_responses']) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($feedbackData['faculty_evaluations']['total_evaluations'])): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">
+                        <i class="bi bi-star-fill text-warning me-2"></i>Student Evaluation on Faculty (19 OBE Parameters)
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Evaluation Domain</th>
+                                    <th style="width: 60%;">Parameter Statement</th>
+                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                    $facDefs = FeedbackService::getFacultyQuestions();
+                                    foreach ($facDefs as $secTitle => $secQs):
+                                        foreach ($secQs as $qKey => $qText):
+                                            $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                ?>
+                                    <tr>
+                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
+                                        <td><?= htmlspecialchars($qText) ?></td>
+                                        <td class="text-center">
+                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                <?= number_format($qAvg, 2) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+
+                    <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
+                        <h5 class="fw-bold text-secondary mt-4 mb-3">
+                            <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
+                        </h5>
+                        <div class="row g-3 mb-4">
+                            <?php $facRemSno = 1; foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
+                                <div class="col-md-6">
+                                    <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                        <div class="d-flex justify-content-between text-muted small mb-2">
+                                            <?php 
+                                                $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
+                                                $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
+                                                $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
+                                            ?>
+                                            <strong>Student-<?= $facRemSno++ ?></strong>
+                                            <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                        </div>
+                                        <?php if (!empty($rem['faculty_strengths'])): ?>
+                                            <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
+                                        <?php endif; ?>
+                                        <?php if (!empty($rem['improvement_areas'])): ?>
+                                            <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
+                                        <?php endif; ?>
+                                        <?php if (!empty($rem['additional_comments'])): ?>
+                                            <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
+                                        <?php endif; ?>
+                                    </div>
+                                </div>
+                            <?php endforeach; ?>
+                        </div>
+                    <?php endif; ?>
+                <?php endif; ?>
+
+                <!-- Faculty Level Charts -->
+                <div class="row g-4 mt-2 mb-4">
+                    <?php if (!empty($feedbackData['subjects'])): ?>
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">Assigned Courses CO Feedback Average</h6>
+                                <canvas id="facSubjectsChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+
+                    <?php if (!empty($feedbackData['faculty_evaluations']['domain_averages'])): ?>
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">Student Evaluation: OBE Domain Scores</h6>
+                                <canvas id="facDomainChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+                    <?php endif; ?>
+                </div>
+
+                <script>
+                    (function() {
+                        function initFacCharts() {
+                            <?php if (!empty($feedbackData['subjects'])): ?>
+                            const ctxSub = document.getElementById('facSubjectsChart');
+                            if (ctxSub) {
+                                const subLabels = <?= json_encode(array_map(fn($s) => ($s['subcode'] ?? '') . ' (' . ($s['classname'] ?? '') . ')', $feedbackData['subjects'])) ?>;
+                                <?php
+                                    $subAvgs = [];
+                                    foreach ($feedbackData['subjects'] as $s) {
+                                        $sid = $s['id'] ?? 0;
+                                        $scos = array_filter($feedbackData['co_feedback'] ?? [], fn($c) => ($c['subject_id'] ?? 0) == $sid);
+                                        $savg = !empty($scos) ? round(array_sum(array_column($scos, 'average_rating')) / count($scos), 2) : 0;
+                                        $subAvgs[] = $savg;
+                                    }
+                                ?>
+                                const subRatings = <?= json_encode($subAvgs) ?>;
+
+                                new Chart(ctxSub, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: subLabels,
+                                        datasets: [{
+                                            label: 'Average CO Rating',
+                                            data: subRatings,
+                                            backgroundColor: subRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 2.5 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(255, 193, 7, 0.8)')),
+                                            borderColor: subRatings.map(r => r >= 3.5 ? '#198754' : (r >= 2.5 ? '#0d6efd' : '#ffc107')),
+                                            borderWidth: 1,
+                                            borderRadius: 4
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        scales: {
+                                            y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+                                        }
+                                    }
+                                });
+                            }
+                            <?php endif; ?>
+
+                            <?php if (!empty($feedbackData['faculty_evaluations']['domain_averages'])): ?>
+                            const ctxDom = document.getElementById('facDomainChart');
+                            if (ctxDom) {
+                                const domLabels = <?= json_encode(array_keys($feedbackData['faculty_evaluations']['domain_averages'])) ?>;
+                                const domScores = <?= json_encode(array_values($feedbackData['faculty_evaluations']['domain_averages'])) ?>;
+
+                                new Chart(ctxDom, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: domLabels,
+                                        datasets: [{
+                                            label: 'OBE Domain Average (1-5)',
+                                            data: domScores,
+                                            backgroundColor: 'rgba(13, 110, 253, 0.75)',
+                                            borderColor: '#0d6efd',
+                                            borderWidth: 1,
+                                            borderRadius: 4
+                                        }]
+                                    },
+                                    options: {
+                                        indexAxis: 'y',
+                                        responsive: true,
+                                        scales: {
+                                            x: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+                                        }
+                                    }
+                                });
+                            }
+                            <?php endif; ?>
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initFacCharts);
+                        } else {
+                            initFacCharts();
+                        }
+                    })();
+                </script>
+
+            <?php elseif ($activeViewLevel === 'class' && $hasNewServiceData && !empty($feedbackData['subjects'])): ?>
+                <!-- Class Level Subject-wise overview -->
+                <h5 class="fw-bold text-secondary mb-3">Subject Performance Overview</h5>
+                <div class="table-responsive mb-4">
+                    <table class="table table-hover table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 5%;">#</th>
+                                <th style="width: 14%;">Subject Code</th>
+                                <th style="width: 36%;">Subject Full Name</th>
+                                <th style="width: 20%;">Faculty Assigned</th>
+                                <th style="width: 12%;" class="text-center">Average (1-5)</th>
+                                <th style="width: 13%;" class="text-center">Indirect Attainment</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php $sno = 1; foreach ($feedbackData['subjects'] as $sub): 
+                                $avg = floatval($sub['summary']['overall_co_avg'] ?? 0);
+                                $subNba = $sub['summary']['nba_indirect_attainment'] ?? ['level' => 0, 'pct_meeting_target' => 0, 'badge_class' => 'secondary'];
+                            ?>
+                                <tr>
+                                    <td><?= $sno++ ?></td>
+                                    <td><strong><?= htmlspecialchars($sub['subcode']) ?></strong></td>
+                                    <td><?= htmlspecialchars($sub['sub_fullname']) ?></td>
+                                    <td><?= htmlspecialchars($sub['faculty_names']) ?></td>
+                                    <td class="text-center">
+                                        <span class="badge <?= $avg >= 3.5 ? 'bg-success' : ($avg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                            <?= number_format($avg, 2) ?>
+                                        </span>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge bg-<?= $subNba['badge_class'] ?> fs-6">
+                                            Level <?= $subNba['level'] ?> (<?= $subNba['pct_meeting_target'] ?>%)
+                                        </span>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Class Level Chart -->
+                <div class="row g-4 mb-4">
+                    <div class="col-md-12">
+                        <div class="card p-3 shadow-none border">
+                            <h6 class="fw-bold text-secondary text-center mb-3">Class Subject Performance &amp; Attainment Comparison</h6>
+                            <canvas id="classSubjectChart" style="max-height: 280px;"></canvas>
+                        </div>
+                    </div>
+                </div>
+
+                <script>
+                    (function() {
+                        function initClassChart() {
+                            const ctx = document.getElementById('classSubjectChart');
+                            if (!ctx) return;
+                            const subLabels = <?= json_encode(array_map(fn($s) => ($s['subcode'] ?? '') . ' - ' . ($s['sub_shortname'] ?? ($s['sub_fullname'] ?? '')), $feedbackData['subjects'])) ?>;
+                            const subRatings = <?= json_encode(array_map(fn($s) => round(floatval($s['summary']['overall_co_avg'] ?? 0), 2), $feedbackData['subjects'])) ?>;
+
+                            new Chart(ctx, {
+                                type: 'bar',
+                                data: {
+                                    labels: subLabels,
+                                    datasets: [{
+                                        label: 'Subject Average Rating',
+                                        data: subRatings,
+                                        backgroundColor: subRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 2.5 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(255, 193, 7, 0.8)')),
+                                        borderColor: subRatings.map(r => r >= 3.5 ? '#198754' : (r >= 2.5 ? '#0d6efd' : '#ffc107')),
+                                        borderWidth: 1,
+                                        borderRadius: 4
+                                    }]
+                                },
+                                options: {
+                                    responsive: true,
+                                    scales: {
+                                        y: { beginAtZero: true, max: 5, ticks: { stepSize: 1 } }
+                                    }
+                                }
+                            });
+                        }
+                        if (document.readyState === 'loading') {
+                            document.addEventListener('DOMContentLoaded', initClassChart);
+                        } else {
+                            initClassChart();
+                        }
+                    })();
+                </script>
+
+                <!-- Detailed Class CO Table -->
+                <h5 class="fw-bold text-secondary mb-3">Detailed Course Outcome Breakdown &amp; Indirect Attainment</h5>
+                <div class="table-responsive">
+                    <table class="table table-striped table-bordered align-middle">
+                        <thead class="table-light">
+                            <tr>
+                                <th>Subject</th>
+                                <th class="text-center">CO No</th>
+                                <th>Description</th>
+                                <th class="text-center">Average Rating</th>
+                                <th class="text-center">Responses</th>
+                                <th class="text-center">&ge; 60% Target Met</th>
+                                <th class="text-center">Indirect Attainment Level</th>
+                            </tr>
+                        </thead>
+                        <tbody>
+                            <?php foreach ($feedbackData['co_feedback'] as $co): ?>
+                                <tr>
+                                    <td><strong><?= htmlspecialchars($co['subcode']) ?></strong> - <?= htmlspecialchars($co['sub_fullname']) ?></td>
+                                    <td class="text-center">CO<?= htmlspecialchars($co['co_number']) ?></td>
+                                    <td><?= htmlspecialchars($co['co_description']) ?></td>
+                                    <td class="text-center fw-bold"><?= number_format($co['average_rating'], 2) ?></td>
+                                    <td class="text-center"><?= htmlspecialchars($co['total_responses']) ?></td>
+                                    <td class="text-center">
+                                        <strong><?= $co['target_pct'] ?? 0 ?>%</strong>
+                                        <small class="text-muted d-block">(<?= ($co['target_count'] ?? 0) . '/' . ($co['total_responses'] ?? 0) ?>)</small>
+                                    </td>
+                                    <td class="text-center">
+                                        <?php 
+                                            $lvl = $co['attainment_level'] ?? 0;
+                                            $bClass = $co['badge_class'] ?? 'bg-secondary';
+                                            $lbl = $co['attainment_label'] ?? "Level $lvl";
+                                        ?>
+                                        <span class="badge <?= $bClass ?> fs-6">Level <?= $lvl ?></span>
+                                        <small class="text-muted d-block mt-1"><?= htmlspecialchars($lbl) ?></small>
+                                    </td>
+                                </tr>
+                            <?php endforeach; ?>
+                        </tbody>
+                    </table>
+                </div>
+
+            <?php else: ?>
+                <!-- Single Subject Level View (or Legacy Multi-Subject) -->
+                <?php 
+                    $coItems = $hasNewServiceData ? ($feedbackData['co_feedback'] ?? []) : ($coFeedbackReport ?? []);
+                    $qnItems = $hasNewServiceData ? ($feedbackData['qn_feedback'] ?? []) : ($qnFeedbackReport ?? []);
+                ?>
+
+                <!-- 2. Course Outcomes (CO) Attainment (Part-A) -->
+                <?php if (!empty($coItems)): ?>
+                    <h5 class="fw-bold text-secondary mb-3">Course Outcome (CO) Indirect Attainment Ratings</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 8%;" class="text-center">CO No.</th>
+                                    <th style="width: 32%;">Course Outcome Description</th>
+                                    <th style="width: 12%;" class="text-center">Average (1-5)</th>
+                                    <th style="width: 20%;" class="text-center">Rating Distribution (5★ to 1★)</th>
+                                    <th style="width: 13%;" class="text-center">&ge; 60% Target Met</th>
+                                    <th style="width: 15%;" class="text-center">Indirect Attainment Level</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($coItems as $co): ?>
+                                    <tr>
+                                        <td class="text-center"><strong>CO<?= htmlspecialchars($co['co_number']) ?></strong></td>
+                                        <td><?= htmlspecialchars($co['co_description']) ?></td>
+                                        <td class="text-center">
+                                            <div class="d-flex justify-content-center align-items-center gap-2">
+                                                <span class="badge <?= floatval($co['average_rating']) >= 3.5 ? 'bg-success' : 'bg-primary' ?> fs-6">
+                                                    <?= number_format($co['average_rating'], 2) ?>
+                                                </span>
+                                            </div>
+                                            <small class="text-muted d-block mt-1">(<?= htmlspecialchars($co['total_responses']) ?> resp)</small>
+                                        </td>
+                                        <td class="text-center small">
+                                            <span class="badge bg-success" title="5 Stars">5★: <?= $co['count_5'] ?? 0 ?></span>
+                                            <span class="badge bg-primary" title="4 Stars">4★: <?= $co['count_4'] ?? 0 ?></span>
+                                            <span class="badge bg-info text-dark" title="3 Stars">3★: <?= $co['count_3'] ?? 0 ?></span>
+                                            <span class="badge bg-warning text-dark" title="2 Stars">2★: <?= $co['count_2'] ?? 0 ?></span>
+                                            <span class="badge bg-danger" title="1 Star">1★: <?= $co['count_1'] ?? 0 ?></span>
+                                        </td>
+                                        <td class="text-center">
+                                            <strong><?= $co['target_pct'] ?? 0 ?>%</strong>
+                                            <small class="text-muted d-block">(<?= ($co['target_count'] ?? 0) . '/' . ($co['total_responses'] ?? 0) ?>)</small>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php 
+                                                $lvl = $co['attainment_level'] ?? 0;
+                                                $bClass = $co['badge_class'] ?? 'bg-secondary';
+                                                $lbl = $co['attainment_label'] ?? "Level $lvl";
+                                            ?>
+                                            <span class="badge <?= $bClass ?> fs-6">Level <?= $lvl ?></span>
+                                            <small class="text-muted d-block mt-1"><?= htmlspecialchars($lbl) ?></small>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($qnItems)): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">Additional Questionnaire Responses</h5>
+                    <div class="table-responsive">
+                        <table class="table table-bordered table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 8%;" class="text-center">Q No.</th>
+                                    <th style="width: 60%;">Question Text</th>
+                                    <th style="width: 16%;">Created By</th>
+                                    <th style="width: 16%;" class="text-center">Average Rating (1-5)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($qnItems as $qn): ?>
+                                    <tr>
+                                        <td class="text-center">Q<?= htmlspecialchars($qn['question_number']) ?></td>
+                                        <td><?= htmlspecialchars($qn['question_text']) ?></td>
+                                        <td><?= htmlspecialchars(ucfirst($qn['created_by_role'] ?? 'faculty')) ?></td>
+                                        <td class="text-center fw-bold"><?= number_format($qn['average_rating'], 2) ?></td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 3. Course End Survey (CES Part-B) 16 Parameters -->
+                <?php if (!empty($feedbackData['ces_feedback']['total_responses'])): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">
+                        <i class="bi bi-card-checklist text-primary me-2"></i>Course End Survey (CES - 16 Evaluation Parameters)
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Survey Domain</th>
+                                    <th style="width: 60%;">Evaluation Statement</th>
+                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                    $cesDefs = FeedbackService::getCesQuestions();
+                                    foreach ($cesDefs as $secTitle => $secQs):
+                                        foreach ($secQs as $qKey => $qText):
+                                            $qAvg = floatval($feedbackData['ces_feedback']['averages'][$qKey] ?? 0);
+                                ?>
+                                    <tr>
+                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
+                                        <td><?= htmlspecialchars($qText) ?></td>
+                                        <td class="text-center">
+                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                <?= number_format($qAvg, 2) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 4. Faculty Pedagogical Feedback (19 OBE Parameters) -->
+                <?php if (!empty($feedbackData['faculty_evaluations']['total_evaluations'])): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">
+                        <i class="bi bi-person-check-fill text-primary me-2"></i>Student Evaluation on Faculty (19 OBE Parameters)
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-bordered table-striped align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th style="width: 25%;">Domain</th>
+                                    <th style="width: 60%;">Evaluation Statement</th>
+                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php 
+                                    $facDefs = FeedbackService::getFacultyQuestions();
+                                    foreach ($facDefs as $secTitle => $secQs):
+                                        foreach ($secQs as $qKey => $qText):
+                                            $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                ?>
+                                    <tr>
+                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
+                                        <td><?= htmlspecialchars($qText) ?></td>
+                                        <td class="text-center">
+                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                <?= number_format($qAvg, 2) ?>
+                                            </span>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 5. Qualitative Written Feedback (Part-C & Faculty Remarks) -->
+                <?php if (!empty($feedbackData['ces_feedback']['remarks'])): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">
+                        <i class="bi bi-chat-left-text-fill text-info me-2"></i>Student Qualitative Remarks (Course End Survey - Part-C)
+                    </h5>
+                    <div class="row g-3 mb-4">
+                        <?php foreach ($feedbackData['ces_feedback']['remarks'] as $rem): ?>
+                            <div class="col-md-6">
+                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                    <div class="d-flex justify-content-between text-muted small mb-2">
+                                        <strong>Student: <?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?></strong>
+                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                    </div>
+                                    <?php if (!empty($rem['useful_aspects'])): ?>
+                                        <p class="mb-1 small"><strong>Useful Aspects:</strong> <?= nl2br(htmlspecialchars($rem['useful_aspects'])) ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($rem['improvement_topics'])): ?>
+                                        <p class="mb-1 small"><strong>Topics for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_topics'])) ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($rem['suggestions'])): ?>
+                                        <p class="mb-0 small"><strong>Suggestions:</strong> <?= nl2br(htmlspecialchars($rem['suggestions'])) ?></p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
+                    <h5 class="fw-bold text-secondary mt-4 mb-3">
+                        <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
+                    </h5>
+                    <div class="row g-3 mb-4">
+                        <?php foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
+                            <div class="col-md-6">
+                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                    <div class="d-flex justify-content-between text-muted small mb-2">
+                                        <?php 
+                                            $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
+                                            $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
+                                            $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
+                                        ?>
+                                        <strong><?= htmlspecialchars($sLabel) ?> (<?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?>)</strong>
+                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                    </div>
+                                    <?php if (!empty($rem['faculty_strengths'])): ?>
+                                        <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($rem['improvement_areas'])): ?>
+                                        <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
+                                    <?php endif; ?>
+                                    <?php if (!empty($rem['additional_comments'])): ?>
+                                        <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
+                                    <?php endif; ?>
+                                </div>
+                            </div>
+                        <?php endforeach; ?>
+                    </div>
+                <?php endif; ?>
+
+                <!-- 6. Visual Analytics & Insights -->
+                <?php if (!empty($coItems) && $activeViewLevel === 'subject'): ?>
+                    <div class="row mt-4 g-3">
+                        <!-- Chart 1: Average CO Rating -->
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">CO Average Ratings &amp; Target Threshold (3.0 / 60%)</h6>
+                                <canvas id="coFeedbackChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart 2: 5-Star Rating Distribution -->
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">CO Rating Distribution (5★ to 1★)</h6>
+                                <canvas id="coDistributionChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+
+                        <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
+                            <!-- Chart 3: Course End Survey (CES) 5 Domains -->
+                            <div class="col-md-12">
+                                <div class="card p-3 shadow-none border">
+                                    <h6 class="fw-bold text-secondary text-center mb-3">Course End Survey (CES) 5-Domain Performance</h6>
+                                    <canvas id="cesDomainChart" style="max-height: 220px;"></canvas>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <script>
+                        (function() {
+                            function initSubjectCharts() {
+                                const coLabels = <?= json_encode(array_map(function ($co) {
+                                    return 'CO' . $co['co_number'];
+                                }, $coItems)) ?>;
+                                const coRatings = <?= json_encode(array_map(function ($co) {
+                                    return round(floatval($co['average_rating']), 2);
+                                }, $coItems)) ?>;
+                                const targetPcts = <?= json_encode(array_map(function ($co) {
+                                    return floatval($co['target_pct'] ?? 0);
+                                }, $coItems)) ?>;
+
+                            // Chart 1: CO Ratings
+                            const ctx1 = document.getElementById('coFeedbackChart');
+                            if (ctx1) {
+                                new Chart(ctx1, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: coLabels,
+                                        datasets: [{
+                                            label: 'Average CO Rating (out of 5.0)',
+                                            data: coRatings,
+                                            backgroundColor: coRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 3.0 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(220, 53, 69, 0.8)')),
+                                            borderColor: coRatings.map(r => r >= 3.5 ? '#198754' : (r >= 3.0 ? '#0d6efd' : '#dc3545')),
+                                            borderWidth: 1,
+                                            borderRadius: 4
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true,
+                                                max: 5,
+                                                ticks: { stepSize: 1 }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+
+                            // Chart 2: Rating Distribution Stacked Bar
+                            const ctx2 = document.getElementById('coDistributionChart');
+                            if (ctx2) {
+                                new Chart(ctx2, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: coLabels,
+                                        datasets: [
+                                            {
+                                                label: '5 Stars (Excellent)',
+                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_5'] ?? 0), $coItems)) ?>,
+                                                backgroundColor: 'rgba(25, 135, 84, 0.85)'
+                                            },
+                                            {
+                                                label: '4 Stars (Very Good)',
+                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_4'] ?? 0), $coItems)) ?>,
+                                                backgroundColor: 'rgba(13, 110, 253, 0.85)'
+                                            },
+                                            {
+                                                label: '3 Stars (Good)',
+                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_3'] ?? 0), $coItems)) ?>,
+                                                backgroundColor: 'rgba(13, 202, 240, 0.85)'
+                                            },
+                                            {
+                                                label: '2 Stars (Fair)',
+                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_2'] ?? 0), $coItems)) ?>,
+                                                backgroundColor: 'rgba(255, 193, 7, 0.85)'
+                                            },
+                                            {
+                                                label: '1 Star (Poor)',
+                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_1'] ?? 0), $coItems)) ?>,
+                                                backgroundColor: 'rgba(220, 53, 69, 0.85)'
+                                            }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        scales: {
+                                            x: { stacked: true },
+                                            y: { stacked: true, beginAtZero: true }
+                                        }
+                                    }
+                                });
+                            }
+
+                            <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
+                            // Chart 3: CES 5-Domain Horizontal Bar Chart
+                            const ctx3 = document.getElementById('cesDomainChart');
+                            if (ctx3) {
+                                const domainLabels = <?= json_encode(array_keys($feedbackData['ces_feedback']['domain_averages'])) ?>;
+                                const domainScores = <?= json_encode(array_values($feedbackData['ces_feedback']['domain_averages'])) ?>;
+
+                                new Chart(ctx3, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: domainLabels,
+                                        datasets: [{
+                                            label: 'Domain Average (1 to 5)',
+                                            data: domainScores,
+                                            backgroundColor: 'rgba(13, 110, 253, 0.75)',
+                                            borderColor: '#0d6efd',
+                                            borderWidth: 1,
+                                            borderRadius: 4
+                                        }]
+                                    },
+                                    options: {
+                                        indexAxis: 'y',
+                                        responsive: true,
+                                        scales: {
+                                            x: {
+                                                beginAtZero: true,
+                                                max: 5,
+                                                ticks: { stepSize: 1 }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+                            <?php endif; ?>
+                            }
+                            if (document.readyState === 'loading') {
+                                document.addEventListener('DOMContentLoaded', initSubjectCharts);
+                            } else {
+                                initSubjectCharts();
+                            }
+                        })();
+                    </script>
+                <?php endif; ?>
+
+            <?php endif; ?>
+        </div>
+
+        <!-- Footer Actions -->
+        <div class="card-footer bg-light d-flex justify-content-between align-items-center py-3">
+            <small class="text-muted">Generated by Academic Quality Assurance Feedback System</small>
+            <?php if ($canExport): ?>
+                <div class="d-flex gap-2">
+                    <form action="download_feedback_excel.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="xlsx">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-outline-success">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
+                        </button>
+                    </form>
+
+                    <form action="download_feedback_enhanced.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="csv">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-outline-secondary">
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
+                        </button>
+                    </form>
+
+                    <form action="download_feedback_enhanced.php" method="post" target="_blank" class="d-inline m-0">
+                        <input type="hidden" name="format" value="pdf">
+                        <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
+                        <input type="hidden" name="sub_id" value="<?= htmlspecialchars($exportSubId) ?>">
+                        <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
+                        <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
+                        <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <button type="submit" class="btn btn-sm btn-outline-danger">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+        </div>
+    </div>
+<?php elseif (!empty($selected_sub_id) || !empty($selected_cls_id) || !empty($selected_fac_id) || !empty($selected_dept_id)): ?>
+    <div class="alert alert-info mt-4 d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+        <div>No feedback responses found for the selected criteria.</div>
+    </div>
+<?php endif; ?>

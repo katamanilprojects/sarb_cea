@@ -1,0 +1,67 @@
+# ==========================================
+# Git Ignore for Academic Attendance System
+# ==========================================
+
+# Environment & Sensitive Credentials
+.env
+.env.*
+*.env
+.env.php
+*.local.php
+*.local.json
+.devin/
+.continue/
+
+# Composer & Dependencies
+/vendor/
+composer.phar
+
+# Logs & Error Dumps
+/logs/*
+!/logs/.htaccess
+!/logs/.gitkeep
+*.log
+
+# Dynamic Uploads, Reports & User Data
+/uploads/*
+!/uploads/.gitkeep
+!/uploads/index.php
+!/uploads/permissions/
+!/uploads/permissions/.gitkeep
+!/uploads/permissions/index.php
+/uploads/permissions/*
+!/uploads/permissions/.gitkeep
+!/uploads/permissions/index.php
+/uploads/tmp/*
+!/uploads/tmp/.gitkeep
+/tmp/
+
+# Operating System Files
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+ehthumbs.db
+Thumbs.db
+
+# IDE & Editor Configurations
+.idea/
+.vscode/
+*.sublime-project
+*.sublime-workspace
+*.swp
+*.swo
+*~
+
+# Archives, Dumps & Temp Files
+*.sql.gz
+*.dump
+*.tar
+*.tar.gz
+*.zip
+*.rar
+*.7z
+*.bak
+*.old
+*.orig
