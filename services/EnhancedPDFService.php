@@ -246,6 +246,15 @@ class EnhancedPDFService
                     background-color: ' . $this->colors['light'] . ';
                 }
                 
+                .data-table tr.domain-header-row td {
+                    background-color: #ebf4ff;
+                    color: ' . $this->colors['primary'] . ';
+                    font-weight: bold;
+                    border-top: 2px solid ' . $this->colors['accent'] . ';
+                    border-bottom: 1px solid ' . $this->colors['accent'] . ';
+                }
+                
+                
                 /* Meta box styling */
                 .meta-box {
                     background-color: ' . $this->colors['light'] . ';
@@ -957,14 +966,14 @@ class EnhancedPDFService
         } else {
             $cesQuestions = FeedbackService::getCesQuestions();
             $cesAverages = $data['ces_feedback']['averages'] ?? [];
+            $domainAverages = $data['ces_feedback']['domain_averages'] ?? [];
             
             $html .= '
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th style="width: 20%;">Section</th>
-                            <th style="width: 10%;">Parameter</th>
-                            <th style="width: 55%;">Evaluation Statement</th>
+                            <th style="width: 12%;">Parameter</th>
+                            <th style="width: 73%;">Evaluation Statement</th>
                             <th style="width: 15%; text-align: center;">Avg Rating</th>
                         </tr>
                     </thead>
@@ -972,13 +981,30 @@ class EnhancedPDFService
             ';
             
             foreach ($cesQuestions as $section => $questions) {
+                $domAvg = isset($domainAverages[$section]) ? floatval($domainAverages[$section]) : null;
+                $domBadge = '';
+                if ($domAvg !== null) {
+                    $domColor = $domAvg >= 4.0 ? 'success' : ($domAvg >= 3.0 ? 'warning' : 'danger');
+                    $domBadge = '<span class="badge badge-' . $domColor . '">Avg: ' . number_format($domAvg, 2) . '</span>';
+                }
+
+                $html .= '
+                    <tr class="domain-header-row">
+                        <td colspan="2" style="font-size: 10px; font-weight: bold; color: ' . $this->colors['primary'] . ';">
+                            ' . htmlspecialchars($section) . '
+                        </td>
+                        <td class="text-center" style="font-weight: bold;">
+                            ' . $domBadge . '
+                        </td>
+                    </tr>
+                ';
+
                 foreach ($questions as $qKey => $qText) {
                     $avg = $cesAverages[$qKey] ?? 0;
                     $ratingColor = $avg >= 4.0 ? 'success' : ($avg >= 3.0 ? 'warning' : 'danger');
                     
                     $html .= '
                         <tr>
-                            <td><small class="text-muted">' . htmlspecialchars($section) . '</small></td>
                             <td class="text-bold">' . strtoupper($qKey) . '</td>
                             <td>' . htmlspecialchars($qText) . '</td>
                             <td class="text-center">
@@ -1013,14 +1039,14 @@ class EnhancedPDFService
         } else {
             $facQuestions = FeedbackService::getFacultyQuestions();
             $facAverages = $data['faculty_evaluations']['averages'] ?? [];
+            $domainAverages = $data['faculty_evaluations']['domain_averages'] ?? [];
             
             $html .= '
                 <table class="data-table">
                     <thead>
                         <tr>
-                            <th style="width: 20%;">Domain</th>
-                            <th style="width: 10%;">Parameter</th>
-                            <th style="width: 55%;">Evaluation Statement</th>
+                            <th style="width: 12%;">Parameter</th>
+                            <th style="width: 73%;">Evaluation Statement</th>
                             <th style="width: 15%; text-align: center;">Avg Rating</th>
                         </tr>
                     </thead>
@@ -1028,13 +1054,30 @@ class EnhancedPDFService
             ';
             
             foreach ($facQuestions as $domain => $questions) {
+                $domAvg = isset($domainAverages[$domain]) ? floatval($domainAverages[$domain]) : null;
+                $domBadge = '';
+                if ($domAvg !== null) {
+                    $domColor = $domAvg >= 4.0 ? 'success' : ($domAvg >= 3.0 ? 'warning' : 'danger');
+                    $domBadge = '<span class="badge badge-' . $domColor . '">Avg: ' . number_format($domAvg, 2) . '</span>';
+                }
+
+                $html .= '
+                    <tr class="domain-header-row">
+                        <td colspan="2" style="font-size: 10px; font-weight: bold; color: ' . $this->colors['primary'] . ';">
+                            ' . htmlspecialchars($domain) . '
+                        </td>
+                        <td class="text-center" style="font-weight: bold;">
+                            ' . $domBadge . '
+                        </td>
+                    </tr>
+                ';
+
                 foreach ($questions as $qKey => $qText) {
                     $avg = $facAverages[$qKey] ?? 0;
                     $ratingColor = $avg >= 4.0 ? 'success' : ($avg >= 3.0 ? 'warning' : 'danger');
                     
                     $html .= '
                         <tr>
-                            <td><small class="text-muted">' . htmlspecialchars($domain) . '</small></td>
                             <td class="text-bold">' . strtoupper($qKey) . '</td>
                             <td>' . htmlspecialchars($qText) . '</td>
                             <td class="text-center">

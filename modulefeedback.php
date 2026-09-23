@@ -408,28 +408,41 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <table class="table table-bordered table-striped align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 25%;">Evaluation Domain</th>
-                                    <th style="width: 60%;">Parameter Statement</th>
-                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                    <th style="width: 80%;">Evaluation Domain / Parameter Statement</th>
+                                    <th style="width: 20%;" class="text-center">Average Rating (1-5)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php 
                                     $facDefs = FeedbackService::getFacultyQuestions();
                                     foreach ($facDefs as $secTitle => $secQs):
-                                        foreach ($secQs as $qKey => $qText):
-                                            $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                        $secDomainAvg = $feedbackData['faculty_evaluations']['domain_averages'][$secTitle] ?? null;
                                 ?>
-                                    <tr>
-                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
-                                        <td><?= htmlspecialchars($qText) ?></td>
-                                        <td class="text-center">
-                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
-                                                <?= number_format($qAvg, 2) ?>
-                                            </span>
+                                    <tr class="table-primary bg-opacity-25">
+                                        <td class="fw-bold text-dark py-2">
+                                            <i class="bi bi-folder2-open me-2 text-primary"></i><?= htmlspecialchars($secTitle) ?>
+                                        </td>
+                                        <td class="text-center py-2">
+                                            <?php if ($secDomainAvg !== null): ?>
+                                                <span class="badge bg-primary fs-6" title="Domain Overall Average">
+                                                    Avg: <?= number_format(floatval($secDomainAvg), 2) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
-                                <?php endforeach; endforeach; ?>
+                                    <?php foreach ($secQs as $qKey => $qText): 
+                                        $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                    ?>
+                                        <tr>
+                                            <td class="ps-4"><?= htmlspecialchars($qText) ?></td>
+                                            <td class="text-center">
+                                                <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                    <?= number_format($qAvg, 2) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -437,7 +450,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <?php 
                         $remarks = $feedbackData['faculty_evaluations']['remarks'] ?? [];
                         $collapseId = 'facRemarksCollapse';
-                        $showSubjectLabel = false;
+                        $showSubjectLabel = true;
                         $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
                         $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
                         include('partials/faculty_remarks_card.php');
@@ -711,12 +724,40 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         </div>
 
                         <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
-                            <!-- Chart 3: Course End Survey (CES) 5 Domains -->
-                            <div class="col-md-12">
-                                <div class="card p-3 shadow-none border">
+                            <!-- Chart 3: Course End Survey (CES) 5 Domains (Balanced Two-Column) -->
+                            <div class="col-md-6">
+                                <div class="card p-3 shadow-none border h-100">
                                     <h6 class="fw-bold text-secondary text-center mb-3">Course End Survey (CES) 5-Domain Performance</h6>
-                                    <div class="chart-container-responsive-sm">
+                                    <div class="chart-container-responsive">
                                         <canvas id="cesDomainChart"></canvas>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-6">
+                                <div class="card p-3 shadow-none border h-100">
+                                    <h6 class="fw-bold text-secondary text-center mb-3">CES Domain Scorecard</h6>
+                                    <div class="table-responsive">
+                                        <table class="table table-sm table-bordered align-middle mb-0">
+                                            <thead class="table-light">
+                                                <tr>
+                                                    <th>Domain</th>
+                                                    <th class="text-center" style="width: 28%;">Score (1-5)</th>
+                                                </tr>
+                                            </thead>
+                                            <tbody>
+                                                <?php foreach ($feedbackData['ces_feedback']['domain_averages'] as $dTitle => $dScore): 
+                                                    $sc = floatval($dScore);
+                                                    $scBadge = $sc >= 3.5 ? 'bg-success' : ($sc >= 2.5 ? 'bg-primary' : 'bg-warning text-dark');
+                                                ?>
+                                                    <tr>
+                                                        <td><small class="fw-semibold text-secondary"><?= htmlspecialchars($dTitle) ?></small></td>
+                                                        <td class="text-center">
+                                                            <span class="badge <?= $scBadge ?> fs-6 py-1 px-2"><?= number_format($sc, 2) ?></span>
+                                                        </td>
+                                                    </tr>
+                                                <?php endforeach; ?>
+                                            </tbody>
+                                        </table>
                                     </div>
                                 </div>
                             </div>
@@ -882,13 +923,52 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                                             </div>
                                             <small class="text-muted d-block mt-1">(<?= htmlspecialchars($co['total_responses']) ?> resp)</small>
                                         </td>
-                                        <td class="text-center small">
-                                            <div class="d-flex flex-wrap gap-1 justify-content-center">
-                                                <span class="badge bg-success" title="5 Stars">5★: <?= $co['count_5'] ?? 0 ?></span>
-                                                <span class="badge bg-primary" title="4 Stars">4★: <?= $co['count_4'] ?? 0 ?></span>
-                                                <span class="badge bg-info text-dark" title="3 Stars">3★: <?= $co['count_3'] ?? 0 ?></span>
-                                                <span class="badge bg-warning text-dark" title="2 Stars">2★: <?= $co['count_2'] ?? 0 ?></span>
-                                                <span class="badge bg-danger" title="1 Star">1★: <?= $co['count_1'] ?? 0 ?></span>
+                                        <td>
+                                            <?php 
+                                                $cTotal = max(1, intval($co['total_responses']));
+                                                $cnt5 = intval($co['count_5'] ?? 0);
+                                                $cnt4 = intval($co['count_4'] ?? 0);
+                                                $cnt3 = intval($co['count_3'] ?? 0);
+                                                $cnt2 = intval($co['count_2'] ?? 0);
+                                                $cnt1 = intval($co['count_1'] ?? 0);
+
+                                                $p5 = ($cnt5 / $cTotal) * 100;
+                                                $p4 = ($cnt4 / $cTotal) * 100;
+                                                $p3 = ($cnt3 / $cTotal) * 100;
+                                                $p2 = ($cnt2 / $cTotal) * 100;
+                                                $p1 = ($cnt1 / $cTotal) * 100;
+
+                                                $deg5 = $p5 * 3.6;
+                                                $deg4 = $deg5 + ($p4 * 3.6);
+                                                $deg3 = $deg4 + ($p3 * 3.6);
+                                                $deg2 = $deg3 + ($p2 * 3.6);
+
+                                                $conic = "#198754 0deg {$deg5}deg, #0d6efd {$deg5}deg {$deg4}deg, #0dcaf0 {$deg4}deg {$deg3}deg, #ffc107 {$deg3}deg {$deg2}deg, #dc3545 {$deg2}deg 360deg";
+                                                $pieTitle = "5★: $cnt5 (" . round($p5, 1) . "%)\n4★: $cnt4 (" . round($p4, 1) . "%)\n3★: $cnt3 (" . round($p3, 1) . "%)\n2★: $cnt2 (" . round($p2, 1) . "%)\n1★: $cnt1 (" . round($p1, 1) . "%)";
+                                            ?>
+                                            <div class="d-flex align-items-center gap-2" title="<?= htmlspecialchars($pieTitle) ?>">
+                                                <div style="width: 44px; height: 44px; min-width: 44px; border-radius: 50%; background: conic-gradient(<?= $conic ?>); position: relative; box-shadow: 0 1px 3px rgba(0,0,0,0.15);">
+                                                    <div style="position: absolute; top: 12px; left: 12px; width: 20px; height: 20px; background: #fff; border-radius: 50%;"></div>
+                                                </div>
+                                                <div style="font-size: 0.73rem; line-height: 1.25;" class="w-100">
+                                                    <div class="d-flex justify-content-between">
+                                                        <span><span class="d-inline-block rounded-circle me-1" style="width:7px;height:7px;background:#198754;"></span>5★</span>
+                                                        <strong class="text-success"><?= $cnt5 ?></strong>
+                                                        <span class="ms-2"><span class="d-inline-block rounded-circle me-1" style="width:7px;height:7px;background:#0d6efd;"></span>4★</span>
+                                                        <strong class="text-primary"><?= $cnt4 ?></strong>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span><span class="d-inline-block rounded-circle me-1" style="width:7px;height:7px;background:#0dcaf0;"></span>3★</span>
+                                                        <strong class="text-info text-dark"><?= $cnt3 ?></strong>
+                                                        <span class="ms-2"><span class="d-inline-block rounded-circle me-1" style="width:7px;height:7px;background:#ffc107;"></span>2★</span>
+                                                        <strong class="text-warning text-dark"><?= $cnt2 ?></strong>
+                                                    </div>
+                                                    <div class="d-flex justify-content-between">
+                                                        <span><span class="d-inline-block rounded-circle me-1" style="width:7px;height:7px;background:#dc3545;"></span>1★</span>
+                                                        <strong class="text-danger"><?= $cnt1 ?></strong>
+                                                        <span class="text-muted ms-2">(Total: <?= $cTotal ?>)</span>
+                                                    </div>
+                                                </div>
                                             </div>
                                         </td>
                                         <td class="text-center">
@@ -946,28 +1026,41 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <table class="table table-bordered table-striped align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 25%;">Survey Domain</th>
-                                    <th style="width: 60%;">Evaluation Statement</th>
-                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                    <th style="width: 80%;">Survey Domain / Evaluation Statement</th>
+                                    <th style="width: 20%;" class="text-center">Average Rating (1-5)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php 
                                     $cesDefs = FeedbackService::getCesQuestions();
                                     foreach ($cesDefs as $secTitle => $secQs):
-                                        foreach ($secQs as $qKey => $qText):
-                                            $qAvg = floatval($feedbackData['ces_feedback']['averages'][$qKey] ?? 0);
+                                        $cesDomainAvg = $feedbackData['ces_feedback']['domain_averages'][$secTitle] ?? null;
                                 ?>
-                                    <tr>
-                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
-                                        <td><?= htmlspecialchars($qText) ?></td>
-                                        <td class="text-center">
-                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
-                                                <?= number_format($qAvg, 2) ?>
-                                            </span>
+                                    <tr class="table-primary bg-opacity-25">
+                                        <td class="fw-bold text-dark py-2">
+                                            <i class="bi bi-journal-bookmark-fill me-2 text-primary"></i><?= htmlspecialchars($secTitle) ?>
+                                        </td>
+                                        <td class="text-center py-2">
+                                            <?php if ($cesDomainAvg !== null): ?>
+                                                <span class="badge bg-primary fs-6" title="Domain Average Rating">
+                                                    Avg: <?= number_format(floatval($cesDomainAvg), 2) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
-                                <?php endforeach; endforeach; ?>
+                                    <?php foreach ($secQs as $qKey => $qText): 
+                                        $qAvg = floatval($feedbackData['ces_feedback']['averages'][$qKey] ?? 0);
+                                    ?>
+                                        <tr>
+                                            <td class="ps-4"><?= htmlspecialchars($qText) ?></td>
+                                            <td class="text-center">
+                                                <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                    <?= number_format($qAvg, 2) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -982,28 +1075,41 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <table class="table table-bordered table-striped align-middle">
                             <thead class="table-light">
                                 <tr>
-                                    <th style="width: 25%;">Domain</th>
-                                    <th style="width: 60%;">Evaluation Statement</th>
-                                    <th style="width: 15%;" class="text-center">Average Rating (1-5)</th>
+                                    <th style="width: 80%;">Evaluation Domain / Parameter Statement</th>
+                                    <th style="width: 20%;" class="text-center">Average Rating (1-5)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php 
                                     $facDefs = FeedbackService::getFacultyQuestions();
                                     foreach ($facDefs as $secTitle => $secQs):
-                                        foreach ($secQs as $qKey => $qText):
-                                            $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                        $secDomainAvg = $feedbackData['faculty_evaluations']['domain_averages'][$secTitle] ?? null;
                                 ?>
-                                    <tr>
-                                        <td><small class="text-muted fw-bold"><?= htmlspecialchars($secTitle) ?></small></td>
-                                        <td><?= htmlspecialchars($qText) ?></td>
-                                        <td class="text-center">
-                                            <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
-                                                <?= number_format($qAvg, 2) ?>
-                                            </span>
+                                    <tr class="table-primary bg-opacity-25">
+                                        <td class="fw-bold text-dark py-2">
+                                            <i class="bi bi-folder2-open me-2 text-primary"></i><?= htmlspecialchars($secTitle) ?>
+                                        </td>
+                                        <td class="text-center py-2">
+                                            <?php if ($secDomainAvg !== null): ?>
+                                                <span class="badge bg-primary fs-6" title="Domain Overall Average">
+                                                    Avg: <?= number_format(floatval($secDomainAvg), 2) ?>
+                                                </span>
+                                            <?php endif; ?>
                                         </td>
                                     </tr>
-                                <?php endforeach; endforeach; ?>
+                                    <?php foreach ($secQs as $qKey => $qText): 
+                                        $qAvg = floatval($feedbackData['faculty_evaluations']['averages'][$qKey] ?? 0);
+                                    ?>
+                                        <tr>
+                                            <td class="ps-4"><?= htmlspecialchars($qText) ?></td>
+                                            <td class="text-center">
+                                                <span class="badge <?= $qAvg >= 3.5 ? 'bg-success' : ($qAvg >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                    <?= number_format($qAvg, 2) ?>
+                                                </span>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endforeach; ?>
                             </tbody>
                         </table>
                     </div>
@@ -1054,7 +1160,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                 <?php 
                     $remarks = $feedbackData['faculty_evaluations']['remarks'] ?? [];
                     $collapseId = 'facSubjectRemarksCollapse';
-                    $showSubjectLabel = true;
+                    $showSubjectLabel = false;
                     $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
                     $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
                     include('partials/faculty_remarks_card.php');

@@ -20,15 +20,21 @@ $collapseId = $collapseId ?? 'facRemarksCollapse';
 $showSubjectLabel = $showSubjectLabel ?? false;
 $metaSubCode = $metaSubCode ?? '';
 $metaSubName = $metaSubName ?? '';
+$singleSubjectHeader = (!empty($metaSubCode) || !empty($metaSubName)) ? trim("$metaSubCode - $metaSubName", " -") : '';
 ?>
 <div class="card mb-4 border shadow-sm">
     <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
          role="button" data-bs-toggle="collapse" data-bs-target="#<?= htmlspecialchars($collapseId) ?>" aria-expanded="false" aria-controls="<?= htmlspecialchars($collapseId) ?>"
          style="cursor: pointer;">
-        <h6 class="mb-0 text-secondary fw-bold">
-            <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
-            <span class="badge bg-secondary ms-2"><?= count($remarks) ?> Feedback Comments</span>
-        </h6>
+        <div>
+            <h6 class="mb-0 text-secondary fw-bold d-inline-block">
+                <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
+                <span class="badge bg-secondary ms-2"><?= count($remarks) ?> Feedback Comments</span>
+            </h6>
+            <?php if (!empty($singleSubjectHeader) && !$showSubjectLabel): ?>
+                <span class="text-muted small ms-2 d-none d-md-inline">• <?= htmlspecialchars($singleSubjectHeader) ?></span>
+            <?php endif; ?>
+        </div>
         <span class="text-primary small fw-semibold">
             <i class="bi bi-chevron-down"></i> Click to View / Hide
         </span>
@@ -46,10 +52,9 @@ $metaSubName = $metaSubName ?? '';
                                     $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : '';
                                 ?>
                                 <strong>
+                                    Student-<?= $facRemSno++ ?>
                                     <?php if ($showSubjectLabel && !empty($sLabel)): ?>
-                                        <?= htmlspecialchars($sLabel) ?> (Student-<?= $facRemSno++ ?>)
-                                    <?php else: ?>
-                                        Student-<?= $facRemSno++ ?>
+                                        <span class="text-muted fw-normal ms-1">(<?= htmlspecialchars($sLabel) ?>)</span>
                                     <?php endif; ?>
                                 </strong>
                                 <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>

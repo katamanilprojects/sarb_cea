@@ -1741,12 +1741,11 @@ class FeedbackExcelService
 
             // Average Row
             $sheet->setCellValue("A$row", "AVERAGE RATING");
-            $sheet->mergeCells("A{$row}:B{$row}");
             $sheet->getStyle("A$row")->getFont()->setBold(true);
             $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_RIGHT);
 
             for ($qi = 1; $qi <= 19; $qi++) {
-                $qCol = Coordinate::stringFromColumnIndex(2 + $qi);
+                $qCol = Coordinate::stringFromColumnIndex(1 + $qi);
                 $sheet->setCellValue($qCol . $row, "=AVERAGE({$qCol}{$dataStartRow}:{$qCol}" . ($row - 1) . ")");
                 $sheet->getStyle($qCol . $row)->getNumberFormat()->setFormatCode('0.00');
                 $sheet->getStyle($qCol . $row)->getFont()->setBold(true);
