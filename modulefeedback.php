@@ -418,34 +418,48 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     </div>
 
                     <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
-                        <h5 class="fw-bold text-secondary mt-4 mb-3">
-                            <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
-                        </h5>
-                        <div class="row g-3 mb-4">
-                            <?php $facRemSno = 1; foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
-                                <div class="col-md-6">
-                                    <div class="card bg-light border-0 shadow-sm p-3 h-100">
-                                        <div class="d-flex justify-content-between text-muted small mb-2">
-                                            <?php 
-                                                $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
-                                                $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
-                                                $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
-                                            ?>
-                                            <strong>Student-<?= $facRemSno++ ?></strong>
-                                            <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
-                                        </div>
-                                        <?php if (!empty($rem['faculty_strengths'])): ?>
-                                            <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
-                                        <?php endif; ?>
-                                        <?php if (!empty($rem['improvement_areas'])): ?>
-                                            <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
-                                        <?php endif; ?>
-                                        <?php if (!empty($rem['additional_comments'])): ?>
-                                            <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
-                                        <?php endif; ?>
+                        <div class="card mb-4 border shadow-sm">
+                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
+                                 role="button" data-bs-toggle="collapse" data-bs-target="#facRemarksCollapse" aria-expanded="false" aria-controls="facRemarksCollapse"
+                                 style="cursor: pointer;">
+                                <h6 class="mb-0 text-secondary fw-bold">
+                                    <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
+                                    <span class="badge bg-secondary ms-2"><?= count($feedbackData['faculty_evaluations']['remarks']) ?> Feedback Comments</span>
+                                </h6>
+                                <span class="text-primary small fw-semibold">
+                                    <i class="bi bi-chevron-down"></i> Click to View / Hide
+                                </span>
+                            </div>
+                            <div id="facRemarksCollapse" class="collapse">
+                                <div class="card-body">
+                                    <div class="row g-3">
+                                        <?php $facRemSno = 1; foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
+                                            <div class="col-md-6">
+                                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                                    <div class="d-flex justify-content-between text-muted small mb-2">
+                                                        <?php 
+                                                            $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
+                                                            $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
+                                                            $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
+                                                        ?>
+                                                        <strong>Student-<?= $facRemSno++ ?></strong>
+                                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                                    </div>
+                                                    <?php if (!empty($rem['faculty_strengths'])): ?>
+                                                        <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
+                                                    <?php endif; ?>
+                                                    <?php if (!empty($rem['improvement_areas'])): ?>
+                                                        <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
+                                                    <?php endif; ?>
+                                                    <?php if (!empty($rem['additional_comments'])): ?>
+                                                        <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
+                                                    <?php endif; ?>
+                                                </div>
+                                            </div>
+                                        <?php endforeach; ?>
                                     </div>
                                 </div>
-                            <?php endforeach; ?>
+                            </div>
                         </div>
                     <?php endif; ?>
                 <?php endif; ?>
@@ -687,6 +701,167 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     $qnItems = $hasNewServiceData ? ($feedbackData['qn_feedback'] ?? []) : ($qnFeedbackReport ?? []);
                 ?>
 
+                <!-- Visual Analytics & Charts (Placed before detailed tables) -->
+                <?php if (!empty($coItems) && $activeViewLevel === 'subject'): ?>
+                    <div class="row g-3 mb-4">
+                        <!-- Chart 1: Average CO Rating -->
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">CO Average Ratings &amp; Target Threshold (3.0 / 60%)</h6>
+                                <canvas id="coFeedbackChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+
+                        <!-- Chart 2: 5-Star Rating Distribution -->
+                        <div class="col-md-6">
+                            <div class="card p-3 shadow-none border h-100">
+                                <h6 class="fw-bold text-secondary text-center mb-3">CO Rating Distribution (5★ to 1★)</h6>
+                                <canvas id="coDistributionChart" style="max-height: 280px;"></canvas>
+                            </div>
+                        </div>
+
+                        <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
+                            <!-- Chart 3: Course End Survey (CES) 5 Domains -->
+                            <div class="col-md-12">
+                                <div class="card p-3 shadow-none border">
+                                    <h6 class="fw-bold text-secondary text-center mb-3">Course End Survey (CES) 5-Domain Performance</h6>
+                                    <canvas id="cesDomainChart" style="max-height: 220px;"></canvas>
+                                </div>
+                            </div>
+                        <?php endif; ?>
+                    </div>
+
+                    <script>
+                        (function() {
+                            function initSubjectCharts() {
+                                const coLabels = <?= json_encode(array_map(function ($co) {
+                                    return 'CO' . $co['co_number'];
+                                }, $coItems)) ?>;
+                                const coRatings = <?= json_encode(array_map(function ($co) {
+                                    return round(floatval($co['average_rating']), 2);
+                                }, $coItems)) ?>;
+                                const targetPcts = <?= json_encode(array_map(function ($co) {
+                                    return floatval($co['target_pct'] ?? 0);
+                                }, $coItems)) ?>;
+
+                                // Chart 1: CO Ratings
+                                const ctx1 = document.getElementById('coFeedbackChart');
+                                if (ctx1) {
+                                    new Chart(ctx1, {
+                                        type: 'bar',
+                                        data: {
+                                            labels: coLabels,
+                                            datasets: [{
+                                                label: 'Average CO Rating (out of 5.0)',
+                                                data: coRatings,
+                                                backgroundColor: coRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 3.0 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(220, 53, 69, 0.8)')),
+                                                borderColor: coRatings.map(r => r >= 3.5 ? '#198754' : (r >= 3.0 ? '#0d6efd' : '#dc3545')),
+                                                borderWidth: 1,
+                                                borderRadius: 4
+                                            }]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            scales: {
+                                                y: {
+                                                    beginAtZero: true,
+                                                    max: 5,
+                                                    ticks: { stepSize: 1 }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+
+                                // Chart 2: Rating Distribution Stacked Bar
+                                const ctx2 = document.getElementById('coDistributionChart');
+                                if (ctx2) {
+                                    new Chart(ctx2, {
+                                        type: 'bar',
+                                        data: {
+                                            labels: coLabels,
+                                            datasets: [
+                                                {
+                                                    label: '5 Stars (Excellent)',
+                                                    data: <?= json_encode(array_map(fn($c) => intval($c['count_5'] ?? 0), $coItems)) ?>,
+                                                    backgroundColor: 'rgba(25, 135, 84, 0.85)'
+                                                },
+                                                {
+                                                    label: '4 Stars (Very Good)',
+                                                    data: <?= json_encode(array_map(fn($c) => intval($c['count_4'] ?? 0), $coItems)) ?>,
+                                                    backgroundColor: 'rgba(13, 110, 253, 0.85)'
+                                                },
+                                                {
+                                                    label: '3 Stars (Good)',
+                                                    data: <?= json_encode(array_map(fn($c) => intval($c['count_3'] ?? 0), $coItems)) ?>,
+                                                    backgroundColor: 'rgba(13, 202, 240, 0.85)'
+                                                },
+                                                {
+                                                    label: '2 Stars (Fair)',
+                                                    data: <?= json_encode(array_map(fn($c) => intval($c['count_2'] ?? 0), $coItems)) ?>,
+                                                    backgroundColor: 'rgba(255, 193, 7, 0.85)'
+                                                },
+                                                {
+                                                    label: '1 Star (Poor)',
+                                                    data: <?= json_encode(array_map(fn($c) => intval($c['count_1'] ?? 0), $coItems)) ?>,
+                                                    backgroundColor: 'rgba(220, 53, 69, 0.85)'
+                                                }
+                                            ]
+                                        },
+                                        options: {
+                                            responsive: true,
+                                            scales: {
+                                                x: { stacked: true },
+                                                y: { stacked: true, beginAtZero: true }
+                                            }
+                                        }
+                                    });
+                                }
+
+                                <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
+                                // Chart 3: CES 5-Domain Horizontal Bar Chart
+                                const ctx3 = document.getElementById('cesDomainChart');
+                                if (ctx3) {
+                                    const domainLabels = <?= json_encode(array_keys($feedbackData['ces_feedback']['domain_averages'])) ?>;
+                                    const domainScores = <?= json_encode(array_values($feedbackData['ces_feedback']['domain_averages'])) ?>;
+
+                                    new Chart(ctx3, {
+                                        type: 'bar',
+                                        data: {
+                                            labels: domainLabels,
+                                            datasets: [{
+                                                label: 'Domain Average (1 to 5)',
+                                                data: domainScores,
+                                                backgroundColor: 'rgba(13, 110, 253, 0.75)',
+                                                borderColor: '#0d6efd',
+                                                borderWidth: 1,
+                                                borderRadius: 4
+                                            }]
+                                        },
+                                        options: {
+                                            indexAxis: 'y',
+                                            responsive: true,
+                                            scales: {
+                                                x: {
+                                                    beginAtZero: true,
+                                                    max: 5,
+                                                    ticks: { stepSize: 1 }
+                                                }
+                                            }
+                                        }
+                                    });
+                                }
+                                <?php endif; ?>
+                            }
+                            if (document.readyState === 'loading') {
+                                document.addEventListener('DOMContentLoaded', initSubjectCharts);
+                            } else {
+                                initSubjectCharts();
+                            }
+                        })();
+                    </script>
+                <?php endif; ?>
+
                 <!-- 2. Course Outcomes (CO) Attainment (Part-A) -->
                 <?php if (!empty($coItems)): ?>
                     <h5 class="fw-bold text-secondary mb-3">Course Outcome (CO) Indirect Attainment Ratings</h5>
@@ -840,225 +1015,92 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     </div>
                 <?php endif; ?>
 
-                <!-- 5. Qualitative Written Feedback (Part-C & Faculty Remarks) -->
+                <!-- 5. Qualitative Written Feedback (Part-C & Faculty Remarks) - Collapsible Ribbons -->
                 <?php if (!empty($feedbackData['ces_feedback']['remarks'])): ?>
-                    <h5 class="fw-bold text-secondary mt-4 mb-3">
-                        <i class="bi bi-chat-left-text-fill text-info me-2"></i>Student Qualitative Remarks (Course End Survey - Part-C)
-                    </h5>
-                    <div class="row g-3 mb-4">
-                        <?php foreach ($feedbackData['ces_feedback']['remarks'] as $rem): ?>
-                            <div class="col-md-6">
-                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
-                                    <div class="d-flex justify-content-between text-muted small mb-2">
-                                        <strong>Student: <?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?></strong>
-                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
-                                    </div>
-                                    <?php if (!empty($rem['useful_aspects'])): ?>
-                                        <p class="mb-1 small"><strong>Useful Aspects:</strong> <?= nl2br(htmlspecialchars($rem['useful_aspects'])) ?></p>
-                                    <?php endif; ?>
-                                    <?php if (!empty($rem['improvement_topics'])): ?>
-                                        <p class="mb-1 small"><strong>Topics for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_topics'])) ?></p>
-                                    <?php endif; ?>
-                                    <?php if (!empty($rem['suggestions'])): ?>
-                                        <p class="mb-0 small"><strong>Suggestions:</strong> <?= nl2br(htmlspecialchars($rem['suggestions'])) ?></p>
-                                    <?php endif; ?>
+                    <div class="card mb-3 border shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
+                             role="button" data-bs-toggle="collapse" data-bs-target="#cesSubjectRemarksCollapse" aria-expanded="false" aria-controls="cesSubjectRemarksCollapse"
+                             style="cursor: pointer;">
+                            <h6 class="mb-0 text-secondary fw-bold">
+                                <i class="bi bi-chat-left-text-fill text-info me-2"></i>Student Qualitative Remarks (Course End Survey - Part-C)
+                                <span class="badge bg-secondary ms-2"><?= count($feedbackData['ces_feedback']['remarks']) ?> Feedback Comments</span>
+                            </h6>
+                            <span class="text-primary small fw-semibold">
+                                <i class="bi bi-chevron-down"></i> Click to View / Hide
+                            </span>
+                        </div>
+                        <div id="cesSubjectRemarksCollapse" class="collapse">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php foreach ($feedbackData['ces_feedback']['remarks'] as $rem): ?>
+                                        <div class="col-md-6">
+                                            <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                                <div class="d-flex justify-content-between text-muted small mb-2">
+                                                    <strong>Student: <?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?></strong>
+                                                    <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                                </div>
+                                                <?php if (!empty($rem['useful_aspects'])): ?>
+                                                    <p class="mb-1 small"><strong>Useful Aspects:</strong> <?= nl2br(htmlspecialchars($rem['useful_aspects'])) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (!empty($rem['improvement_topics'])): ?>
+                                                    <p class="mb-1 small"><strong>Topics for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_topics'])) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (!empty($rem['suggestions'])): ?>
+                                                    <p class="mb-0 small"><strong>Suggestions:</strong> <?= nl2br(htmlspecialchars($rem['suggestions'])) ?></p>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
+                        </div>
                     </div>
                 <?php endif; ?>
 
                 <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
-                    <h5 class="fw-bold text-secondary mt-4 mb-3">
-                        <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
-                    </h5>
-                    <div class="row g-3 mb-4">
-                        <?php foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
-                            <div class="col-md-6">
-                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
-                                    <div class="d-flex justify-content-between text-muted small mb-2">
-                                        <?php 
-                                            $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
-                                            $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
-                                            $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
-                                        ?>
-                                        <strong><?= htmlspecialchars($sLabel) ?> (<?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?>)</strong>
-                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
-                                    </div>
-                                    <?php if (!empty($rem['faculty_strengths'])): ?>
-                                        <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
-                                    <?php endif; ?>
-                                    <?php if (!empty($rem['improvement_areas'])): ?>
-                                        <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
-                                    <?php endif; ?>
-                                    <?php if (!empty($rem['additional_comments'])): ?>
-                                        <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
-                                    <?php endif; ?>
+                    <div class="card mb-3 border shadow-sm">
+                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
+                             role="button" data-bs-toggle="collapse" data-bs-target="#facSubjectRemarksCollapse" aria-expanded="false" aria-controls="facSubjectRemarksCollapse"
+                             style="cursor: pointer;">
+                            <h6 class="mb-0 text-secondary fw-bold">
+                                <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
+                                <span class="badge bg-secondary ms-2"><?= count($feedbackData['faculty_evaluations']['remarks']) ?> Feedback Comments</span>
+                            </h6>
+                            <span class="text-primary small fw-semibold">
+                                <i class="bi bi-chevron-down"></i> Click to View / Hide
+                            </span>
+                        </div>
+                        <div id="facSubjectRemarksCollapse" class="collapse">
+                            <div class="card-body">
+                                <div class="row g-3">
+                                    <?php foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
+                                        <div class="col-md-6">
+                                            <div class="card bg-light border-0 shadow-sm p-3 h-100">
+                                                <div class="d-flex justify-content-between text-muted small mb-2">
+                                                    <?php 
+                                                        $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
+                                                        $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
+                                                        $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
+                                                    ?>
+                                                    <strong><?= htmlspecialchars($sLabel) ?> (<?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?>)</strong>
+                                                    <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
+                                                </div>
+                                                <?php if (!empty($rem['faculty_strengths'])): ?>
+                                                    <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (!empty($rem['improvement_areas'])): ?>
+                                                    <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
+                                                <?php endif; ?>
+                                                <?php if (!empty($rem['additional_comments'])): ?>
+                                                    <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
+                                                <?php endif; ?>
+                                            </div>
+                                        </div>
+                                    <?php endforeach; ?>
                                 </div>
                             </div>
-                        <?php endforeach; ?>
-                    </div>
-                <?php endif; ?>
-
-                <!-- 6. Visual Analytics & Insights -->
-                <?php if (!empty($coItems) && $activeViewLevel === 'subject'): ?>
-                    <div class="row mt-4 g-3">
-                        <!-- Chart 1: Average CO Rating -->
-                        <div class="col-md-6">
-                            <div class="card p-3 shadow-none border h-100">
-                                <h6 class="fw-bold text-secondary text-center mb-3">CO Average Ratings &amp; Target Threshold (3.0 / 60%)</h6>
-                                <canvas id="coFeedbackChart" style="max-height: 280px;"></canvas>
-                            </div>
                         </div>
-
-                        <!-- Chart 2: 5-Star Rating Distribution -->
-                        <div class="col-md-6">
-                            <div class="card p-3 shadow-none border h-100">
-                                <h6 class="fw-bold text-secondary text-center mb-3">CO Rating Distribution (5★ to 1★)</h6>
-                                <canvas id="coDistributionChart" style="max-height: 280px;"></canvas>
-                            </div>
-                        </div>
-
-                        <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
-                            <!-- Chart 3: Course End Survey (CES) 5 Domains -->
-                            <div class="col-md-12">
-                                <div class="card p-3 shadow-none border">
-                                    <h6 class="fw-bold text-secondary text-center mb-3">Course End Survey (CES) 5-Domain Performance</h6>
-                                    <canvas id="cesDomainChart" style="max-height: 220px;"></canvas>
-                                </div>
-                            </div>
-                        <?php endif; ?>
                     </div>
-
-                    <script>
-                        (function() {
-                            function initSubjectCharts() {
-                                const coLabels = <?= json_encode(array_map(function ($co) {
-                                    return 'CO' . $co['co_number'];
-                                }, $coItems)) ?>;
-                                const coRatings = <?= json_encode(array_map(function ($co) {
-                                    return round(floatval($co['average_rating']), 2);
-                                }, $coItems)) ?>;
-                                const targetPcts = <?= json_encode(array_map(function ($co) {
-                                    return floatval($co['target_pct'] ?? 0);
-                                }, $coItems)) ?>;
-
-                            // Chart 1: CO Ratings
-                            const ctx1 = document.getElementById('coFeedbackChart');
-                            if (ctx1) {
-                                new Chart(ctx1, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: coLabels,
-                                        datasets: [{
-                                            label: 'Average CO Rating (out of 5.0)',
-                                            data: coRatings,
-                                            backgroundColor: coRatings.map(r => r >= 3.5 ? 'rgba(25, 135, 84, 0.8)' : (r >= 3.0 ? 'rgba(13, 110, 253, 0.8)' : 'rgba(220, 53, 69, 0.8)')),
-                                            borderColor: coRatings.map(r => r >= 3.5 ? '#198754' : (r >= 3.0 ? '#0d6efd' : '#dc3545')),
-                                            borderWidth: 1,
-                                            borderRadius: 4
-                                        }]
-                                    },
-                                    options: {
-                                        responsive: true,
-                                        scales: {
-                                            y: {
-                                                beginAtZero: true,
-                                                max: 5,
-                                                ticks: { stepSize: 1 }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-
-                            // Chart 2: Rating Distribution Stacked Bar
-                            const ctx2 = document.getElementById('coDistributionChart');
-                            if (ctx2) {
-                                new Chart(ctx2, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: coLabels,
-                                        datasets: [
-                                            {
-                                                label: '5 Stars (Excellent)',
-                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_5'] ?? 0), $coItems)) ?>,
-                                                backgroundColor: 'rgba(25, 135, 84, 0.85)'
-                                            },
-                                            {
-                                                label: '4 Stars (Very Good)',
-                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_4'] ?? 0), $coItems)) ?>,
-                                                backgroundColor: 'rgba(13, 110, 253, 0.85)'
-                                            },
-                                            {
-                                                label: '3 Stars (Good)',
-                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_3'] ?? 0), $coItems)) ?>,
-                                                backgroundColor: 'rgba(13, 202, 240, 0.85)'
-                                            },
-                                            {
-                                                label: '2 Stars (Fair)',
-                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_2'] ?? 0), $coItems)) ?>,
-                                                backgroundColor: 'rgba(255, 193, 7, 0.85)'
-                                            },
-                                            {
-                                                label: '1 Star (Poor)',
-                                                data: <?= json_encode(array_map(fn($c) => intval($c['count_1'] ?? 0), $coItems)) ?>,
-                                                backgroundColor: 'rgba(220, 53, 69, 0.85)'
-                                            }
-                                        ]
-                                    },
-                                    options: {
-                                        responsive: true,
-                                        scales: {
-                                            x: { stacked: true },
-                                            y: { stacked: true, beginAtZero: true }
-                                        }
-                                    }
-                                });
-                            }
-
-                            <?php if (!empty($feedbackData['ces_feedback']['domain_averages'])): ?>
-                            // Chart 3: CES 5-Domain Horizontal Bar Chart
-                            const ctx3 = document.getElementById('cesDomainChart');
-                            if (ctx3) {
-                                const domainLabels = <?= json_encode(array_keys($feedbackData['ces_feedback']['domain_averages'])) ?>;
-                                const domainScores = <?= json_encode(array_values($feedbackData['ces_feedback']['domain_averages'])) ?>;
-
-                                new Chart(ctx3, {
-                                    type: 'bar',
-                                    data: {
-                                        labels: domainLabels,
-                                        datasets: [{
-                                            label: 'Domain Average (1 to 5)',
-                                            data: domainScores,
-                                            backgroundColor: 'rgba(13, 110, 253, 0.75)',
-                                            borderColor: '#0d6efd',
-                                            borderWidth: 1,
-                                            borderRadius: 4
-                                        }]
-                                    },
-                                    options: {
-                                        indexAxis: 'y',
-                                        responsive: true,
-                                        scales: {
-                                            x: {
-                                                beginAtZero: true,
-                                                max: 5,
-                                                ticks: { stepSize: 1 }
-                                            }
-                                        }
-                                    }
-                                });
-                            }
-                            <?php endif; ?>
-                            }
-                            if (document.readyState === 'loading') {
-                                document.addEventListener('DOMContentLoaded', initSubjectCharts);
-                            } else {
-                                initSubjectCharts();
-                            }
-                        })();
-                    </script>
                 <?php endif; ?>
 
             <?php endif; ?>
