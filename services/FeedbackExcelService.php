@@ -1517,7 +1517,6 @@ class FeedbackExcelService
         }
 
         $this->applyTableStyling($sheet, "A{$matrixHeaderRow}:{$lastColLetter}" . ($row - 1));
-        $sheet->freezePane('A' . ($matrixHeaderRow + 1));
         $sheet->getColumnDimension('A')->setWidth(16);
         $sheet->getColumnDimension('B')->setWidth(26);
         for ($c = 3; $c <= $totalCols; $c++) {
@@ -1638,7 +1637,6 @@ class FeedbackExcelService
         }
 
         $this->applyTableStyling($sheet, "A{$tableHeaderRow}:S" . ($row - 1));
-        $sheet->freezePane('A' . ($tableHeaderRow + 1));
         $sheet->getColumnDimension('A')->setWidth(16);
         $sheet->getColumnDimension('B')->setWidth(26);
         for ($qi = 1; $qi <= 16; $qi++) {
@@ -1760,7 +1758,6 @@ class FeedbackExcelService
         }
 
         $this->applyTableStyling($sheet, "A{$tableHeaderRow}:V" . ($row - 1));
-        $sheet->freezePane('A' . ($tableHeaderRow + 1));
         $sheet->getColumnDimension('A')->setWidth(16);
         $sheet->getColumnDimension('B')->setWidth(26);
         for ($qi = 1; $qi <= 19; $qi++) {
