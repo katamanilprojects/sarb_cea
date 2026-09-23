@@ -350,6 +350,14 @@ class EnhancedPDFService
                     background-color: ' . $this->colors['success'] . ';
                 }
                 
+                .rating-fill.primary {
+                    background-color: ' . $this->colors['secondary'] . ';
+                }
+
+                .rating-fill.info {
+                    background-color: ' . $this->colors['accent'] . ';
+                }
+
                 .rating-fill.warning {
                     background-color: ' . $this->colors['warning'] . ';
                 }
@@ -895,20 +903,32 @@ class EnhancedPDFService
                     </td>
                     <td class="text-center">' . $co['total_responses'] . '</td>
                     <td>
-                        <div style="display: flex; gap: 5px; align-items: center;">
-                            <span style="font-size: 8px;">5★: ' . $co['count_5'] . '</span>
-                            <div class="rating-bar" style="flex: 1;">
-                                <div class="rating-fill success" style="width: ' . $this->getPercentage($co['count_5'], $co['total_responses']) . '%;"></div>
-                            </div>
-                            <span style="font-size: 8px;">4★: ' . $co['count_4'] . '</span>
-                            <div class="rating-bar" style="flex: 1;">
-                                <div class="rating-fill warning" style="width: ' . $this->getPercentage($co['count_4'], $co['total_responses']) . '%;"></div>
-                            </div>
-                            <span style="font-size: 8px;">3★: ' . $co['count_3'] . '</span>
-                            <div class="rating-bar" style="flex: 1;">
-                                <div class="rating-fill danger" style="width: ' . $this->getPercentage($co['count_3'], $co['total_responses']) . '%;"></div>
-                            </div>
-                        </div>
+                        <table style="width: 100%; border-collapse: collapse; font-size: 7.5px;">
+                            <tr>
+                                <td style="width: 18%; border: none; padding: 1px 2px;">5★: ' . ($co['count_5'] ?? 0) . '</td>
+                                <td style="width: 18%; border: none; padding: 1px 2px;">4★: ' . ($co['count_4'] ?? 0) . '</td>
+                                <td style="width: 18%; border: none; padding: 1px 2px;">3★: ' . ($co['count_3'] ?? 0) . '</td>
+                                <td style="width: 18%; border: none; padding: 1px 2px;">2★: ' . ($co['count_2'] ?? 0) . '</td>
+                                <td style="width: 18%; border: none; padding: 1px 2px;">1★: ' . ($co['count_1'] ?? 0) . '</td>
+                            </tr>
+                            <tr>
+                                <td style="border: none; padding: 1px 2px;">
+                                    <div class="rating-bar"><div class="rating-fill success" style="width: ' . $this->getPercentage($co['count_5'] ?? 0, $co['total_responses']) . '%;"></div></div>
+                                </td>
+                                <td style="border: none; padding: 1px 2px;">
+                                    <div class="rating-bar"><div class="rating-fill primary" style="width: ' . $this->getPercentage($co['count_4'] ?? 0, $co['total_responses']) . '%;"></div></div>
+                                </td>
+                                <td style="border: none; padding: 1px 2px;">
+                                    <div class="rating-bar"><div class="rating-fill info" style="width: ' . $this->getPercentage($co['count_3'] ?? 0, $co['total_responses']) . '%;"></div></div>
+                                </td>
+                                <td style="border: none; padding: 1px 2px;">
+                                    <div class="rating-bar"><div class="rating-fill warning" style="width: ' . $this->getPercentage($co['count_2'] ?? 0, $co['total_responses']) . '%;"></div></div>
+                                </td>
+                                <td style="border: none; padding: 1px 2px;">
+                                    <div class="rating-bar"><div class="rating-fill danger" style="width: ' . $this->getPercentage($co['count_1'] ?? 0, $co['total_responses']) . '%;"></div></div>
+                                </td>
+                            </tr>
+                        </table>
                     </td>
                 </tr>
             ';

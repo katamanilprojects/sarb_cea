@@ -190,7 +190,6 @@ Directly transcribed from `u182589698_jntuaceasarb_database_scheme.sql`:
 | `internal_assessment_marks` | `internal_assessment_marks_ibfk_1` | `student_id` | `students(id)` | - |
 | `internal_assessment_marks` | `internal_assessment_marks_ibfk_2` | `subject_id` | `subjects(id)` | - |
 | `po_pso` | `po_pso_ibfk_1` | `specid` | `specialization(id)` | - |
-| `po_pso1` | `po_pso1_ibfk_1` | `specid` | `specialization(id)` | - |
 | `question_co_mapping` | `question_co_mapping_ibfk_1` | `question_id` | `assessment_questions(id)` | - |
 | `question_co_mapping` | `question_co_mapping_ibfk_2` | `co_id` | `course_outcomes(id)` | - |
 | `regulations` | `reg_prg_fk1` | `prog_id` | `programs(id)` | - |

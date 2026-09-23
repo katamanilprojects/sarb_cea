@@ -240,8 +240,8 @@ Approved student leave/duty permissions for institutional activities.
 | `to_date` | `date` | Yes | | NULL | Validity end date |
 | `created_at` | `timestamp` | No | | current_timestamp() | Timestamp |
 
-### 5.3 `timetable_csv_dump` & `timetable_csv_dump_1`
-Staging tables for bulk timetable spreadsheet imports.
+### 5.3 `timetable_csv_dump`
+Staging table for bulk timetable spreadsheet imports.
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `class_id` | `int(11)` | No | | - | Target class ID |
@@ -349,7 +349,7 @@ Digital document attachments for internal assessments (question papers, keys).
 | `co_statement` | `text` | No | | - | Description of learning objective |
 | `created_at` | `timestamp` | No | | current_timestamp() | Creation timestamp |
 
-### 7.2 `po_pso` & `po_pso1`
+### 7.2 `po_pso`
 Program Outcomes and Program Specific Outcomes.
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|

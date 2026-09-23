@@ -1,11 +1,11 @@
 -- phpMyAdmin SQL Dump
--- version 5.2.0
+-- version 5.2.2
 -- https://www.phpmyadmin.net/
 --
--- Host: localhost
--- Generation Time: Sep 20, 2026 at 09:32 AM
--- Server version: 10.4.27-MariaDB
--- PHP Version: 8.2.0
+-- Host: 127.0.0.1
+-- Generation Time: Sep 22, 2026 at 09:20 AM
+-- Server version: 11.8.9-MariaDB-log
+-- PHP Version: 7.2.34
 
 SET SQL_MODE = "NO_AUTO_VALUE_ON_ZERO";
 START TRANSACTION;
@@ -399,23 +399,6 @@ CREATE TABLE `po_pso` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `po_pso1`
---
-
-CREATE TABLE `po_pso1` (
-  `id` int(11) NOT NULL,
-  `regulation` varchar(10) DEFAULT NULL,
-  `specid` int(11) DEFAULT NULL,
-  `po_pso` varchar(255) DEFAULT NULL,
-  `orderid` int(11) DEFAULT NULL,
-  `code` varchar(10) DEFAULT NULL,
-  `description` varchar(500) DEFAULT NULL,
-  `updated_at` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `programs`
 --
 
@@ -756,22 +739,6 @@ CREATE TABLE `timetable_csv_dump` (
 -- --------------------------------------------------------
 
 --
--- Table structure for table `timetable_csv_dump_1`
---
-
-CREATE TABLE `timetable_csv_dump_1` (
-  `class_id` int(11) NOT NULL,
-  `weekday` varchar(20) NOT NULL,
-  `Hour` int(11) NOT NULL,
-  `subject_code` varchar(100) NOT NULL,
-  `subject_id` int(11) DEFAULT NULL,
-  `building_name` varchar(100) NOT NULL,
-  `class_hall_name` varchar(100) NOT NULL
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
-
--- --------------------------------------------------------
-
---
 -- Table structure for table `uglab_internal_assessment_marks`
 --
 
@@ -1000,6 +967,7 @@ ALTER TABLE `internal_assessment_marks`
 --
 ALTER TABLE `pg_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1009,14 +977,6 @@ ALTER TABLE `pg_internal_assessment_marks`
 ALTER TABLE `po_pso`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `regulation` (`acad_year`,`regulation`,`specid`,`code`) USING BTREE,
-  ADD KEY `specid` (`specid`);
-
---
--- Indexes for table `po_pso1`
---
-ALTER TABLE `po_pso1`
-  ADD PRIMARY KEY (`id`),
-  ADD UNIQUE KEY `regulation` (`regulation`,`specid`,`code`),
   ADD KEY `specid` (`specid`);
 
 --
@@ -1142,6 +1102,7 @@ ALTER TABLE `subject_questionnaire_questions`
 --
 ALTER TABLE `temp_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1156,6 +1117,7 @@ ALTER TABLE `temp_joiningdates`
 --
 ALTER TABLE `temp_pg_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1164,6 +1126,7 @@ ALTER TABLE `temp_pg_internal_assessment_marks`
 --
 ALTER TABLE `temp_uglab_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1172,6 +1135,7 @@ ALTER TABLE `temp_uglab_internal_assessment_marks`
 --
 ALTER TABLE `temp_ugproject_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1182,16 +1146,11 @@ ALTER TABLE `timetable_csv_dump`
   ADD KEY `idx_subject_id` (`subject_id`);
 
 --
--- Indexes for table `timetable_csv_dump_1`
---
-ALTER TABLE `timetable_csv_dump_1`
-  ADD KEY `idx_subject_id` (`subject_id`);
-
---
 -- Indexes for table `uglab_internal_assessment_marks`
 --
 ALTER TABLE `uglab_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1200,6 +1159,7 @@ ALTER TABLE `uglab_internal_assessment_marks`
 --
 ALTER TABLE `ugproject_internal_assessment_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_subject_assessment` (`student_id`,`subject_id`,`assessment_number`),
   ADD KEY `student_id` (`student_id`),
   ADD KEY `subject_id` (`subject_id`);
 
@@ -1362,12 +1322,6 @@ ALTER TABLE `pg_internal_assessment_marks`
 -- AUTO_INCREMENT for table `po_pso`
 --
 ALTER TABLE `po_pso`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
-
---
--- AUTO_INCREMENT for table `po_pso1`
---
-ALTER TABLE `po_pso1`
   MODIFY `id` int(11) NOT NULL AUTO_INCREMENT;
 
 --
@@ -1618,12 +1572,6 @@ ALTER TABLE `internal_assessment_marks`
 --
 ALTER TABLE `po_pso`
   ADD CONSTRAINT `po_pso_ibfk_1` FOREIGN KEY (`specid`) REFERENCES `specialization` (`id`);
-
---
--- Constraints for table `po_pso1`
---
-ALTER TABLE `po_pso1`
-  ADD CONSTRAINT `po_pso1_ibfk_1` FOREIGN KEY (`specid`) REFERENCES `specialization` (`id`);
 
 --
 -- Constraints for table `question_co_mapping`
