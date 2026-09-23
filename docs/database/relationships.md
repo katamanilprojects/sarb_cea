@@ -1,6 +1,6 @@
 # Database Relationships & Entity-Relationship Diagrams
 
-This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted from `u182589698_jntuaceasarb_database_scheme.sql`.
+This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted directly from `u182589698_jntuaceasarb_database_scheme.sql`.
 
 ---
 
@@ -15,21 +15,25 @@ This document illustrates the database relationships, entity-relationship (ER) d
 ```mermaid
 erDiagram
     users {
-        int id PK
-        varchar username UK
+        int id UK
+        varchar username PK
         varchar password
         varchar name
-        enum role
+        varchar mobile
+        varchar email
+        varchar role
         int status
+        timestamp updatedat
     }
 
     faculties {
         int id PK
-        int facultyid FK
         varchar username FK
-        int dept_id FK
         varchar designation
-        int status
+        int facultyid FK
+        int dept_id FK
+        varchar status
+        timestamp updatedat
     }
 
     students {
@@ -37,15 +41,17 @@ erDiagram
         varchar username FK
         int class_id FK
         int status
+        timestamp updatedat
         date date_of_joining
     }
 
     departments {
         int id PK
+        varchar username FK
         varchar dept_shortname
         varchar dept_fullname
-        varchar username FK
         int status
+        timestamp updatedat
     }
 
     users ||--o| faculties : "users.username = faculties.username"
@@ -94,7 +100,7 @@ erDiagram
     subjects ||--o{ attendance : "sub_id"
 
     faculties ||--o{ attendance_delete_requests : "faculty_id"
-    subjects ||--o{ attendance_delete_requests : "sub_id"
+    subjects ||--o{ attendance_delete_requests : "subject_id"
 
     classes ||--o{ class_timing_schedule : "class_id"
     class_timings ||--o{ class_timing_schedule : "timing_id"
@@ -113,8 +119,8 @@ erDiagram
    ```
 3. **Deletion/Correction Chain**:
    When faculty mark wrong hours or duplicate entries, a record is entered into `attendance_delete_requests`:
-   - `sub_id`, `date`, `hour` identify the targeted period.
-   - Upon HOD approval, records matching `(sub_id, date, hour)` are deleted from `attendance` and `diary`.
+   - `subject_id`, `date`, `hour` identify the targeted period.
+   - Upon HOD approval, records matching `(subject_id, date, hour)` are deleted from `attendance` and `diary`.
 
 ---
 
@@ -122,6 +128,8 @@ erDiagram
 
 ```mermaid
 erDiagram
+    subjects ||--o{ internal_assessments : "sub_id"
+
     subjects ||--o{ internal_assessment_marks : "subject_id"
     students ||--o{ internal_assessment_marks : "student_id"
 
@@ -163,51 +171,93 @@ erDiagram
 
 ---
 
-## 6. Explicit Foreign Key Constraints Table
+## 6. Student Surveys & Institutional Feedback
 
-Directly transcribed from `u182589698_jntuaceasarb_database_scheme.sql`:
+```mermaid
+erDiagram
+    students ||--o{ student_co_feedback : "student_id"
+    subjects ||--o{ student_co_feedback : "subject_id"
+    classes ||--o{ student_co_feedback : "class_id"
+    course_outcomes ||--o{ student_co_feedback : "co_id"
+
+    students ||--o{ student_ces_feedback : "student_id"
+    subjects ||--o{ student_ces_feedback : "subject_id"
+
+    students ||--o{ student_faculty_feedback : "student_id"
+    subjects ||--o{ student_faculty_feedback : "subject_id"
+    faculties ||--o{ student_faculty_feedback : "faculty_id"
+
+    students ||--o{ student_questionnaire_responses : "student_id"
+    subjects ||--o{ student_questionnaire_responses : "subject_id"
+    subject_questionnaire_questions ||--o{ student_questionnaire_responses : "question_id"
+```
+
+### Feedback Survey Architecture:
+- **Course Outcome Indirect Feedback (`student_co_feedback`)**: Captures student evaluation per Course Outcome (`co_id`). Feeds into indirect attainment calculation (threshold $\ge 3.0$ / $60\%$).
+- **Course End Survey (`student_ces_feedback`)**: Captures comprehensive 16-item survey evaluating Curriculum, Teaching Process, Evaluation, Learning Resources, and Outcome Mastery, along with qualitative observations.
+- **Faculty Appraisal (`student_faculty_feedback`)**: Captures 19-criterion evaluation of instructional quality, pedagogical clarity, fairness, and mentoring. Preserves strict anonymity with default `is_anonymous = 1`.
+- **Subject Questionnaire (`student_questionnaire_responses`)**: Legacy per-subject custom question response ratings linked to `subject_questionnaire_questions`.
+
+---
+
+## 7. Explicit Foreign Key Constraints Table
+
+Directly transcribed from `u182589698_jntuaceasarb_database_scheme.sql` (all 55 active foreign key constraints):
 
 | Table | Constraint Symbol | Foreign Key Column | Target Table & Column | Cascade / Action |
 |---|---|---|---|---|
+| `activity_logs` | `activity_logs_ibfk_1` | `user_id` | `users(id)` | - |
+| `assessment_components` | `assessment_components_ibfk_1` | `assessment_id` | `internal_assessments(id)` | - |
+| `assessment_questions` | `assessment_questions_ibfk_2` | `component_id` | `assessment_components(id)` | - |
+| `assessment_questions` | `assessment_questions_ibfk_3` | `blooms_level_id` | `blooms_levels(id)` | - |
+| `attendance` | `attendance_ibfk_1` | `stu_id` | `students(id)` | ON UPDATE CASCADE |
+| `attendance` | `attendance_ibfk_2` | `sub_id` | `subjects(id)` | ON UPDATE CASCADE |
+| `attendance_delete_requests` | `attendance_delete_requests_ibfk_1` | `faculty_id` | `faculties(id)` | - |
+| `attendance_delete_requests` | `attendance_delete_requests_ibfk_2` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `attendance_rules` | `reg_atte_fk1` | `reg_id` | `regulations(id)` | - |
-| `classes` | `classes_ibfk_1` | `spec_id` | `specialization(id)` | ON UPDATE CASCADE |
-| `classes` | `classes_reg_fk1` | `reg_id` | `regulations(id)` | - |
 | `class_timing_schedule` | `fk_cts_class` | `class_id` | `classes(id)` | ON DELETE CASCADE |
 | `class_timing_schedule` | `fk_cts_timing` | `timing_id` | `class_timings(timing_id)` | - |
-| `course_outcomes` | `course_outcomes_ibfk_1` | `sub_id` | `subjects(id)` | - |
+| `classes` | `classes_ibfk_1` | `spec_id` | `specialization(id)` | ON UPDATE CASCADE |
+| `classes` | `classes_reg_fk1` | `reg_id` | `regulations(id)` | - |
 | `co_po_mapping` | `co_po_mapping_ibfk_1` | `co_id` | `course_outcomes(id)` | ON DELETE CASCADE |
 | `co_po_mapping` | `co_po_mapping_ibfk_2` | `po_id` | `po_pso(id)` | ON DELETE CASCADE |
+| `course_outcomes` | `course_outcomes_ibfk_1` | `sub_id` | `subjects(id)` | - |
 | `diary` | `diary_ibfk_1` | `faculty_id` | `faculties(id)` | ON UPDATE CASCADE |
 | `diary` | `diary_ibfk_2` | `sub_id` | `subjects(id)` | ON UPDATE CASCADE |
+| `fac_activity_logs` | `fac_activity_logs_ibfk_1` | `user_id` | `faculties(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `faculties` | `faculties_ibfk_1` | `facultyid` | `users(id)` | ON UPDATE CASCADE |
 | `faculties` | `faculties_ibfk_2` | `username` | `users(username)` | ON UPDATE CASCADE |
 | `faculties` | `faculties_ibfk_3` | `dept_id` | `departments(id)` | ON UPDATE CASCADE |
 | `faculty_sub` | `faculty_sub_ibfk_2` | `faculty_id` | `faculties(id)` | ON UPDATE CASCADE |
 | `faculty_sub` | `faculty_sub_ibfk_3` | `sub_id` | `subjects(id)` | ON UPDATE CASCADE |
-| `fac_activity_logs` | `fac_activity_logs_ibfk_1` | `user_id` | `faculties(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `halls` | `halls_ibfk_1` | `building_id` | `buildings(id)` | ON DELETE CASCADE |
-| `internal_assessments` | `internal_assessments_ibfk_1` | `sub_id` | `subjects(id)` | - |
 | `internal_assessment_marks` | `internal_assessment_marks_ibfk_1` | `student_id` | `students(id)` | - |
 | `internal_assessment_marks` | `internal_assessment_marks_ibfk_2` | `subject_id` | `subjects(id)` | - |
+| `internal_assessments` | `internal_assessments_ibfk_1` | `sub_id` | `subjects(id)` | - |
 | `po_pso` | `po_pso_ibfk_1` | `specid` | `specialization(id)` | - |
 | `question_co_mapping` | `question_co_mapping_ibfk_1` | `question_id` | `assessment_questions(id)` | - |
 | `question_co_mapping` | `question_co_mapping_ibfk_2` | `co_id` | `course_outcomes(id)` | - |
 | `regulations` | `reg_prg_fk1` | `prog_id` | `programs(id)` | - |
 | `specialization` | `specialization_ibfk_3` | `dept_id` | `departments(id)` | ON UPDATE CASCADE |
 | `specialization` | `specialization_ibfk_4` | `prog_id` | `programs(id)` | ON UPDATE CASCADE |
-| `students` | `students_ibfk_1` | `class_id` | `classes(id)` | ON UPDATE CASCADE |
-| `students` | `students_ibfk_2` | `username` | `users(username)` | ON UPDATE CASCADE |
+| `student_ces_feedback` | `fk_ces_student` | `student_id` | `students(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_ces_feedback` | `fk_ces_subject` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `student_co_feedback` | `student_co_feedback_ibfk_1` | `student_id` | `students(id)` | - |
 | `student_co_feedback` | `student_co_feedback_ibfk_2` | `subject_id` | `subjects(id)` | - |
 | `student_co_feedback` | `student_co_feedback_ibfk_3` | `class_id` | `classes(id)` | - |
 | `student_co_feedback` | `student_co_feedback_ibfk_4` | `co_id` | `course_outcomes(id)` | - |
+| `student_faculty_feedback` | `fk_facfb_faculty` | `faculty_id` | `faculties(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_faculty_feedback` | `fk_facfb_student` | `student_id` | `students(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_faculty_feedback` | `fk_facfb_subject` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `student_marks` | `student_marks_ibfk_1` | `stu_id` | `student_sub(stu_id)` | - |
 | `student_marks` | `student_marks_ibfk_3` | `question_id` | `assessment_questions(id)` | - |
-| `student_questionnaire_responses`| `student_questionnaire_responses_ibfk_1`| `student_id` | `students(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
-| `student_questionnaire_responses`| `student_questionnaire_responses_ibfk_2`| `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
-| `student_questionnaire_responses`| `student_questionnaire_responses_ibfk_3`| `question_id` | `subject_questionnaire_questions(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_questionnaire_responses` | `student_questionnaire_responses_ibfk_1` | `student_id` | `students(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_questionnaire_responses` | `student_questionnaire_responses_ibfk_2` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_questionnaire_responses` | `student_questionnaire_responses_ibfk_3` | `question_id` | `subject_questionnaire_questions(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `student_sub` | `student_sub_ibfk_3` | `stu_id` | `students(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
 | `student_sub` | `student_sub_ibfk_4` | `sub_id` | `subjects(id)` | ON UPDATE CASCADE |
+| `students` | `students_ibfk_1` | `class_id` | `classes(id)` | ON UPDATE CASCADE |
+| `students` | `students_ibfk_2` | `username` | `users(username)` | ON UPDATE CASCADE |
+| `subject_questionnaire_questions` | `subject_questionnaire_questions_ibfk_1` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `subject_questionnaire_questions` | `subject_questionnaire_questions_ibfk_2` | `created_by_user_id` | `users(id)` | ON UPDATE CASCADE |
 | `subjects` | `subjects_ibfk_1` | `class_id` | `classes(id)` | ON UPDATE CASCADE |
-| `subject_questionnaire_questions`| `subject_questionnaire_questions_ibfk_1`| `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
-| `subject_questionnaire_questions`| `subject_questionnaire_questions_ibfk_2`| `created_by_user_id` | `users(id)` | ON UPDATE CASCADE |

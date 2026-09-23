@@ -12,8 +12,8 @@ graph TD
     B --> C[Faculty: Construct CO-PO Articulation Matrix: co_po_mapping]
     C --> D[Faculty: Map Exam Questions to COs & Blooms: question_co_mapping]
     D --> E[Faculty: Enter Question-Level Student Marks: student_marks]
-    E --> F[Direct Attainment Computation: facciaanalysis.class.php]
-    G[Student Indirect Survey: student_co_feedback] --> H[Indirect Attainment Computation]
+    E --> F[Direct Attainment Computation: facciaanalysis2.class.php]
+    G[Student Indirect Survey: student_co_feedback] --> H[Indirect Attainment Computation: FeedbackService.php]
     F & H --> I[Final Overall CO-PO Attainment Matrix]
 ```
 
@@ -23,7 +23,8 @@ graph TD
 
 ### 2.1 Course Outcomes Setup (`facaddcos.php`)
 - Instructors formulate between 4 and 6 measurable Course Outcomes (CO1 through CO6) for their subject in `course_outcomes`.
-- Each CO has a code (`co_code`) and detailed learning objective (`co_statement`).
+- Each CO has a sequence number (`co_number`) and detailed learning objective statement (`co_description`).
+
 
 ### 2.2 CO-PO Articulation Matrix (`facarticulationmatrix.php`)
 - Establishes correlations between each CO and the 12 Graduate Attributes (PO1 to PO12) plus 2–4 Program Specific Outcomes (PSO1 to PSO4).
@@ -63,3 +64,6 @@ The production computation is performed in `facciaanalysis2.class.php` (which in
 - **`facciaanalysis2.php`**: Primary active faculty view of direct and indirect CO attainment tables, CO-PO matrices, and charts (`facciaanalysis.php` automatically redirects here).
 - **`hodciaanalysis2.php`**: Departmental roll-up across all sections and courses (`hodciaanalysis.php` automatically redirects here).
 - **`adminciaanalysis2.php`**: Institutional executive dashboard monitoring OBE metrics across all degree programs and regulations (`adminciaanalysis.php` automatically redirects here).
+
+For complete documentation on student survey administration, 5-star rating distributions, 5-domain Course End Surveys (CES), and faculty appraisal reporting, see the [Student Feedback & Institutional Surveys Workflow](./feedback-surveys.md).
+

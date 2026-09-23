@@ -37,6 +37,10 @@ The Admin role handles day-to-day college-level registrar functions, student onb
   - Maps students to subject rosters (`Admin::addStudentSubjectMapping()`).
 - **Audited Password Resets**:
   - Resets forgotten student/faculty passwords with mandatory justification remarks (`Admin::resetStudentPwdWithRemarks()`, `Admin::resetFacPwdWithRemarks()`).
+- **Student Feedback & Survey Oversight**:
+  - Monitors college-wide feedback submission progress and response rates in `adminshowfeedbackstatus.php`.
+  - Analyzes multi-level feedback reports (by Class, Subject, Faculty, and Department) in `adminviewfeedback.php` using `FeedbackService`.
+  - Generates comprehensive PDF reports (`download_feedback_enhanced.php`) and Excel analytical workbooks (`download_feedback_excel.php`).
 
 ---
 
@@ -75,13 +79,16 @@ The HOD role manages departmental teaching operations, allocates subjects, coord
 - **Departmental Performance & CIA Review**:
   - Audits subject-wise attendance percentages (`hodshowallclsattendance.php`).
   - Reviews Mid-1 and Mid-2 internal assessment marks across all departmental classes (`hodshowcls_cia.php`).
+- **Department Feedback Review**:
+  - Analyzes Course Outcome (CO) feedback, Course End Survey (CES) 5-domain scores, and Faculty Appraisals across all departmental courses in `hodviewfeedback.php`.
+  - Downloads official enhanced PDF reports and multi-sheet Excel workbooks for departmental NAAC/NBA documentation.
 
 ---
 
 ## 5. Faculty Guide
 
 ### 5.1 Overview
-The Faculty role handles classroom-level execution: marking attendance, logging teaching topics, entering internal marks, and analyzing student learning outcomes.
+The Faculty role handles classroom-level execution: marking attendance, logging teaching topics, entering internal marks, analyzing student learning outcomes, and reviewing student feedback for continuous pedagogical improvement.
 
 ### 5.2 Key Responsibilities & Model Methods
 - **Attendance & Diary**:
@@ -96,4 +103,10 @@ The Faculty role handles classroom-level execution: marking attendance, logging 
   - Formulates Course Outcomes (`facaddcos.php`).
   - Fills CO-PO articulation matrices (`facarticulationmatrix.php`).
   - Maps assessment questions to COs and Bloom's taxonomy (`facquestionco.php`).
-  - Generates attainment reports (`facciaanalysis.php`).
+  - Generates attainment reports (`facciaanalysis2.php`).
+- **Feedback & Continuous Improvement**:
+  - Reviews indirect Course Outcome attainment ratings and 5-domain Course End Survey results in `facviewfeedback.php`.
+  - Reviews student appraisal of teaching performance with strict student anonymity (`is_anonymous = 1`).
+  - Inspects collapsible qualitative remarks cards (CES Part-C and Faculty Feedback) to identify curriculum and instructional enhancements.
+  - Exports official PDF and Excel feedback dossiers for personal academic portfolios.
+

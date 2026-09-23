@@ -182,3 +182,9 @@ classDiagram
 - **`Syllabus`** (`syllabus.class.php`): Uploads and retrieves curriculum regulations and syllabus units.
 - **`AttendanceRules`** (`attendancerules.class.php`): Manages attendance condonation and shortage criteria based on program regulations.
 - **`FacCIAAnalysis` & `FacCIAAnalysis2`** (`facciaanalysis.class.php`, `facciaanalysis2.class.php`): Computes Course Outcome (CO) and Program Outcome (PO) direct and indirect attainment, Bloom's level coverage, and articulation matrices.
+
+### 3.3 Feedback, Survey & Reporting Service Models
+- **`FeedbackService`** (`feedbackservice.class.php`): Multi-granularity analytical service for Course Outcome (CO) indirect surveys, Course End Surveys (CES), and Student Faculty Appraisals. Composes `DBCredentials` and `Logs`. Provides Subject-wise, Class-wise, Faculty-wise, and Department-wise aggregated metrics, 5-star rating distributions, 5-domain CES averages, and qualitative feedback retrieval.
+- **`EnhancedPDFService`** (`services/EnhancedPDFService.php`): High-fidelity PDF report generation service powered by TCPDF. Renders NBA/NAAC compliant executive feedback summaries, 5-star distribution bars (5★ through 1★), domain radar/bar visual styles, and qualitative student feedback cards.
+- **`FeedbackExcelService`** (`services/FeedbackExcelService.php`): Comprehensive Excel export engine powered by PhpSpreadsheet. Generates formatted multi-tab analytical workbooks containing executive KPI summaries, aggregated CO tables, domain-level metrics, and raw response audit sheets (`Raw - Student CO Matrix`, `Raw - CES`, `Raw - Faculty Appraisal`).
+

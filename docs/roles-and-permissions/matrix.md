@@ -28,9 +28,10 @@ This document provides a matrix of features, administrative capabilities, and pa
 | **Attendance Deletion Approval** | ❌ | ❌ | ❌ | ✅ Full | ❌ |
 | **Internal Assessment (CIA) Marks** | ❌ | ❌ | ❌ | 👁️ Read | ✅ Full |
 | **CO-PO Attainment Analysis** | 👁️ Read | 👁️ Read | ❌ | 👁️ Read | ✅ Full |
+| **Student Feedback & Surveys (CO/CES/Faculty)** | 👁️ Read | ✅ Full | 👁️ Read | 👁️ Dept | 👁️ Subj |
 | **Institutional Attendance Audits** | ✅ Full | ✅ Full | ✅ Full | 👁️ Dept | 👁️ Subj |
 
-*Legend: ✅ Full = Create/Update/Delete; 👁️ Read = View only; ❌ = Access Denied.*
+*Legend: ✅ Full = Create/Update/Delete; 👁️ Read = View only; 👁️ Dept = Department-level scope; 👁️ Subj = Subject-level scope; ❌ = Access Denied.*
 
 ---
 
@@ -57,7 +58,7 @@ This document provides a matrix of features, administrative capabilities, and pa
 - `adminresetfacultypwd.php`, `adminresetstudentpwd.php`
 - `adminshowallclsattendance.php`, `adminshowclsattendance.php`, `adminshowfacattendance.php`
 - `adminciaanalysis2.php` (active choice-aware analysis; `adminciaanalysis.php` redirects here)
-- `adminviewfeedback.php`
+- `adminviewfeedback.php`, `adminshowfeedbackstatus.php`
 
 ### 2.3 Academic Section (`$_SESSION['role'] === 'academic_section'`)
 - `academicsectionhome.php`
@@ -76,6 +77,7 @@ This document provides a matrix of features, administrative capabilities, and pa
 - `hodviewsubjects.php`, `hodviewfaculties.php`, `hodviewclasses.php`
 - `hodshowallclsattendance.php`, `hodshowclsattendance.php`, `hodshowfacattendance.php`
 - `hodciaanalysis2.php` (active choice-aware analysis; `hodciaanalysis.php` redirects here)
+- `hodviewfeedback.php`
 
 ### 2.5 Faculty (`$_SESSION['role'] === 'faculty'`)
 - `fachome.php`
@@ -88,4 +90,12 @@ This document provides a matrix of features, administrative capabilities, and pa
 - `facaddprojectciamarks.php`, `facviewprojectciamarks.php`
 - `facaddcos.php`, `facarticulationmatrix.php`, `facquestionco.php`, `facmarksentry.php`
 - `facciaanalysis2.php` (active choice-aware analysis; `facciaanalysis.php` redirects here)
+- `facviewfeedback.php`
 - `faculty_weekly_timetable.php`
+
+### 2.6 Shared Feedback & Export Services
+- `modulefeedback.php`: Reusable feedback presentation component embedded in `adminviewfeedback.php`, `hodviewfeedback.php`, and `facviewfeedback.php`.
+- `download_feedback_enhanced.php`: Direct download endpoint for Enhanced TCPDF executive feedback reports.
+- `download_feedback_excel.php`: Direct download endpoint for multi-tab PhpSpreadsheet analytical workbooks.
+- `public_feedback_status.php`: Public submission status dashboard for real-time monitoring of response rates.
+

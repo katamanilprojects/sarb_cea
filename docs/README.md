@@ -24,6 +24,7 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[CIA Marks Entry & Calculations](./workflows/cia-marks-entry.md)**: Theory, Lab, PG, and Project marks entry, aggregation algorithms, and CSV/Excel exports.
 - **[Timetable Management](./workflows/timetable-management.md)**: Class timing slots, class schedule ranges, HOD allocation, and faculty weekly timetables.
 - **[CO-PO Attainment & OBE Analysis](./workflows/co-po-attainment.md)**: Course Outcomes, Bloom's levels, question-to-CO mapping, and NBA attainment matrices.
+- **[Student Feedback & Institutional Surveys](./workflows/feedback-surveys.md)**: Course Outcomes indirect feedback, 5-domain Course End Surveys (CES), faculty appraisals, strict anonymity safeguards, and PDF/Excel exports.
 
 ### 4. [Roles & Permissions](./roles-and-permissions/)
 - **[Role Permission Matrix](./roles-and-permissions/matrix.md)**: Cross-cutting feature and page access matrix across all five active administrative roles (`superadmin`, `admin`, `academic_section`, `hod`, `faculty`).
@@ -54,6 +55,7 @@ graph TD
         SuperAdmin[superadmin.class.php]
         CIA[cia.class.php]
         Timetable[timetable.class.php]
+        Feedback[feedbackservice.class.php]
     end
     
     Domain --> BaseUser[User Class: user.class.php]

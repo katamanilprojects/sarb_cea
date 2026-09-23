@@ -124,3 +124,75 @@ Configures regulatory percentage evaluation:
 | `value2` | `74.99`, `64.99`, `NULL` | Optional upper boundary percentage |
 
 *Example Rule*: Condonation range is defined as `operator1 = '>='`, `value1 = 65.00`, `operator2 = '<'`, `value2 = 75.00`.
+
+---
+
+## 8. Student Surveys & Institutional Feedback
+
+### 8.1 5-Point Likert Rating Scale
+Standardized rating score used across `student_co_feedback`, `student_ces_feedback`, `student_faculty_feedback`, and `student_questionnaire_responses`:
+
+| Score | Descriptive Label | Indirect CO Attainment Meaning | Faculty Appraisal Meaning |
+|---|---|---|---|
+| `5` | Strongly Agree / Excellent | Complete mastery of outcome | Outstanding teaching effectiveness |
+| `4` | Agree / Very Good | Proficient mastery of outcome | Commendable pedagogical delivery |
+| `3` | Neutral / Good | Adequate competency (Threshold) | Satisfactory classroom instruction |
+| `2` | Disagree / Fair | Incomplete understanding | Needs pedagogical improvement |
+| `1` | Strongly Disagree / Poor | Deficient understanding | Unsatisfactory instruction |
+
+### 8.2 Course Outcome (CO) Attainment Thresholds (`student_co_feedback`)
+- **Target Attainment Benchmark**: $\ge 3.0$ on a 5.0 scale (or $\ge 60\%$) signifies that a student has met the learning outcome threshold.
+- **Indirect Attainment Level Calculation**:
+  - **Level 3**: $\ge 70\%$ of participating students rated $\ge 3.0$.
+  - **Level 2**: $60\% - 69\%$ of participating students rated $\ge 3.0$.
+  - **Level 1**: $50\% - 59\%$ of participating students rated $\ge 3.0$.
+  - **Level 0**: $< 50\%$ of participating students rated $\ge 3.0$.
+
+### 8.3 Course End Survey (CES) 5-Domain Evaluation (`student_ces_feedback`)
+The 16 questions (`ces_q1` through `ces_q16`) map into five core NAAC/NBA quality domains:
+
+| Domain Index | Domain Title | Covered Survey Items | Focus Area |
+|---|---|---|---|
+| **Domain 1** | Curriculum & Syllabus Design | `ces_q1` &ndash; `ces_q4` | Clarity, relevance, theory-application balance, and industry modernization |
+| **Domain 2** | Pedagogy & Teaching-Learning Process | `ces_q5` &ndash; `ces_q8` | Instructional pace, interactive discussion, ICT tools, and doubt clarification |
+| **Domain 3** | Continuous Assessment & Evaluation | `ces_q9` &ndash; `ces_q11` | Grading fairness, cognitive rigor of exam questions, and feedback timeliness |
+| **Domain 4** | Learning Resources & Academic Support | `ces_q12` &ndash; `ces_q14` | Library/LMS resources, computing/lab facilities, and remedial support |
+| **Domain 5** | Outcome Attainment & Competency | `ces_q15` &ndash; `ces_q16` | Problem-solving skills, practical confidence, and professional growth |
+
+#### CES Qualitative Fields (Part-C):
+- `useful_aspects`: Most beneficial and intellectually stimulating topics or components of the course.
+- `improvement_topics`: Topics that students feel require greater depth, alternative teaching methods, or curriculum adjustment.
+- `suggestions`: General constructive recommendations for syllabus revision or laboratory alignment.
+
+### 8.4 Student Faculty Appraisal (`student_faculty_feedback`)
+Evaluates instructor performance across 19 instructional dimensions:
+- `fac_q1` to `fac_q5`: Subject expertise, lecture clarity, punctuality, syllabus schedule adherence, and presentation clarity.
+- `fac_q6` to `fac_q10`: Interactive encouragement, real-world examples, grading impartiality, outside-hours mentoring, and classroom control.
+- `fac_q11` to `fac_q15`: Lecture pacing, test script return timeliness, supplementary notes, ICT utilization, and career motivation.
+- `fac_q16` to `fac_q19`: Approachability, support for struggling students, inspiring student interest, and overall effectiveness.
+
+#### Faculty Appraisal Qualitative Fields:
+- `faculty_strengths`: Key teacher qualities, clarity, and pedagogical strengths appreciated by students.
+- `improvement_areas`: Specific constructive feedback for instructional improvement.
+- `additional_comments`: Unstructured student feedback or commendations.
+
+### 8.5 Anonymity Enforcement (`is_anonymous`)
+- **`student_ces_feedback.is_anonymous`**: Defaults to `0` (identified by default, optional student anonymity).
+- **`student_faculty_feedback.is_anonymous`**: Defaults to `1` (strict student anonymity). When set to `1`:
+  - Student roll numbers and names are completely suppressed from faculty, HOD, and administrative views.
+  - PDF reports and Excel exports mask student identities as "Anonymous Student" or aggregate metrics only.
+  - Ensures unbiased, honest feedback without fear of academic retaliation.
+
+---
+
+## 9. Continuous Internal Assessment (CIA) Marks Schemas
+
+Different degree levels and subject types store marks in dedicated specialized columns:
+
+| Subject Type | Target Marks Table | Key Columns | Maximum Typical Marks |
+|---|---|---|---|
+| **UG Theory** | `internal_assessment_marks` | `subjective_marks`, `objective_marks`, `assignment_marks` | 30 marks (e.g., 20 subjective + 10 objective/assignment) |
+| **PG Theory** | `pg_internal_assessment_marks` | `marks` | 40 marks |
+| **UG Laboratory** | `uglab_internal_assessment_marks` | `day_to_day_marks`, `internal_test_marks` | 30 marks (e.g., 20 day-to-day + 10 lab test) |
+| **UG Project** | `ugproject_internal_assessment_marks` | `component1_marks`, `component2_marks` | 50 / 100 marks (Review 1 & Review 2 defenses) |
+

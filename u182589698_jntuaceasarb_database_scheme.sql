@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 22, 2026 at 09:20 AM
+-- Generation Time: Sep 23, 2026 at 04:51 AM
 -- Server version: 11.8.9-MariaDB-log
 -- PHP Version: 7.2.34
 
@@ -549,7 +549,7 @@ CREATE TABLE `student_faculty_feedback` (
   `faculty_strengths` text DEFAULT NULL,
   `improvement_areas` text DEFAULT NULL,
   `additional_comments` text DEFAULT NULL,
-  `is_anonymous` tinyint(1) NOT NULL DEFAULT 0,
+  `is_anonymous` tinyint(1) NOT NULL DEFAULT 1,
   `submitted_at` timestamp NOT NULL DEFAULT current_timestamp()
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
