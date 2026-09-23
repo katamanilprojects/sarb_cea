@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Host: 127.0.0.1
--- Generation Time: Sep 23, 2026 at 04:51 AM
+-- Generation Time: Sep 23, 2026 at 06:48 AM
 -- Server version: 11.8.9-MariaDB-log
 -- PHP Version: 7.2.34
 
@@ -160,7 +160,7 @@ CREATE TABLE `buildings` (
 
 CREATE TABLE `cia_attachments` (
   `id` int(11) NOT NULL,
-  `subject_id` int(11) NOT NULL,
+  `subject_id` int(5) NOT NULL,
   `assessment_number` int(11) NOT NULL,
   `file_title` varchar(100) NOT NULL,
   `file_path` varchar(255) NOT NULL,
@@ -433,7 +433,7 @@ CREATE TABLE `regulations` (
   `regulation` varchar(4) NOT NULL,
   `prog_id` int(11) NOT NULL,
   `updatedat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp()
-) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_unicode_ci;
+) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
 -- --------------------------------------------------------
 
@@ -460,7 +460,7 @@ CREATE TABLE `specialization` (
 
 CREATE TABLE `students` (
   `id` int(5) NOT NULL,
-  `username` varchar(20) NOT NULL,
+  `username` varchar(30) NOT NULL,
   `class_id` int(5) NOT NULL,
   `status` int(5) NOT NULL,
   `updatedat` timestamp NOT NULL DEFAULT current_timestamp() ON UPDATE current_timestamp(),
@@ -774,7 +774,7 @@ CREATE TABLE `ugproject_internal_assessment_marks` (
 
 CREATE TABLE `users` (
   `id` int(5) NOT NULL,
-  `username` varchar(20) NOT NULL,
+  `username` varchar(30) NOT NULL,
   `password` varchar(255) NOT NULL,
   `name` varchar(100) NOT NULL,
   `mobile` varchar(20) DEFAULT NULL,
@@ -824,7 +824,8 @@ ALTER TABLE `attendance`
   ADD PRIMARY KEY (`id`),
   ADD UNIQUE KEY `stu_id` (`stu_id`,`sub_id`,`date`,`hour`),
   ADD KEY `stu` (`stu_id`),
-  ADD KEY `sub` (`sub_id`);
+  ADD KEY `sub` (`sub_id`),
+  ADD KEY `idx_sub_date_hour` (`sub_id`,`date`,`hour`);
 
 --
 -- Indexes for table `attendance_delete_requests`
@@ -858,7 +859,9 @@ ALTER TABLE `buildings`
 -- Indexes for table `cia_attachments`
 --
 ALTER TABLE `cia_attachments`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `subject_id` (`subject_id`),
+  ADD KEY `idx_sub_assessment` (`subject_id`,`assessment_number`);
 
 --
 -- Indexes for table `classes`
@@ -873,7 +876,7 @@ ALTER TABLE `classes`
 -- Indexes for table `class_timings`
 --
 ALTER TABLE `class_timings`
-  ADD UNIQUE KEY `id` (`id`),
+  ADD PRIMARY KEY (`id`),
   ADD KEY `timing_id` (`timing_id`);
 
 --
@@ -889,6 +892,7 @@ ALTER TABLE `class_timing_schedule`
 --
 ALTER TABLE `course_outcomes`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_subject_co` (`sub_id`,`co_number`),
   ADD KEY `sub_id` (`sub_id`);
 
 --
@@ -896,6 +900,7 @@ ALTER TABLE `course_outcomes`
 --
 ALTER TABLE `co_po_mapping`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_co_po` (`co_id`,`po_id`),
   ADD KEY `co_id` (`co_id`),
   ADD KEY `po_id` (`po_id`);
 
@@ -903,7 +908,8 @@ ALTER TABLE `co_po_mapping`
 -- Indexes for table `departments`
 --
 ALTER TABLE `departments`
-  ADD PRIMARY KEY (`id`);
+  ADD PRIMARY KEY (`id`),
+  ADD KEY `departments_ibfk_1` (`username`);
 
 --
 -- Indexes for table `diary`
@@ -991,6 +997,7 @@ ALTER TABLE `programs`
 --
 ALTER TABLE `question_co_mapping`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_question_co` (`question_id`,`co_id`),
   ADD KEY `question_id` (`question_id`),
   ADD KEY `co_id` (`co_id`);
 
@@ -1050,6 +1057,7 @@ ALTER TABLE `student_faculty_feedback`
 --
 ALTER TABLE `student_marks`
   ADD PRIMARY KEY (`id`),
+  ADD UNIQUE KEY `unique_student_question` (`stu_id`,`question_id`),
   ADD KEY `stu_id` (`stu_id`),
   ADD KEY `question_id` (`question_id`);
 
@@ -1110,7 +1118,7 @@ ALTER TABLE `temp_internal_assessment_marks`
 -- Indexes for table `temp_joiningdates`
 --
 ALTER TABLE `temp_joiningdates`
-  ADD UNIQUE KEY `htno` (`htno`);
+  ADD PRIMARY KEY (`htno`);
 
 --
 -- Indexes for table `temp_pg_internal_assessment_marks`
@@ -1143,7 +1151,8 @@ ALTER TABLE `temp_ugproject_internal_assessment_marks`
 -- Indexes for table `timetable_csv_dump`
 --
 ALTER TABLE `timetable_csv_dump`
-  ADD KEY `idx_subject_id` (`subject_id`);
+  ADD KEY `idx_subject_id` (`subject_id`),
+  ADD KEY `idx_class_weekday_hour` (`class_id`,`weekday`,`Hour`);
 
 --
 -- Indexes for table `uglab_internal_assessment_marks`
@@ -1494,6 +1503,12 @@ ALTER TABLE `attendance_rules`
   ADD CONSTRAINT `reg_atte_fk1` FOREIGN KEY (`reg_id`) REFERENCES `regulations` (`id`);
 
 --
+-- Constraints for table `cia_attachments`
+--
+ALTER TABLE `cia_attachments`
+  ADD CONSTRAINT `fk_cia_att_subject` FOREIGN KEY (`subject_id`) REFERENCES `subjects` (`id`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Constraints for table `classes`
 --
 ALTER TABLE `classes`
@@ -1521,6 +1536,12 @@ ALTER TABLE `co_po_mapping`
   ADD CONSTRAINT `co_po_mapping_ibfk_2` FOREIGN KEY (`po_id`) REFERENCES `po_pso` (`id`) ON DELETE CASCADE;
 
 --
+-- Constraints for table `departments`
+--
+ALTER TABLE `departments`
+  ADD CONSTRAINT `departments_ibfk_1` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
+
+--
 -- Constraints for table `diary`
 --
 ALTER TABLE `diary`
@@ -1532,7 +1553,7 @@ ALTER TABLE `diary`
 --
 ALTER TABLE `faculties`
   ADD CONSTRAINT `faculties_ibfk_1` FOREIGN KEY (`facultyid`) REFERENCES `users` (`id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `faculties_ibfk_2` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON UPDATE CASCADE,
+  ADD CONSTRAINT `faculties_ibfk_2` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `faculties_ibfk_3` FOREIGN KEY (`dept_id`) REFERENCES `departments` (`id`) ON UPDATE CASCADE;
 
 --
@@ -1598,7 +1619,7 @@ ALTER TABLE `specialization`
 --
 ALTER TABLE `students`
   ADD CONSTRAINT `students_ibfk_1` FOREIGN KEY (`class_id`) REFERENCES `classes` (`id`) ON UPDATE CASCADE,
-  ADD CONSTRAINT `students_ibfk_2` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON UPDATE CASCADE;
+  ADD CONSTRAINT `students_ibfk_2` FOREIGN KEY (`username`) REFERENCES `users` (`username`) ON DELETE CASCADE ON UPDATE CASCADE;
 
 --
 -- Constraints for table `student_ces_feedback`
@@ -1628,7 +1649,7 @@ ALTER TABLE `student_faculty_feedback`
 -- Constraints for table `student_marks`
 --
 ALTER TABLE `student_marks`
-  ADD CONSTRAINT `student_marks_ibfk_1` FOREIGN KEY (`stu_id`) REFERENCES `student_sub` (`stu_id`),
+  ADD CONSTRAINT `student_marks_ibfk_1` FOREIGN KEY (`stu_id`) REFERENCES `students` (`id`) ON DELETE CASCADE ON UPDATE CASCADE,
   ADD CONSTRAINT `student_marks_ibfk_3` FOREIGN KEY (`question_id`) REFERENCES `assessment_questions` (`id`);
 
 --
