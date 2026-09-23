@@ -94,15 +94,16 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                     <strong>Subject :</strong> <?= htmlspecialchars($subjectDetails['data']['sub_fullname']); ?> (<?= htmlspecialchars($subjectDetails['data']['subcode']); ?>)
                 </div>
                 <div class="card-body">
+                    <div class="table-responsive">
                     <table class="table table-bordered">
                         <thead>
                             <tr>
                                 <th>Adm. No.</th>
                                 <th>Student Name</th>
                                 <th>Subjective (Max <?php echo $CONDENSED_SUBJECTIVE; ?>)</th>
-                                <th>Objective (Max 10)</th>
-                                <th>Assignments (Max 5)</th>
-                                <th>Total (Max 30)</th>
+                                <th>Objective (Max <?php echo $CONDENSED_OBJECTIVE; ?>)</th>
+                                <th>Assignments (Max <?php echo $CONDENSED_ASSIGNMENT; ?>)</th>
+                                <th>Total (Max <?php echo $CONDENSED_SUBJECTIVE + $CONDENSED_OBJECTIVE + $CONDENSED_ASSIGNMENT; ?>)</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -118,26 +119,27 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                             <?php endforeach; ?>
                         </tbody>
                     </table>
+                    </div>
                 </div>
-                <div class="card-footer">
-                    <?php if(empty($ciaObj->isInternalAssessmentAdded($sub_id, $assessment_number))): ?>
-                    <form method="POST" action="facaddciamarks.php">
-                        <input type="hidden" name="sub_id" value="<?= $sub_id; ?>">
-                        <input type="hidden" name="assessment_number" value="<?= $assessment_number; ?>">
-                        <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode']; ?>">
+                <div class="card-footer d-flex justify-content-between align-items-center">
+                    <div>
+                        <?php if(empty($ciaObj->isInternalAssessmentAdded($sub_id, $assessment_number))): ?>
+                        <form method="POST" action="facaddciamarks.php" class="d-inline m-0">
+                            <input type="hidden" name="sub_id" value="<?= $sub_id; ?>">
+                            <input type="hidden" name="assessment_number" value="<?= $assessment_number; ?>">
+                            <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode']; ?>">
 
-                        <?php foreach ($condensedMarks as $studentId => $marks) : ?>
-                            <input type="hidden" name="student_id[]" value="<?= $studentId; ?>">
-                            <input type="hidden" name="subjective_marks[]" value="<?= $marks['subjective']; ?>">
-                            <input type="hidden" name="objective_marks[]" value="<?= $marks['objective']; ?>">
-                            <input type="hidden" name="assignment_marks[]" value="<?= $marks['assignment']; ?>">
-                        <?php endforeach; ?>
+                            <?php foreach ($condensedMarks as $studentId => $marks) : ?>
+                                <input type="hidden" name="student_id[]" value="<?= $studentId; ?>">
+                                <input type="hidden" name="subjective_marks[]" value="<?= $marks['subjective']; ?>">
+                                <input type="hidden" name="objective_marks[]" value="<?= $marks['objective']; ?>">
+                                <input type="hidden" name="assignment_marks[]" value="<?= $marks['assignment']; ?>">
+                            <?php endforeach; ?>
 
-                        <button type="submit" name="submit_action" value="submit" class="btn btn-success">Submit Final Marks</button>
-                    </form>
-                    <?php endif; ?>
-                </div>
-                <div class="card-footer">
+                            <button type="submit" name="submit_action" value="submit" class="btn btn-success">Submit Final Marks</button>
+                        </form>
+                        <?php endif; ?>
+                    </div>
                     <a href="facciamarks.php?sub_id=<?= $sub_id; ?>&assessment_number=<?= $assessment_number; ?>" class="btn btn-primary">Back to Marks</a>
                 </div>
             </div>

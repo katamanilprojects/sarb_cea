@@ -21,7 +21,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
         $assignmentMarks = $_POST['assignment_marks'][$index];
 
         // Validate marks (ensure they are within the allowed range)
-        if ($subjectiveMarks > 15 || $objectiveMarks > 10 || $assignmentMarks > 5 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
+        if ($subjectiveMarks > 15 || $subjectiveMarks < 0 || $objectiveMarks > 10 || $objectiveMarks < 0 || $assignmentMarks > 5 || $assignmentMarks < 0 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
             // Handle invalid marks
             $_SESSION["err"] = "Invalid marks entered for one or more students. Please check and try again.";
             $isValid = false;
@@ -88,6 +88,7 @@ require_once("facheader.php");
                     <form action="faceditciamarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
+                        <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
@@ -118,26 +119,27 @@ require_once("facheader.php");
                                     <tr>
                                         <td><?php echo $student['username']; ?><br /><?php echo $student['name']; ?></td>
                                         <td>
-                                            <input type="text" name="assignment_marks[]" class="form-control" maxlength="5" value="<?php echo $assgn; ?>" required>
+                                            <input type="number" step="any" min="0" max="5" name="assignment_marks[]" class="form-control" value="<?php echo $assgn; ?>" required>
                                         </td>
                                         <td>
-                                            <input type="text" name="objective_marks[]" class="form-control" maxlength="5" value="<?php echo $obj; ?>" required>
+                                            <input type="number" step="any" min="0" max="10" name="objective_marks[]" class="form-control" value="<?php echo $obj; ?>" required>
                                         </td>
                                         <td>
                                             <input type="hidden" name="student_id[]" value="<?php echo $student['id']; ?>">
                                             <input type="hidden" name="marks_id[]" value="<?php echo $student['marks'] ? $student['marks']['id'] : ''; ?>"> 
-                                            <input type="text" name="subjective_marks[]" class="form-control" maxlength="5" value="<?php echo $subj; ?>" required>
+                                            <input type="number" step="any" min="0" max="15" name="subjective_marks[]" class="form-control" value="<?php echo $subj; ?>" required>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        </div>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
                         <button type="submit" name="submit_action" value="submit" class="btn btn-primary">Validate & Update Marks</button>
                     </form>
                 </div>
                 <div class="card-footer">
-                    <a href='facciamarks.php' class='btn btn-warning btn-sm'>Click here to Cancel Updates and Exit</a>                            
+                    <a href='facciamarks.php' class='btn btn-outline-secondary btn-sm'>Cancel</a>                            
                 </div>
             </div>
         </div>

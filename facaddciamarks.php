@@ -1,6 +1,6 @@
 <?php
 session_start();
-$page_title = "Edit";
+$page_title = "Add";
 require_once("faculty.class.php");
 require_once("cia.class.php");
 
@@ -24,7 +24,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
             // Insert or Update in temp table
             $ciaObj->saveTempMarks($studentId, $sub_id, $assessmentNumber, $subjectiveMarks, $objectiveMarks, $assignmentMarks);
         }
-        $_SESSION["succ"] = "Student Continuous Internal Assessment Successfully Saved Termporarily";
+        $_SESSION["succ"] = "Student Continuous Internal Assessment Successfully Saved Temporarily";
         
     } elseif ($submitAction == 'submit') {
 
@@ -36,7 +36,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
             $assignmentMarks = $_POST['assignment_marks'][$index];
 
             // Validate marks (ensure they are within the allowed range)
-            if ($subjectiveMarks > 15 || $objectiveMarks > 10 || $assignmentMarks > 5 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
+            if ($subjectiveMarks > 15 || $subjectiveMarks < 0 || $objectiveMarks > 10 || $objectiveMarks < 0 || $assignmentMarks > 5 || $assignmentMarks < 0 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
                 $_SESSION["err"] = "Invalid marks entered for one or more students. Please check and try again.";
                 $isValid = false;
                 break;
@@ -110,6 +110,7 @@ require_once("facheader.php");
                     <form action="facaddciamarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
+                        <div class="table-responsive">
                         <table class="table table-bordered">
                             <thead>
                                 <tr>
@@ -123,17 +124,18 @@ require_once("facheader.php");
                                 <?php foreach ($studentList as $key => $student) : ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($student['username'], ENT_QUOTES, 'UTF-8'); ?><br /><?php echo htmlspecialchars($student['name'], ENT_QUOTES, 'UTF-8'); ?><input type="hidden" name="student_id[]" value="<?php echo htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8'); ?>"></td>
-                                        <td><input type="text" name="assignment_marks[]" class="form-control" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['assignment_marks'] : ''; ?>" /></td>
-                                        <td><input type="text" name="objective_marks[]" class="form-control" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['objective_marks'] : ''; ?>" /></td>
-                                        <td><input type="text" name="subjective_marks[]" class="form-control" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['subjective_marks'] : ''; ?>" /></td>
+                                        <td><input type="number" step="any" min="0" max="5" name="assignment_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['assignment_marks'] : ''; ?>" required /></td>
+                                        <td><input type="number" step="any" min="0" max="10" name="objective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['objective_marks'] : ''; ?>" required /></td>
+                                        <td><input type="number" step="any" min="0" max="15" name="subjective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['subjective_marks'] : ''; ?>" required /></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
+                        </div>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
                         <div class="d-flex justify-content-between">
                             <button type="submit" name="submit_action" value="submit" class="pull-left btn btn-primary">Validate & Submit Marks</button>
-                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary">Save without Submitting</button>
+                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary" formnovalidate>Save without Submitting</button>
                         </div>
                     </form>
                 </div>

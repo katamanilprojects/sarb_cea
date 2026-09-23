@@ -87,6 +87,21 @@ $canExport = $hasContent && (
 $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $selected_sub_id;
 ?>
 
+<style>
+    .chart-container-responsive {
+        position: relative;
+        width: 100%;
+        min-height: 250px;
+        max-height: 350px;
+    }
+    .chart-container-responsive-sm {
+        position: relative;
+        width: 100%;
+        min-height: 200px;
+        max-height: 260px;
+    }
+</style>
+
 <?php if ($hasContent): ?>
     <div class="card mt-3 shadow-sm border-0">
         <div class="card-header bg-primary-subtle d-flex justify-content-between align-items-center py-2">
@@ -95,7 +110,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
             </h6>
             <?php if ($canExport): ?>
                 <div class="d-flex gap-2">
-                    <!-- Download Action Buttons -->
+                    <!-- Export Action Buttons -->
                     <form action="download_feedback_excel.php" method="post" target="_blank" class="d-inline m-0">
                         <input type="hidden" name="format" value="xlsx">
                         <input type="hidden" name="level" value="<?= htmlspecialchars($activeViewLevel) ?>">
@@ -103,8 +118,8 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
-                        <button type="submit" class="btn btn-sm btn-light text-success fw-bold shadow-sm">
-                            <i class="bi bi-file-earmark-excel me-1"></i>Download Excel
+                        <button type="submit" class="btn btn-sm btn-outline-success bg-white shadow-sm">
+                            <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
                         </button>
                     </form>
 
@@ -115,8 +130,8 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
-                        <button type="submit" class="btn btn-sm btn-light text-secondary fw-bold shadow-sm">
-                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Download CSV
+                        <button type="submit" class="btn btn-sm btn-outline-secondary bg-white shadow-sm">
+                            <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                         </button>
                     </form>
 
@@ -127,8 +142,8 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
-                        <button type="submit" class="btn btn-sm btn-light text-danger fw-bold shadow-sm">
-                            <i class="bi bi-file-earmark-pdf me-1"></i>Download PDF
+                        <button type="submit" class="btn btn-sm btn-outline-danger bg-white shadow-sm">
+                            <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
                         </button>
                     </form>
                 </div>
@@ -187,13 +202,13 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     </div>
 
                 <?php else: ?>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Total Enrolled</div>
                             <h3 class="mt-2 mb-0 text-primary"><?= $kpi_enrolled ?></h3>
                         </div>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Responses</div>
                             <h3 class="mt-2 mb-0 text-success">
@@ -204,19 +219,19 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                             </h3>
                         </div>
                     </div>
-                    <div class="col-md-3 col-sm-6">
+                    <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Average Rating</div>
                             <h3 class="mt-2 mb-0 text-dark"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
                         </div>
                     </div>
-                    <div class="col-md-2 col-sm-6">
+                    <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Positive Rate (&ge;3★)</div>
                             <h3 class="mt-2 mb-0 text-info"><?= $kpi_positive_pct > 0 ? $kpi_positive_pct . '%' : 'N/A' ?></h3>
                         </div>
                     </div>
-                    <div class="col-md-3 col-sm-12">
+                    <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Indirect Attainment</div>
                             <?php 
@@ -284,7 +299,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <div class="col-md-12">
                         <div class="card p-3 shadow-none border">
                             <h6 class="fw-bold text-secondary text-center mb-3">Class Performance Comparison (Average Rating 1-5)</h6>
-                            <canvas id="deptClassChart" style="max-height: 320px;"></canvas>
+                            <div class="chart-container-responsive">
+                                <canvas id="deptClassChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -417,51 +434,14 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         </table>
                     </div>
 
-                    <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
-                        <div class="card mb-4 border shadow-sm">
-                            <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
-                                 role="button" data-bs-toggle="collapse" data-bs-target="#facRemarksCollapse" aria-expanded="false" aria-controls="facRemarksCollapse"
-                                 style="cursor: pointer;">
-                                <h6 class="mb-0 text-secondary fw-bold">
-                                    <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
-                                    <span class="badge bg-secondary ms-2"><?= count($feedbackData['faculty_evaluations']['remarks']) ?> Feedback Comments</span>
-                                </h6>
-                                <span class="text-primary small fw-semibold">
-                                    <i class="bi bi-chevron-down"></i> Click to View / Hide
-                                </span>
-                            </div>
-                            <div id="facRemarksCollapse" class="collapse">
-                                <div class="card-body">
-                                    <div class="row g-3">
-                                        <?php $facRemSno = 1; foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
-                                            <div class="col-md-6">
-                                                <div class="card bg-light border-0 shadow-sm p-3 h-100">
-                                                    <div class="d-flex justify-content-between text-muted small mb-2">
-                                                        <?php 
-                                                            $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
-                                                            $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
-                                                            $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
-                                                        ?>
-                                                        <strong>Student-<?= $facRemSno++ ?></strong>
-                                                        <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
-                                                    </div>
-                                                    <?php if (!empty($rem['faculty_strengths'])): ?>
-                                                        <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
-                                                    <?php endif; ?>
-                                                    <?php if (!empty($rem['improvement_areas'])): ?>
-                                                        <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
-                                                    <?php endif; ?>
-                                                    <?php if (!empty($rem['additional_comments'])): ?>
-                                                        <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
-                                                    <?php endif; ?>
-                                                </div>
-                                            </div>
-                                        <?php endforeach; ?>
-                                    </div>
-                                </div>
-                            </div>
-                        </div>
-                    <?php endif; ?>
+                    <?php 
+                        $remarks = $feedbackData['faculty_evaluations']['remarks'] ?? [];
+                        $collapseId = 'facRemarksCollapse';
+                        $showSubjectLabel = false;
+                        $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
+                        $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
+                        include('partials/faculty_remarks_card.php');
+                    ?>
                 <?php endif; ?>
 
                 <!-- Faculty Level Charts -->
@@ -470,7 +450,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <div class="col-md-6">
                             <div class="card p-3 shadow-none border h-100">
                                 <h6 class="fw-bold text-secondary text-center mb-3">Assigned Courses CO Feedback Average</h6>
-                                <canvas id="facSubjectsChart" style="max-height: 280px;"></canvas>
+                                <div class="chart-container-responsive">
+                                    <canvas id="facSubjectsChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -479,7 +461,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <div class="col-md-6">
                             <div class="card p-3 shadow-none border h-100">
                                 <h6 class="fw-bold text-secondary text-center mb-3">Student Evaluation: OBE Domain Scores</h6>
-                                <canvas id="facDomainChart" style="max-height: 280px;"></canvas>
+                                <div class="chart-container-responsive">
+                                    <canvas id="facDomainChart"></canvas>
+                                </div>
                             </div>
                         </div>
                     <?php endif; ?>
@@ -610,7 +594,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <div class="col-md-12">
                         <div class="card p-3 shadow-none border">
                             <h6 class="fw-bold text-secondary text-center mb-3">Class Subject Performance &amp; Attainment Comparison</h6>
-                            <canvas id="classSubjectChart" style="max-height: 280px;"></canvas>
+                            <div class="chart-container-responsive">
+                                <canvas id="classSubjectChart"></canvas>
+                            </div>
                         </div>
                     </div>
                 </div>
@@ -708,7 +694,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <div class="col-md-6">
                             <div class="card p-3 shadow-none border h-100">
                                 <h6 class="fw-bold text-secondary text-center mb-3">CO Average Ratings &amp; Target Threshold (3.0 / 60%)</h6>
-                                <canvas id="coFeedbackChart" style="max-height: 280px;"></canvas>
+                                <div class="chart-container-responsive">
+                                    <canvas id="coFeedbackChart"></canvas>
+                                </div>
                             </div>
                         </div>
 
@@ -716,7 +704,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <div class="col-md-6">
                             <div class="card p-3 shadow-none border h-100">
                                 <h6 class="fw-bold text-secondary text-center mb-3">CO Rating Distribution (5★ to 1★)</h6>
-                                <canvas id="coDistributionChart" style="max-height: 280px;"></canvas>
+                                <div class="chart-container-responsive">
+                                    <canvas id="coDistributionChart"></canvas>
+                                </div>
                             </div>
                         </div>
 
@@ -725,7 +715,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                             <div class="col-md-12">
                                 <div class="card p-3 shadow-none border">
                                     <h6 class="fw-bold text-secondary text-center mb-3">Course End Survey (CES) 5-Domain Performance</h6>
-                                    <canvas id="cesDomainChart" style="max-height: 220px;"></canvas>
+                                    <div class="chart-container-responsive-sm">
+                                        <canvas id="cesDomainChart"></canvas>
+                                    </div>
                                 </div>
                             </div>
                         <?php endif; ?>
@@ -891,11 +883,13 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                                             <small class="text-muted d-block mt-1">(<?= htmlspecialchars($co['total_responses']) ?> resp)</small>
                                         </td>
                                         <td class="text-center small">
-                                            <span class="badge bg-success" title="5 Stars">5★: <?= $co['count_5'] ?? 0 ?></span>
-                                            <span class="badge bg-primary" title="4 Stars">4★: <?= $co['count_4'] ?? 0 ?></span>
-                                            <span class="badge bg-info text-dark" title="3 Stars">3★: <?= $co['count_3'] ?? 0 ?></span>
-                                            <span class="badge bg-warning text-dark" title="2 Stars">2★: <?= $co['count_2'] ?? 0 ?></span>
-                                            <span class="badge bg-danger" title="1 Star">1★: <?= $co['count_1'] ?? 0 ?></span>
+                                            <div class="d-flex flex-wrap gap-1 justify-content-center">
+                                                <span class="badge bg-success" title="5 Stars">5★: <?= $co['count_5'] ?? 0 ?></span>
+                                                <span class="badge bg-primary" title="4 Stars">4★: <?= $co['count_4'] ?? 0 ?></span>
+                                                <span class="badge bg-info text-dark" title="3 Stars">3★: <?= $co['count_3'] ?? 0 ?></span>
+                                                <span class="badge bg-warning text-dark" title="2 Stars">2★: <?= $co['count_2'] ?? 0 ?></span>
+                                                <span class="badge bg-danger" title="1 Star">1★: <?= $co['count_1'] ?? 0 ?></span>
+                                            </div>
                                         </td>
                                         <td class="text-center">
                                             <strong><?= $co['target_pct'] ?? 0 ?>%</strong>
@@ -1057,51 +1051,14 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     </div>
                 <?php endif; ?>
 
-                <?php if (!empty($feedbackData['faculty_evaluations']['remarks'])): ?>
-                    <div class="card mb-3 border shadow-sm">
-                        <div class="card-header bg-light d-flex justify-content-between align-items-center py-2" 
-                             role="button" data-bs-toggle="collapse" data-bs-target="#facSubjectRemarksCollapse" aria-expanded="false" aria-controls="facSubjectRemarksCollapse"
-                             style="cursor: pointer;">
-                            <h6 class="mb-0 text-secondary fw-bold">
-                                <i class="bi bi-chat-quote-fill text-info me-2"></i>Student Qualitative Remarks on Faculty
-                                <span class="badge bg-secondary ms-2"><?= count($feedbackData['faculty_evaluations']['remarks']) ?> Feedback Comments</span>
-                            </h6>
-                            <span class="text-primary small fw-semibold">
-                                <i class="bi bi-chevron-down"></i> Click to View / Hide
-                            </span>
-                        </div>
-                        <div id="facSubjectRemarksCollapse" class="collapse">
-                            <div class="card-body">
-                                <div class="row g-3">
-                                    <?php foreach ($feedbackData['faculty_evaluations']['remarks'] as $rem): ?>
-                                        <div class="col-md-6">
-                                            <div class="card bg-light border-0 shadow-sm p-3 h-100">
-                                                <div class="d-flex justify-content-between text-muted small mb-2">
-                                                    <?php 
-                                                        $sCode = $rem['subcode'] ?? ($feedbackData['meta']['subcode'] ?? '');
-                                                        $sName = $rem['sub_fullname'] ?? ($feedbackData['meta']['sub_fullname'] ?? '');
-                                                        $sLabel = (!empty($sCode) || !empty($sName)) ? trim("$sCode - $sName", " -") : 'N/A';
-                                                    ?>
-                                                    <strong><?= htmlspecialchars($sLabel) ?> (<?= htmlspecialchars($rem['student_roll'] ?? 'Anonymous') ?>)</strong>
-                                                    <span><?= htmlspecialchars($rem['submitted_at'] ?? '') ?></span>
-                                                </div>
-                                                <?php if (!empty($rem['faculty_strengths'])): ?>
-                                                    <p class="mb-1 small"><strong>Strengths:</strong> <?= nl2br(htmlspecialchars($rem['faculty_strengths'])) ?></p>
-                                                <?php endif; ?>
-                                                <?php if (!empty($rem['improvement_areas'])): ?>
-                                                    <p class="mb-1 small"><strong>Areas for Improvement:</strong> <?= nl2br(htmlspecialchars($rem['improvement_areas'])) ?></p>
-                                                <?php endif; ?>
-                                                <?php if (!empty($rem['additional_comments'])): ?>
-                                                    <p class="mb-0 small"><strong>Additional Comments:</strong> <?= nl2br(htmlspecialchars($rem['additional_comments'])) ?></p>
-                                                <?php endif; ?>
-                                            </div>
-                                        </div>
-                                    <?php endforeach; ?>
-                                </div>
-                            </div>
-                        </div>
-                    </div>
-                <?php endif; ?>
+                <?php 
+                    $remarks = $feedbackData['faculty_evaluations']['remarks'] ?? [];
+                    $collapseId = 'facSubjectRemarksCollapse';
+                    $showSubjectLabel = true;
+                    $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
+                    $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
+                    include('partials/faculty_remarks_card.php');
+                ?>
 
             <?php endif; ?>
         </div>
@@ -1154,5 +1111,10 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
     <div class="alert alert-info mt-4 d-flex align-items-center" role="alert">
         <i class="bi bi-info-circle-fill me-2 fs-5"></i>
         <div>No feedback responses found for the selected criteria.</div>
+    </div>
+<?php else: ?>
+    <div class="alert alert-info mt-4 d-flex align-items-center" role="alert">
+        <i class="bi bi-info-circle-fill me-2 fs-5"></i>
+        <div>Please select a subject, class, faculty, or department to view feedback analytics and reports.</div>
     </div>
 <?php endif; ?>
