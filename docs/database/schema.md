@@ -199,6 +199,32 @@ Curriculum subjects/courses taught within an academic class.
 > **Unique Keys**: (`subcode`,`class_id`)
 > **Foreign Keys**: `class_id` &rarr; `classes(id)`
 
+### 2.7 `curriculum_subjects`
+Central syllabus subject catalog managed by Academic Section, decoupled from active academic years and class instances.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Central curriculum subject ID |
+| `prog_id` | `int(11)` | No | - | - | Foreign key referencing programs.id |
+| `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
+| `spec_id` | `int(11)` | No | - | - | Foreign key referencing specialization.id |
+| `yearsem` | `varchar(30)` | No | - | - | Year and semester string (e.g., II Yr - I Sem) |
+| `subject_sno` | `int(3)` | No | - | - | Ordering serial number within the syllabus (1..20) |
+| `subcode` | `varchar(25)` | No | MUL | - | Catalog course code (e.g., 23A05301T) |
+| `sub_fullname` | `varchar(150)` | No | - | - | Full descriptive course title |
+| `sub_shortname` | `varchar(30)` | No | - | - | Course short title / acronym |
+| `sub_type` | `varchar(30)` | No | - | - | Course type (Theory, Lab, Mandatory Course, etc.) |
+| `lecture_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly lecture hours (L) |
+| `tutorial_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly tutorial hours (T) |
+| `practical_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly practical / lab hours (P) |
+| `credits` | `decimal(3,1)` | No | - | 0.0 | Total course credits (C) |
+| `status` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Inactive |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
+
+> **Unique Keys**: (`reg_id`,`spec_id`,`yearsem`,`subcode`)
+> **Foreign Keys**: `prog_id` &rarr; `programs(id)`, `reg_id` &rarr; `regulations(id)`, `spec_id` &rarr; `specialization(id)`
+
 
 ## 3. Enrollment & Course Allotment
 Junction entities mapping instructors and students to curriculum courses.

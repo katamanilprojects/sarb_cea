@@ -8,11 +8,33 @@ class COAnalysis extends DBCredentials
         parent::__construct(); // Initialize DB connection
     }
 
+    // Helper to normalize single ID or multiple IDs (array or comma-separated string)
+    private function normalizeSubjectIds($subject_id)
+    {
+        if (is_array($subject_id)) {
+            $ids = array_map('intval', $subject_id);
+        } elseif (is_string($subject_id) && strpos($subject_id, ',') !== false) {
+            $ids = array_map('intval', explode(',', $subject_id));
+        } else {
+            $ids = [(int)$subject_id];
+        }
+        $ids = array_filter($ids, function($id) { return $id > 0; });
+        return !empty($ids) ? array_values(array_unique($ids)) : [0];
+    }
+
+    private function buildInClause($ids)
+    {
+        $placeholders = implode(',', array_fill(0, count($ids), '?'));
+        return ['sql' => $placeholders, 'params' => $ids];
+    }
+
     /**
      * Fetch Course Outcome (CO) Attainment Analysis
      */
     public function getCOAttainment($subject_id, $assessment_id = null, $component_id = null)
     {
+        $sub_ids = $this->normalizeSubjectIds($subject_id);
+        $in = $this->buildInClause($sub_ids);
 
         $query = "
     SELECT c.co_number, CONCAT('CO', c.co_number) AS co_label,
@@ -23,10 +45,10 @@ class COAnalysis extends DBCredentials
     LEFT JOIN student_marks m ON q.id = m.question_id
     LEFT JOIN assessment_components ac ON q.component_id = ac.id 
     LEFT JOIN internal_assessments i ON ac.assessment_id = i.id 
-    WHERE c.sub_id = ?
+    WHERE c.sub_id IN ({$in['sql']})
         ";
 
-        $params = [$subject_id];
+        $params = $in['params'];
 
         if ($assessment_id) {
             $query .= " AND i.assessment_number = ?";
@@ -48,20 +70,22 @@ class COAnalysis extends DBCredentials
      */
     public function getBloomsPerformance($subject_id, $assessment_id = null, $component_id = null)
     {
+        $sub_ids = $this->normalizeSubjectIds($subject_id);
+        $in = $this->buildInClause($sub_ids);
 
         $query = "
             SELECT b.blooms_level, b.blooms_label,
-            COALESCE(ROUND((SUM(CASE WHEN i.sub_id = ? THEN m.marks_obtained ELSE 0 END) /
-                            SUM(CASE WHEN i.sub_id = ? THEN q.marks ELSE 0 END)) * 100, 2), 0) AS attainment_percentage
+            COALESCE(ROUND((SUM(CASE WHEN i.sub_id IN ({$in['sql']}) THEN m.marks_obtained ELSE 0 END) /
+                            SUM(CASE WHEN i.sub_id IN ({$in['sql']}) THEN q.marks ELSE 0 END)) * 100, 2), 0) AS attainment_percentage
             FROM blooms_levels b
             LEFT JOIN assessment_questions q ON q.blooms_level_id = b.id
             LEFT JOIN student_marks m ON q.id = m.question_id
             LEFT JOIN assessment_components ac ON q.component_id = ac.id 
             LEFT JOIN internal_assessments i ON ac.assessment_id = i.id 
-            WHERE i.sub_id = ?
+            WHERE i.sub_id IN ({$in['sql']})
             ";
 
-        $params = [$subject_id, $subject_id, $subject_id];
+        $params = array_merge($in['params'], $in['params'], $in['params']);
 
         if ($assessment_id) {
             $query .= " AND i.assessment_number = ?";
@@ -82,6 +106,9 @@ class COAnalysis extends DBCredentials
      */
     public function getAssessmentPerformance($subject_id, $assessment_id = null, $component_id = null)
     {
+        $sub_ids = $this->normalizeSubjectIds($subject_id);
+        $in = $this->buildInClause($sub_ids);
+
         $query = "
         SELECT CONCAT('CIA - ', i.assessment_number) AS assessment_number, 
         ROUND((SUM(m.marks_obtained) / SUM(q.marks)) * 100, 2) AS attainment_percentage
@@ -89,10 +116,10 @@ class COAnalysis extends DBCredentials
         JOIN assessment_questions q ON m.question_id = q.id
         JOIN assessment_components ac ON q.component_id = ac.id 
         JOIN internal_assessments i ON ac.assessment_id = i.id 
-        WHERE i.sub_id = ?
+        WHERE i.sub_id IN ({$in['sql']})
         ";
 
-        $params = [$subject_id];
+        $params = $in['params'];
 
         if ($assessment_id) {
             $query .= " AND i.assessment_number = ?";
@@ -111,6 +138,9 @@ class COAnalysis extends DBCredentials
 
     public function getComponentPerformance($subject_id, $assessment_id = null)
     {
+        $sub_ids = $this->normalizeSubjectIds($subject_id);
+        $in = $this->buildInClause($sub_ids);
+
         $query = "
         SELECT ac.component_type,
         ROUND((SUM(m.marks_obtained) / SUM(q.marks)) * 100, 2) AS attainment_percentage
@@ -118,10 +148,10 @@ class COAnalysis extends DBCredentials
         JOIN assessment_questions q ON ac.id = q.component_id
         JOIN student_marks m ON q.id = m.question_id
         JOIN internal_assessments i ON ac.assessment_id = i.id 
-        WHERE i.sub_id = ?
+        WHERE i.sub_id IN ({$in['sql']})
         ";
 
-        $params = [$subject_id];
+        $params = $in['params'];
 
         if ($assessment_id) {
             $query .= " AND i.assessment_number = ?";
@@ -169,7 +199,12 @@ class COAnalysis extends DBCredentials
 if (isset($_GET['action']) && !empty($_GET['sub_id'])) {
     $analysisObj = new COAnalysis();
 
-    $sub_id = $_GET['sub_id'];
+    $raw_sub_id = trim($_GET['sub_id']);
+    if (!preg_match('/^[0-9]+(,[0-9]+)*$/', $raw_sub_id)) {
+        echo json_encode(["error" => "Invalid Subject ID"]);
+        exit;
+    }
+    $sub_id = $raw_sub_id;
     $assessment_number = $_GET['assessment_number'] ?? null;
 
     switch ($_GET['action']) {

@@ -39,6 +39,8 @@ Most master tables include a `status` integer flag used for soft-deactivation:
 | `classes` | `0` | **Completed / Archived Cohort**. |
 | `subjects` | `1` | **Active Course**: Taught in the current term. |
 | `subjects` | `0` | **Archived Course**. |
+| `curriculum_subjects` | `1` | **Active Master Subject**: Visible in curriculum syllabus catalogs and class allotment picker. |
+| `curriculum_subjects` | `0` | **Archived / Inactive Master Subject**. |
 | `buildings` | `1` | **Active Facility**. |
 | `buildings` | `0` | **Under Renovation / Inactive**. |
 | `halls` | `1` | **Usable Hall / Classroom**. |

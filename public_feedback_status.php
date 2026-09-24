@@ -118,8 +118,17 @@ $is_authenticated = !empty($_SESSION['temp_feedback_auth']);
     $selected_dept_id = !empty($_POST['dept_id']) ? intval($_POST['dept_id']) : (!empty($_POST['active_dept_id']) ? intval($_POST['active_dept_id']) : $default_dept_id);
     $faculties = !empty($selected_dept_id) ? $adminObj->getFacultyByDepartment($selected_dept_id) : ['data' => []];
 
-    $selected_fac_id = !empty($_POST['fac_id']) ? intval($_POST['fac_id']) : (!empty($_POST['active_fac_id']) ? intval($_POST['active_fac_id']) : $default_fac_id);
+    // If department was changed (submitted via change event with dept_id present but fac_id empty), reset fac_id and keep panel open
+    $dept_changed = isset($_POST['dept_id']) && empty($_POST['fac_id']);
+    if ($dept_changed) {
+        $selected_fac_id = null;
+    } else {
+        $selected_fac_id = !empty($_POST['fac_id']) ? intval($_POST['fac_id']) : (!empty($_POST['active_fac_id']) ? intval($_POST['active_fac_id']) : $default_fac_id);
+    }
     $facultySubjects = !empty($selected_fac_id) ? $facultyObj->getSubjectsByFacultyId($selected_fac_id) : ['data' => []];
+
+    // Keep faculty collapse panel open if department was just changed or panel_open flag sent
+    $show_faculty_panel = $dept_changed || !empty($_POST['panel_open']);
 
     // Selected subject
     $selected_sub_id = !empty($_POST['sub_id']) ? intval($_POST['sub_id']) : null;
@@ -236,7 +245,7 @@ $is_authenticated = !empty($_SESSION['temp_feedback_auth']);
                 <div class="card shadow-sm">
                     <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
                         <h5 class="mb-0"><i class="bi bi-filter-square me-2"></i>Select Course / View Feedback Status</h5>
-                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#changeFacultyCollapse" aria-expanded="false" aria-controls="changeFacultyCollapse">
+                        <button class="btn btn-sm btn-outline-light" type="button" data-bs-toggle="collapse" data-bs-target="#changeFacultyCollapse" aria-expanded="<?= $show_faculty_panel ? 'true' : 'false'; ?>" aria-controls="changeFacultyCollapse">
                             <i class="bi bi-arrow-left-right me-1"></i> Change Faculty / Dept
                         </button>
                     </div>
@@ -247,7 +256,7 @@ $is_authenticated = !empty($_SESSION['temp_feedback_auth']);
                         foreach ($departments['data'] as $d) {
                             if ($d['id'] == $selected_dept_id) { $curDeptName = $d['dept_fullname']; break; }
                         }
-                        $curFacName = 'Prof. E. Keshava Reddy';
+                        $curFacName = !empty($selected_fac_id) ? 'Prof. E. Keshava Reddy' : '-- Select Faculty --';
                         foreach ($faculties['data'] as $f) {
                             if ($f['id'] == $selected_fac_id) { $curFacName = $f['name']; break; }
                         }
@@ -257,12 +266,13 @@ $is_authenticated = !empty($_SESSION['temp_feedback_auth']);
                                 <span class="badge bg-secondary me-2"><?= htmlspecialchars($curDeptName); ?></span>
                                 <strong>Faculty:</strong> <?= htmlspecialchars($curFacName); ?>
                             </div>
-                            <small class="text-muted">Default profile</small>
+                            <small class="text-muted"><?= (!empty($selected_fac_id) && $selected_fac_id == $default_fac_id) ? 'Default profile' : 'Selected profile'; ?></small>
                         </div>
 
                         <form action="" method="post" id="feedbackStatusForm">
-                            <!-- Collapsible Department and Faculty Selectors (Hidden by default) -->
-                            <div class="collapse mb-3 p-3 border rounded bg-light" id="changeFacultyCollapse">
+                            <!-- Collapsible Department and Faculty Selectors (Open when department changes) -->
+                            <div class="collapse <?= $show_faculty_panel ? 'show' : ''; ?> mb-3 p-3 border rounded bg-light" id="changeFacultyCollapse">
+                                <input type="hidden" name="panel_open" id="panel_open" value="<?= $show_faculty_panel ? '1' : '0'; ?>">
                                 <div class="row g-3">
                                     <div class="col-md-6">
                                         <label for="dept_id" class="form-label fw-bold">Department:</label>
@@ -453,12 +463,16 @@ $is_authenticated = !empty($_SESSION['temp_feedback_auth']);
             if (facSelect) facSelect.value = '';
             var subSelect = document.getElementById('sub_id');
             if (subSelect) subSelect.value = '';
+            var panelOpenInput = document.getElementById('panel_open');
+            if (panelOpenInput) panelOpenInput.value = '1';
             document.getElementById('feedbackStatusForm').submit();
         });
 
         document.getElementById('fac_id').addEventListener('change', function() {
             var subSelect = document.getElementById('sub_id');
             if (subSelect) subSelect.value = '';
+            var panelOpenInput = document.getElementById('panel_open');
+            if (panelOpenInput) panelOpenInput.value = '1';
             document.getElementById('feedbackStatusForm').submit();
         });
     </script>

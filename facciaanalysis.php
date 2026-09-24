@@ -11,12 +11,132 @@ $facultySubjects = $facultyObj->getSubjectsByFacultyId($faculty_id);
 $selected_sub_id = null;
 $selected_assessment_number = null;
 
+// Helpers to detect multi-batch courses and clean base course details
+if (!function_exists('isMultiBatchCourse')) {
+    function isMultiBatchCourse($subs) {
+        if (count($subs) <= 1) return false;
+
+        $sub_names = array_map('trim', array_column($subs, 'sub_fullname'));
+        $prefix = $sub_names[0];
+        foreach ($sub_names as $nm) {
+            while (stripos($nm, $prefix) !== 0) {
+                $prefix = substr($prefix, 0, -1);
+                if ($prefix === '') break;
+            }
+        }
+        $common_len = strlen(trim(preg_replace('/[\s\-\–\(\[]+$/', '', $prefix)));
+
+        // Batch / group keyword in name
+        $pattern = '/[\s\-\–\(\[](?:batch|group|grp|section|sec)[\s\-\–]*[0-9a-z]+/i';
+        $has_batch_keyword = false;
+        foreach ($sub_names as $nm) {
+            if (preg_match($pattern, $nm)) {
+                $has_batch_keyword = true;
+                break;
+            }
+        }
+
+        // Matching shortnames
+        $shorts = array_unique(array_filter(array_map(function($s) {
+            return strtoupper(trim(preg_replace('/[\s\-\–\(\[]*(?:batch|group|grp|section|sec)[\s\-\–]*[0-9a-z]+[\s\)\–\]]*$/i', '', $s['sub_shortname'] ?? '')));
+        }, $subs)));
+        $same_shortname = (count($shorts) === 1 && !empty($shorts[0]));
+
+        if ($has_batch_keyword && $common_len >= 3) return true;
+        if ($common_len >= 5) return true;
+        if ($same_shortname && $common_len >= 3) return true;
+
+        return false;
+    }
+}
+
+if (!function_exists('getCleanBaseCourseDetails')) {
+    function getCleanBaseCourseDetails($subs) {
+        if (empty($subs)) {
+            return ['base_name' => '', 'base_code' => ''];
+        }
+        $sub_names = array_column($subs, 'sub_fullname');
+        $sub_codes = array_column($subs, 'subcode');
+        $first_name = trim($subs[0]['sub_fullname'] ?? '');
+        $first_code = trim($subs[0]['subcode'] ?? '');
+
+        // Strip batch/group/section suffix like " - GROUP-A", "(Group A)", "[GROUP-A]", " - Batch 1", etc.
+        $clean_regex = '/[\s\-\–\(\[]*(?:batch|group|grp|section|sec)[\s\-\–]*[0-9a-z]+[\s\)\–\]]*$/i';
+        $base_name = preg_replace($clean_regex, '', $first_name);
+        $base_name = trim(preg_replace('/[\s\-\–\(\[]+$/', '', $base_name));
+
+        if ($base_name === $first_name && count($subs) > 1) {
+            $prefix = $sub_names[0];
+            foreach ($sub_names as $nm) {
+                while (stripos($nm, $prefix) !== 0) {
+                    $prefix = substr($prefix, 0, -1);
+                    if ($prefix === '') break;
+                }
+            }
+            $cand = trim(preg_replace('/[\s\-\–\(\[]+$/', '', $prefix));
+            if (strlen($cand) >= 3) {
+                $base_name = $cand;
+            }
+        }
+        if (empty($base_name)) {
+            $base_name = $first_name;
+        }
+
+        // Clean base code - find common prefix across codes or strip trailing batch letter
+        $code_prefix = trim($sub_codes[0] ?? '');
+        foreach ($sub_codes as $cd) {
+            $cd = trim($cd);
+            while (stripos($cd, $code_prefix) !== 0) {
+                $code_prefix = substr($code_prefix, 0, -1);
+                if ($code_prefix === '') break;
+            }
+        }
+        $base_code = trim(preg_replace('/[\s\-\–\(\[]+$/', '', $code_prefix));
+        if (empty($base_code)) {
+            $base_code = trim(preg_replace('/[\s\-\–]*[a-zA-Z]$/', '', $first_code));
+        }
+        if (empty($base_code)) {
+            $base_code = $first_code;
+        }
+
+        return ['base_name' => $base_name, 'base_code' => $base_code];
+    }
+}
+
+// Group faculty's assigned subjects by class_id and subject_sno
+$groupedFacultySubjects = [];
+$allFacultySubjectIds = [];
+if (!empty($facultySubjects['data'])) {
+    foreach ($facultySubjects['data'] as $sub) {
+        $allFacultySubjectIds[] = (int)$sub['id'];
+        $cls_id = $sub['class_id'] ?? 0;
+        $sno_key = !empty($sub['subject_sno']) ? $sub['subject_sno'] : ('id_' . $sub['id']);
+        $group_key = $cls_id . '_' . $sno_key;
+        $groupedFacultySubjects[$group_key][] = $sub;
+    }
+}
+
 // Handle subject selection
 if (!empty($_POST['sub_id'])) {
     if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
         unset($_SESSION['secretcode']);
     }
-    $selected_sub_id = $_POST['sub_id'];
+    $post_sub_id = trim($_POST['sub_id']);
+    if (preg_match('/^[0-9]+(,[0-9]+)*$/', $post_sub_id)) {
+        $input_ids = array_map('intval', explode(',', $post_sub_id));
+        $all_valid = true;
+        foreach ($input_ids as $iid) {
+            if (!in_array($iid, $allFacultySubjectIds, true)) {
+                $all_valid = false;
+                break;
+            }
+        }
+        if ($all_valid) {
+            $selected_sub_id = $post_sub_id;
+        } else {
+            $_SESSION["err"] = "Invalid subject selected.";
+        }
+    }
 
     if (!empty($_POST['assessment_number'])) {
         $selected_assessment_number = $_POST['assessment_number'];
@@ -43,13 +163,40 @@ require_once("facheader.php");
                             <select name="sub_id" id="sub_id" class="form-select" required  onchange="document.getElementById('ciacourseform').submit();">
                                 <option value="">Select Subject</option>
                                 <?php
-                                foreach ($facultySubjects['data'] as $subject) {
-                                    $selected = (!empty($selected_sub_id) && $selected_sub_id == $subject['id']) ? 'selected' : '';
-                                    echo "<option value='" . htmlspecialchars($subject['id'], ENT_QUOTES, 'UTF-8') . "' $selected>";
-                                    echo htmlspecialchars($subject['sub_fullname'], ENT_QUOTES, 'UTF-8') . " (";
-                                    echo htmlspecialchars($subject['subcode'], ENT_QUOTES, 'UTF-8') . ") - ";
-                                    echo htmlspecialchars($subject['class_name'], ENT_QUOTES, 'UTF-8') . " - ";
-                                    echo htmlspecialchars($subject['acad_year'], ENT_QUOTES, 'UTF-8') . "</option>";
+                                if (!empty($groupedFacultySubjects)) {
+                                    foreach ($groupedFacultySubjects as $gKey => $subs) {
+                                        $firstSub = $subs[0];
+                                        $clsName = $firstSub['class_name'] ?? '';
+                                        $acadYr = $firstSub['acad_year'] ?? '';
+
+                                        if (count($subs) === 1 || !isMultiBatchCourse($subs)) {
+                                            // Single subject or distinct course
+                                            foreach ($subs as $subject) {
+                                                $selected = (!empty($selected_sub_id) && $selected_sub_id == $subject['id']) ? 'selected' : '';
+                                                echo "<option value='" . htmlspecialchars($subject['id'], ENT_QUOTES, 'UTF-8') . "' $selected>";
+                                                echo htmlspecialchars("{$subject['sub_fullname']} ({$subject['subcode']}) - {$clsName} - {$acadYr}", ENT_QUOTES, 'UTF-8');
+                                                echo "</option>";
+                                            }
+                                        } else {
+                                            // Multiple batches of the same course assigned to this faculty
+                                            $combined_ids = implode(',', array_column($subs, 'id'));
+                                            $base_details = getCleanBaseCourseDetails($subs);
+                                            $base_name = $base_details['base_name'];
+                                            $base_code = $base_details['base_code'];
+
+                                            $is_combined_selected = (!empty($selected_sub_id) && $selected_sub_id === $combined_ids) ? 'selected' : '';
+                                            echo "<option value='{$combined_ids}' $is_combined_selected style='font-weight: bold;'>";
+                                            echo "★ " . htmlspecialchars("{$base_name} ({$base_code}) [All Batches Combined] - {$clsName} - {$acadYr}", ENT_QUOTES, 'UTF-8');
+                                            echo "</option>";
+
+                                            foreach ($subs as $bSub) {
+                                                $bSelected = (!empty($selected_sub_id) && $selected_sub_id == $bSub['id']) ? 'selected' : '';
+                                                echo "<option value='" . htmlspecialchars($bSub['id'], ENT_QUOTES, 'UTF-8') . "' $bSelected>";
+                                                echo "&nbsp;&nbsp;&nbsp;&nbsp;↳ " . htmlspecialchars("{$bSub['sub_fullname']} ({$bSub['subcode']}) - {$clsName}", ENT_QUOTES, 'UTF-8');
+                                                echo "</option>";
+                                            }
+                                        }
+                                    }
                                 }
                                 ?>
                             </select>
@@ -112,11 +259,24 @@ require_once("facheader.php");
             <div class="card">
                 <div class="card-header">
                     <?php
-                    foreach ($facultySubjects['data'] as $subject) {
-                        if (!empty($selected_sub_id) && $selected_sub_id == $subject['id']) {
-                            echo htmlspecialchars($subject['sub_fullname'], ENT_QUOTES, 'UTF-8') . " (";
-                            echo htmlspecialchars($subject['subcode'], ENT_QUOTES, 'UTF-8') . ") - ";
-                            echo htmlspecialchars($subject['class_name'], ENT_QUOTES, 'UTF-8');
+                    $selected_id_list = explode(',', $selected_sub_id);
+                    if (count($selected_id_list) > 1) {
+                        $matched_subs = array_values(array_filter($facultySubjects['data'], function($s) use ($selected_id_list) {
+                            return in_array((string)$s['id'], $selected_id_list, true);
+                        }));
+                        if (!empty($matched_subs)) {
+                            $base_details = getCleanBaseCourseDetails($matched_subs);
+                            $className = $matched_subs[0]['class_name'] ?? '';
+                            $acadYear = $matched_subs[0]['acad_year'] ?? '';
+                            echo htmlspecialchars("{$base_details['base_name']} ({$base_details['base_code']}) [All Batches Combined] - {$className} - {$acadYear}", ENT_QUOTES, 'UTF-8');
+                        }
+                    } else {
+                        foreach ($facultySubjects['data'] as $subject) {
+                            if (!empty($selected_sub_id) && $selected_sub_id == $subject['id']) {
+                                echo htmlspecialchars($subject['sub_fullname'], ENT_QUOTES, 'UTF-8') . " (";
+                                echo htmlspecialchars($subject['subcode'], ENT_QUOTES, 'UTF-8') . ") - ";
+                                echo htmlspecialchars($subject['class_name'], ENT_QUOTES, 'UTF-8');
+                            }
                         }
                     }
                     ?>

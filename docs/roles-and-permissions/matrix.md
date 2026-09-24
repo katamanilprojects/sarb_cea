@@ -64,6 +64,7 @@ This document provides a matrix of features, administrative capabilities, and pa
 - `academicsectionhome.php`
 - `academicsectionmanagebuildings.php`
 - `academicsectionsyllabus.php`
+- `academicsectioncurriculumsubjects.php`
 - `academicsectionregulations.php`
 - `academicsectionattendancerules.php`
 - `academicsectionresetfacultypwd.php`, `academicsectionresetstudentpwd.php`

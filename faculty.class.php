@@ -111,11 +111,11 @@ class Faculty extends User
 
 		try {
 			$stmt = $this->conn->prepare("
-					SELECT s.id, s.sub_fullname, s.subcode, s.sub_type, s.class_id, c.acad_year, c.classname, c.start_date, c.end_date
+					SELECT s.id, s.subject_sno, s.sub_shortname, s.sub_fullname, s.subcode, s.sub_type, s.class_id, c.acad_year, c.classname, c.start_date, c.end_date
 					FROM faculty_sub fs
 					JOIN subjects s ON fs.sub_id = s.id
 					JOIN classes c ON s.class_id = c.id
-					WHERE fs.faculty_id = ? order by c.start_date desc
+					WHERE fs.faculty_id = ? order by c.start_date desc, s.subject_sno + 0, s.subcode
 				");
 			if (!$stmt) {
 				throw new Exception("Failed to prepare subjects query: " . $this->conn->error);
@@ -123,10 +123,12 @@ class Faculty extends User
 
 			$stmt->bind_param("i", $faculty_id);
 			if ($stmt->execute()) {
-				$stmt->bind_result($id, $sub_fullname, $subcode, $sub_type, $class_id, $acad_year, $classname, $start_date, $end_date);
+				$stmt->bind_result($id, $subject_sno, $sub_shortname, $sub_fullname, $subcode, $sub_type, $class_id, $acad_year, $classname, $start_date, $end_date);
 				while ($stmt->fetch()) {
 					$res['data'][] = [
 						'id' => $id,
+						'subject_sno' => $subject_sno,
+						'sub_shortname' => $sub_shortname,
 						'sub_fullname' => $sub_fullname,
 						'subcode' => $subcode,
 						'sub_type' => strtolower($sub_type ?? 'theory'),

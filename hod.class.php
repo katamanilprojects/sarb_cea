@@ -604,7 +604,7 @@ class HOD extends User
     {
         $res = null;
         try {
-            $stmt = $this->conn->prepare("SELECT id, classname, start_date, end_date FROM classes WHERE id = ?");
+            $stmt = $this->conn->prepare("SELECT id, classname, start_date, end_date, reg_id, reg, spec_id, yearsem, acad_year FROM classes WHERE id = ?");
             $stmt->bind_param("i", $class_id);
             $stmt->execute();
             $result = $stmt->get_result();

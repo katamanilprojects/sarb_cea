@@ -10,7 +10,7 @@
 
         <div class="col-6 col-md-2">
             <div class="dropdown w-100">
-                <button class="w-100 btn <?php echo (!empty($page_title) && in_array($page_title, ['Manage Buildings', 'Regulations', 'Syllabus'])) ? 'btn-success' : 'btn-outline-primary'; ?> dropdown-toggle"
+                <button class="w-100 btn <?php echo (!empty($page_title) && in_array($page_title, ['Manage Buildings', 'Regulations', 'Syllabus', 'Curriculum Subjects'])) ? 'btn-success' : 'btn-outline-primary'; ?> dropdown-toggle"
                     type="button"
                     id="academicSetupDropdown"
                     data-bs-toggle="dropdown"
@@ -31,6 +31,11 @@
                     <li>
                         <a class="dropdown-item" href="academicsectionsyllabus.php">
                             <i class="bi bi-file-earmark-text me-1"></i> Syllabus
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="academicsectioncurriculumsubjects.php">
+                            <i class="bi bi-book me-1"></i> Curriculum Subjects
                         </a>
                     </li>
                 </ul>

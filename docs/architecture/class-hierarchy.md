@@ -119,6 +119,14 @@ classDiagram
         +getSyllabusBySubId(sub_id) array
     }
 
+    class CurriculumSubject {
+        +getSubjectsByContext(progId, regId, specId, yearsem) array
+        +getSubjectsForClass(regId, specId, yearsem) array
+        +lookupSubjectByCodeAndReg(subcode, regId) array
+        +addOrUpdateSubject(data) array
+        +deleteSubject(id) array
+    }
+
     class AttendanceRules {
         +getAllAttendanceRules() array
         +getRulesByRegulation(reg_id) array
@@ -137,6 +145,7 @@ classDiagram
     User <|-- CIA
     User <|-- Timetable
     User <|-- Syllabus
+    User <|-- CurriculumSubject
     User <|-- AttendanceRules
 
     %% Composition in SuperAdmin
