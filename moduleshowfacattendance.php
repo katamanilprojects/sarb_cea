@@ -53,6 +53,19 @@ function e($str) {
                     </tbody>
                 </table>
                 <?php
+                require_once __DIR__ . '/services/SettingsService.php';
+                require_once __DIR__ . '/cia.class.php';
+                $ciaHelper = new CIA();
+                $activeReg = !empty($selected_sub_id) ? $ciaHelper->getRegulationForSubject((int)$selected_sub_id) : 'R23';
+                $settingsSvc = \Services\SettingsService::getInstance();
+
+                $minSubjectPct = (float)$settingsSvc->get('attendance_min_subject_pct', $activeReg, 40.0);
+                $condoneFloor = (float)$settingsSvc->get('attendance_condone_floor_pct', $activeReg, 65.0);
+                $minAggregatePct = (float)$settingsSvc->get('attendance_min_aggregate_pct', $activeReg, 75.0);
+                $betterWt = (float)$settingsSvc->get('theory_mid_better_weight', $activeReg, 0.80);
+                $lesserWt = (float)$settingsSvc->get('theory_mid_lesser_weight', $activeReg, 0.20);
+                $betterPct = round($betterWt * 100);
+                $lesserPct = round($lesserWt * 100);
 
                 $lessThan40 = [];
                 $lessThan65 = [];
@@ -63,20 +76,22 @@ function e($str) {
                     $percentage = $student['percentage'];
                     $rollNumber = $student['username']; // Assuming roll number is stored in 'username'
 
-                    if ($percentage < 65) {
+                    if ($percentage < $condoneFloor) {
                         $lessThan65[] = $rollNumber;
-                        if ($percentage < 40) {
+                        if ($percentage < $minSubjectPct) {
                             $lessThan40[] = $rollNumber;
                         }
-                    } elseif ($percentage >= 65 && $percentage < 75) {
+                    } elseif ($percentage >= $condoneFloor && $percentage < $minAggregatePct) {
                         $between65And75[] = $rollNumber;
                     }
                 }
 
                 // Function to format roll numbers as a comma-separated string
-                function formatRollNumbers($rollNumbers)
-                {
-                    return implode(', ', $rollNumbers);
+                if (!function_exists('formatRollNumbers')) {
+                    function formatRollNumbers($rollNumbers)
+                    {
+                        return implode(', ', $rollNumbers);
+                    }
                 }
                 ?>
 
@@ -91,19 +106,17 @@ function e($str) {
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="text-primary">65% - 75%</td>
+                            <td class="text-primary"><?php echo $condoneFloor; ?>% - <?php echo $minAggregatePct; ?>%</td>
                             <td class="text-primary"><?php echo count($between65And75); ?></td>
                             <td class="text-primary"><?php echo formatRollNumbers($between65And75); ?></td>
                         </tr>
                         <tr>
-                            <td class="text-danger">
-                                < 65%</td>
+                            <td class="text-danger">&lt; <?php echo $condoneFloor; ?>%</td>
                             <td class="text-danger"><?php echo count($lessThan65); ?></td>
                             <td class="text-danger"><?php echo formatRollNumbers($lessThan65); ?></td>
                         </tr>
                         <tr>
-                            <td class="text-secondary">
-                                < 40%</td>
+                            <td class="text-secondary">&lt; <?php echo $minSubjectPct; ?>%</td>
                             <td class="text-secondary"><?php echo count($lessThan40); ?></td>
                             <td class="text-secondary"><?php echo formatRollNumbers($lessThan40); ?></td>
                         </tr>
@@ -314,8 +327,8 @@ function e($str) {
                                     <th rowspan="2" style="width:80px; font-size:11; text-align:center; vertical-align:middle;">Adm.No</th>
                                     <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 1</th>
                                     <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 2</th>
-                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">80% of Best</th>
-                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">20% of Rest</th>
+                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $betterPct; ?>% of Best</th>
+                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $lesserPct; ?>% of Rest</th>
                                     <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final CIA</th>
                                 </tr>
                                 <tr>
@@ -368,18 +381,11 @@ function e($str) {
 
                                     $assessment2Total = $student['marks'][2]['subjective_marks'] + $student['marks'][2]['objective_marks'] + $student['marks'][2]['assignment_marks'];
 
-                                    // Consider 80% of the best assessment and 20% of the remaining one
-                                    if ($assessment1Total > $assessment2Total) {
-                                        $best = $assessment1Total;
-                                        $rest = $assessment2Total;
-                                    } else {
-                                        $best = $assessment2Total;
-                                        $rest = $assessment1Total;
-                                    }
-
-                                    $eightyPercent = 0.8 * $best;
-                                    $twentyPercent = 0.2 * $rest;
-                                    $totalCIA = $eightyPercent + $twentyPercent;
+                                    // Dynamic weighting derived from centralized academic settings
+                                    $ciaCalc = $settingsSvc->calculateCiaFinal((float)$assessment1Total, (float)$assessment2Total, $activeReg);
+                                    $eightyPercent = $ciaCalc['better_weighted'];
+                                    $twentyPercent = $ciaCalc['lesser_weighted'];
+                                    $totalCIA = $ciaCalc['final_rounded'];
 
                                     $subj2 =  rtrim(rtrim(number_format($student['marks'][2]['subjective_marks'], 1), '0'), '.');
                                     $obj2 =  rtrim(rtrim(number_format($student['marks'][2]['objective_marks'], 1), '0'), '.');
@@ -473,8 +479,8 @@ function e($str) {
                                     <th style="width:80px; font-size:11; text-align:center; vertical-align:middle;">Adm.No</th>
                                     <th style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Internal Assessment - 1</th>
                                     <th style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Internal Assessment - 2</th>
-                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">80% of Best</th>
-                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">20% of Rest</th>
+                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $betterPct; ?>% of Best</th>
+                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $lesserPct; ?>% of Rest</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final Internal</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Assignment</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final CIA</th>
@@ -521,17 +527,10 @@ function e($str) {
                                     $internalMarksContent .= '<td></td>';
                                 }
                                 if ($student['marks'][1]['marks'] != null && $student['marks'][2]['marks'] != null) {
-                                    if ($stmarks1 > $stmarks2) {
-                                        $best = $stmarks1;
-                                        $rest = $stmarks2;
-                                    } else {
-                                        $best = $stmarks2;
-                                        $rest = $stmarks1;
-                                    }
-
-                                    $seventyPercent = 0.8 * $best;
-                                    $thirtyPercent = 0.2 * $rest;
-                                    $totalInt = $seventyPercent + $thirtyPercent;
+                                    $ciaCalc = $settingsSvc->calculateCiaFinal((float)$stmarks1, (float)$stmarks2, $activeReg);
+                                    $seventyPercent = $ciaCalc['better_weighted'];
+                                    $thirtyPercent = $ciaCalc['lesser_weighted'];
+                                    $totalInt = $ciaCalc['final_unrounded'];
                                     $internalMarksContent .= '<td style="font-size:11; text-align:center;">' . $seventyPercent . '</td><td style="font-size:11; text-align:center;">' . $thirtyPercent . '</td><td style="font-size:11; text-align:center;">' . $totalInt . '</td>';
                                 } else {
                                     $internalMarksContent .= '<td></td><td></td><td></td>';

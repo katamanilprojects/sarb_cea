@@ -100,7 +100,10 @@ function renderAnalysisAssets() {
 
 function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
     
-    $thresholdJson = json_encode(60); // Example threshold value
+    require_once __DIR__ . '/facciaanalysis2.class.php';
+    $coAnalysis = new COAnalysis();
+    $targetThreshold = $coAnalysis->getTargetAttainmentThreshold($selected_sub_id);
+    $thresholdJson = json_encode($targetThreshold);
     $subIdJson = json_encode($selected_sub_id);
     $assessmentJson = json_encode($selected_assessment_number);
 

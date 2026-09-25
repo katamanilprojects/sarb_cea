@@ -58,12 +58,29 @@
             </a>
         </div>
         <div class="col-6 col-sm-2 p-0">
-            <a href="superadminchgpwd.php" class="w-100 btn <?php if(!empty($page_title) && $page_title=="Change Pwd"){ echo "btn-success"; }else{ echo "btn-outline-primary"; } ?>">
-            Change Password
+            <a href="superadminregulations.php" class="w-100 btn <?php if(!empty($page_title) && $page_title=="Manage Regulations"){ echo "btn-success"; }else{ echo "btn-outline-primary"; } ?>">
+                Regulations
             </a>
         </div>
-        <div class="col-6 col-sm-2 p-0">
-            <a href="logout.php" class="w-100 btn btn-outline-primary">
+    </div>
+    <div class="row mt-1">
+        <div class="col-6 col-sm-3 p-0">
+            <a href="superadminacademicsettings.php" class="w-100 btn <?php if(!empty($page_title) && $page_title=="Academic Regulations & Settings"){ echo "btn-success"; }else{ echo "btn-outline-primary"; } ?>">
+                <i class="bi bi-sliders me-1"></i>Academic Settings
+            </a>
+        </div>
+        <div class="col-6 col-sm-3 p-0">
+            <a href="superadminattendancerules.php" class="w-100 btn <?php if(!empty($page_title) && $page_title=="Manage Attendance Rules"){ echo "btn-success"; }else{ echo "btn-outline-primary"; } ?>">
+                Attendance Rules
+            </a>
+        </div>
+        <div class="col-6 col-sm-3 p-0">
+            <a href="superadminchgpwd.php" class="w-100 btn <?php if(!empty($page_title) && $page_title=="Change Pwd"){ echo "btn-success"; }else{ echo "btn-outline-primary"; } ?>">
+                Change Password
+            </a>
+        </div>
+        <div class="col-6 col-sm-3 p-0">
+            <a href="logout.php" class="w-100 btn btn-outline-danger">
                 Logout
             </a>
         </div>

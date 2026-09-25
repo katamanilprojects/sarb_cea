@@ -29,7 +29,21 @@ return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
                     </thead>
                     <tbody>
                         <?php
-                        $lessThan40BySubject = []; // To hold <40% students per subject
+                        require_once __DIR__ . '/services/SettingsService.php';
+                        $reg = 'R23';
+                        if (!empty($details['data']['reg'])) {
+                            $reg = $details['data']['reg'];
+                        } elseif (!empty($details['data']['reg_id'])) {
+                            require_once __DIR__ . '/attendancerules.class.php';
+                            $arObj = new AttendanceRules();
+                            $reg = $arObj->getRegulationCodeById((int)$details['data']['reg_id']);
+                        }
+                        $settings = \Services\SettingsService::getInstance();
+                        $minSubjectPct = (float)$settings->get('attendance_min_subject_pct', $reg, 40.0);
+                        $condoneFloor = (float)$settings->get('attendance_condone_floor_pct', $reg, 65.0);
+                        $minAggregatePct = (float)$settings->get('attendance_min_aggregate_pct', $reg, 75.0);
+
+                        $lessThan40BySubject = []; // To hold < minSubject students per subject
                         $lessThan65 = [];
                         $between65And75 = [];
 
@@ -51,8 +65,8 @@ return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
                                     $totalPercentage += $attendance;
                                     $subjectCount++;
 
-                                    // Check if attendance is below 40% for this subject
-                                    if ($attendance < 40) {
+                                    // Check if attendance is below subject-wise minimum threshold
+                                    if ($attendance < $minSubjectPct) {
                                         $lessThan40BySubject[$sno][] = $rollNumber;
                                         $lessThan40ByStudent = 1;
                                     }
@@ -66,11 +80,11 @@ return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
                             echo "<td style='text-align: center;'>{$overallPercentage}%</td>";
                             echo "</tr>";
 
-                            // Categorize students based on overall percentage
-                            if ($overallPercentage < 65) {
+                            // Categorize students based on dynamic regulatory brackets
+                            if ($overallPercentage < $condoneFloor) {
                                 $lessThan65[] = $rollNumber;
                             }
-                            if ($overallPercentage >= 65 && $overallPercentage < 75 && $lessThan40ByStudent == 0) {
+                            if ($overallPercentage >= $condoneFloor && $overallPercentage < $minAggregatePct && $lessThan40ByStudent == 0) {
                                 $between65And75[] = $rollNumber;
                             }
                         }
@@ -164,13 +178,13 @@ return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
                     </thead>
                     <tbody>
                         <tr>
-                            <td class="text-primary" style='text-align: center;'>65%&nbsp;-&nbsp;75%</td>
+                            <td class="text-primary" style='text-align: center;'><?php echo $condoneFloor; ?>%&nbsp;-&nbsp;<?php echo $minAggregatePct; ?>%</td>
                             <td class="text-primary" style='text-align: center;'><?php echo count($between65And75); ?></td>
                             <td class="text-primary"><?php echo implode(', ', $between65And75); ?></td>
                         </tr>
                         <tr>
                             <td class="text-danger" style='text-align: center;'>
-                                < 65%</td>
+                                < <?php echo $condoneFloor; ?>%</td>
                             <td class="text-danger" style='text-align: center;'><?php echo count($lessThan65); ?></td>
                             <td class="text-danger"><?php echo implode(', ', $lessThan65); ?></td>
                         </tr>

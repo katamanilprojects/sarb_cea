@@ -165,8 +165,18 @@ foreach ($subjects as $subject) {
                     }
                     echo '</tbody></table>';
                 } else { // UG Theory
+                    require_once __DIR__ . '/services/SettingsService.php';
+                    require_once __DIR__ . '/cia.class.php';
+                    $ciaHelper = new CIA();
+                    $subReg = $ciaHelper->getRegulationForSubject((int)$selected_sub_id);
+                    $settingsSvc = \Services\SettingsService::getInstance();
+                    $betterWt = (float)$settingsSvc->get('theory_mid_better_weight', $subReg, 0.80);
+                    $lesserWt = (float)$settingsSvc->get('theory_mid_lesser_weight', $subReg, 0.20);
+                    $betterPct = round($betterWt * 100);
+                    $lesserPct = round($lesserWt * 100);
+
                     echo '<table border="1" cellpadding="5" cellspacing="0" style="font-size: 12px; border-collapse:collapse; width: 100%;" class="table table-bordered">';
-                    echo '<thead><tr><th rowspan="2">S.No</th><th rowspan="2">Adm.No</th><th colspan="4">CIA - 1</th><th colspan="4">CIA - 2</th><th rowspan="2">80% Best</th><th rowspan="2">20% Rest</th><th rowspan="2">Final CIA</th></tr>';
+                    echo '<thead><tr><th rowspan="2">S.No</th><th rowspan="2">Adm.No</th><th colspan="4">CIA - 1</th><th colspan="4">CIA - 2</th><th rowspan="2">' . $betterPct . '% Best</th><th rowspan="2">' . $lesserPct . '% Rest</th><th rowspan="2">Final CIA</th></tr>';
                     echo '<tr><th>Sub-1</th><th>Obj-1</th><th>Ass-1</th><th>CIA-1</th><th>Sub-2</th><th>Obj-2</th><th>Ass-2</th><th>CIA-2</th></tr></thead><tbody>';
                     $sno = 1;
                     foreach ($studentsWithMarksForThisSubject as $student) {
@@ -181,12 +191,10 @@ foreach ($subjects as $subject) {
 
                         if (isset($student['marks'][2]) && $student['marks'][2]['subjective_marks'] !== null) {
                             $assessment2Total = ($student['marks'][2]['subjective_marks'] ?? 0) + ($student['marks'][2]['objective_marks'] ?? 0) + ($student['marks'][2]['assignment_marks'] ?? 0);
-                            $best = max($assessment1Total, $assessment2Total);
-                            $rest = min($assessment1Total, $assessment2Total);
-                            $eightyPercent = 0.8 * $best;
-                            $twentyPercent = 0.2 * $rest;
-                            $totalCIA = $eightyPercent + $twentyPercent;
-                            $finalCIAMarkForStudentInSubject = round($totalCIA);
+                            $ciaCalc = $settingsSvc->calculateCiaFinal((float)$assessment1Total, (float)$assessment2Total, $subReg);
+                            $eightyPercent = $ciaCalc['better_weighted'];
+                            $twentyPercent = $ciaCalc['lesser_weighted'];
+                            $finalCIAMarkForStudentInSubject = $ciaCalc['final_rounded'];
                             echo "<td style='text-align:center;'>" . rtrim(rtrim(number_format($student['marks'][2]['subjective_marks'] ?? 0, 1), '0'), '.') . "</td>";
                             echo "<td style='text-align:center;'>" . rtrim(rtrim(number_format($student['marks'][2]['objective_marks'] ?? 0, 1), '0'), '.') . "</td>";
                             echo "<td style='text-align:center;'>" . rtrim(rtrim(number_format($student['marks'][2]['assignment_marks'] ?? 0, 1), '0'), '.') . "</td>";

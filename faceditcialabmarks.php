@@ -3,9 +3,17 @@ session_start();
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
+require_once __DIR__ . "/services/SettingsService.php";
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
+$settingsSvc = \Services\SettingsService::getInstance();
+
+$currentSubId = !empty($_POST['sub_id']) ? (int)$_POST['sub_id'] : (!empty($_GET['sub_id']) ? (int)$_GET['sub_id'] : 0);
+$subReg = $currentSubId > 0 ? $ciaObj->getRegulationForSubject($currentSubId) : 'R23';
+
+$maxDayToDay = (float)$settingsSvc->get('lab_cia_day_to_day_marks', $subReg, 15.0);
+$maxInternalTest = (float)$settingsSvc->get('lab_cia_internal_test_marks', $subReg, 15.0);
 
 // Handle form submission
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
@@ -20,7 +28,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
         $internal_test_marks = $_POST['internal_test_marks'][$index];
 
         // Validate marks (ensure they are within the allowed range)
-        if ($day_to_day_marks > 15 || $internal_test_marks > 15 || !is_numeric($day_to_day_marks) || !is_numeric($internal_test_marks)) {
+        if ($day_to_day_marks > $maxDayToDay || $day_to_day_marks < 0 || $internal_test_marks > $maxInternalTest || $internal_test_marks < 0 || !is_numeric($day_to_day_marks) || !is_numeric($internal_test_marks)) {
             // Handle invalid marks
             $_SESSION["err"] = "Invalid marks entered for one or more students. Please check and try again.";
             $isValid = false;
@@ -93,8 +101,8 @@ require_once("facheader.php");
                                     <th colspan="3" style="text-align: center;">CIA - <?php echo $assessmentNumber; ?></th>
                                 </tr>
                                 <tr>
-                                    <th>Day-to-Day<br>(15)</th>
-                                    <th>Internal Test<br>(15)</th>
+                                    <th>Day-to-Day<br>(<?= $maxDayToDay ?>)</th>
+                                    <th>Internal Test<br>(<?= $maxInternalTest ?>)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -148,33 +156,36 @@ require_once("facheader.php");
                 let isValid = true;
                 let firstInvalidInput = null; // To store the first invalid input
 
+                const maxD2D = <?= json_encode($maxDayToDay) ?>;
+                const maxInt = <?= json_encode($maxInternalTest) ?>;
+
                 daytodayInputs.forEach((input, index) => {
                     const day_to_day_marks = parseFloat(input.value);
                     const internal_test_marks = parseFloat(internaltestInputs[index].value);
 
                     // Validate if the inputs are filled and within the specified ranges
                     if (
-                        isNaN(day_to_day_marks) || day_to_day_marks > 15 || day_to_day_marks < 0 ||
-                        isNaN(internal_test_marks) || internal_test_marks > 15 || internal_test_marks < 0 
+                        isNaN(day_to_day_marks) || day_to_day_marks > maxD2D || day_to_day_marks < 0 ||
+                        isNaN(internal_test_marks) || internal_test_marks > maxInt || internal_test_marks < 0 
                     ) {
                         isValid = false;
 
                         // Identify the first invalid input and focus on it
                         if (!firstInvalidInput) {
-                            if (isNaN(internal_test_marks) || internal_test_marks > 15 || internal_test_marks < 0) {
+                            if (isNaN(internal_test_marks) || internal_test_marks > maxInt || internal_test_marks < 0) {
                                 firstInvalidInput = internaltestInputs[index];
-                            } else if (isNaN(day_to_day_marks) || day_to_day_marks > 15 || day_to_day_marks < 0) {
+                            } else if (isNaN(day_to_day_marks) || day_to_day_marks > maxD2D || day_to_day_marks < 0) {
                                 firstInvalidInput = input;
                             }
                         }
 
                         // Apply red border to invalid fields
-                        if (isNaN(day_to_day_marks) || day_to_day_marks > 15 || day_to_day_marks < 0) {
+                        if (isNaN(day_to_day_marks) || day_to_day_marks > maxD2D || day_to_day_marks < 0) {
                             input.style.border = "2px solid red"; // Highlight invalid day-to-day field
                         }else{
                             input.style.border = "";
                         }
-                        if (isNaN(internal_test_marks) || internal_test_marks > 15 || internal_test_marks < 0) {
+                        if (isNaN(internal_test_marks) || internal_test_marks > maxInt || internal_test_marks < 0) {
                             internaltestInputs[index].style.border = "2px solid red"; // Highlight invalid internal-test field
                         }else{
                             internaltestInputs[index].style.border = "";
@@ -188,7 +199,7 @@ require_once("facheader.php");
 
                 if (!isValid) {
                     e.preventDefault(); // Prevent form submission if validation fails
-                    alert("Please enter valid marks:\n* Day-To-Day: 0-15\n* Internal-Test: 0-15");
+                    alert("Please enter valid marks:\n* Day-To-Day: 0-" + maxD2D + "\n* Internal-Test: 0-" + maxInt);
 
                     // Focus on the first invalid input and set the cursor there
                     if (firstInvalidInput) {

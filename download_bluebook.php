@@ -82,6 +82,33 @@ if (!empty($attendanceData['data'])) {
     $class_full = $details['data']['classname'] ?? '';
     $subject = $details['data']['sub_fullname'] ?? '';
 
+    // Centralized Academic Settings & Regulatory Scoping
+    require_once __DIR__ . '/services/SettingsService.php';
+    $settingsService = \Services\SettingsService::getInstance();
+
+    $regulation = 'R23';
+    $dbConn = DBCredentials::getInstance()->getConnection();
+    if ($rStmt = $dbConn->prepare("SELECT c.reg FROM subjects s JOIN classes c ON s.class_id = c.id WHERE s.id = ?")) {
+        $rStmt->bind_param("i", $sub_id);
+        if ($rStmt->execute()) {
+            $rStmt->bind_result($foundReg);
+            if ($rStmt->fetch() && !empty($foundReg)) {
+                $regulation = strtoupper(trim($foundReg));
+            }
+        }
+        $rStmt->close();
+    }
+
+    $midBetterWeight = (float)$settingsService->get('theory_mid_better_weight', $regulation, 0.80);
+    $midLesserWeight = (float)$settingsService->get('theory_mid_lesser_weight', $regulation, 0.20);
+    $betterWeightPct = round($midBetterWeight * 100);
+    $lesserWeightPct = round($midLesserWeight * 100);
+
+    $overallDirectPct = round((float)$settingsService->get('overall_direct_weight', $regulation, 0.80) * 100);
+    $overallIndirectPct = round((float)$settingsService->get('overall_indirect_weight', $regulation, 0.20) * 100);
+    $directCiaPct = round((float)$settingsService->get('attainment_direct_cia_weight', $regulation, 0.30) * 100);
+    $directSeePct = round((float)$settingsService->get('attainment_direct_see_weight', $regulation, 0.70) * 100);
+
     // Extract Class, Semester, and Branch from the class string
     $class_parts = explode(' - ', $class_full);
     $semester = trim($class_parts[2]);
@@ -460,8 +487,8 @@ if (!empty($attendanceData['data'])) {
                             <th rowspan="2" style="width:80px; font-size:11; text-align:center; vertical-align:middle;">Adm.No</th>
                             <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 1</th>
                             <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 2</th>
-                            <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">80% of Best</th>
-                            <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">20% of Rest</th>
+                            <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $betterWeightPct . '% of Best</th>
+                            <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $lesserWeightPct . '% of Rest</th>
                             <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final CIA</th>
                         </tr>
                         <tr>
@@ -478,6 +505,16 @@ if (!empty($attendanceData['data'])) {
                     <tbody>';
 
                     $internalMarksFooter = '</tbody>
+                    <tfoot>
+                        <tr>
+                            <td colspan="11" style="font-size:9px; color:#444; background:#f9f9f9; padding:4px 8px;">
+                                <strong>Regulatory Standards (' . htmlspecialchars($regulation) . '):</strong>
+                                [CIA Weightage: ' . $betterWeightPct . '% Better Mid + ' . $lesserWeightPct . '% Lower Mid] &bull;
+                                [PO Attainment: ' . $overallDirectPct . '% Direct + ' . $overallIndirectPct . '% Indirect] &bull;
+                                [CO Attainment: ' . $directCiaPct . '% CIA + ' . $directSeePct . '% SEE]
+                            </td>
+                        </tr>
+                    </tfoot>
                 </table>';
 
                     // Loop through the students and add their internal marks to the table
@@ -514,7 +551,7 @@ if (!empty($attendanceData['data'])) {
 
                             $assessment2Total = $student['marks'][2]['subjective_marks'] + $student['marks'][2]['objective_marks'] + $student['marks'][2]['assignment_marks'];
 
-                            // Consider 80% of the best assessment and 20% of the remaining one
+                            // Dynamic weighting derived from centralized academic settings
                             if ($assessment1Total > $assessment2Total) {
                                 $best = $assessment1Total;
                                 $rest = $assessment2Total;
@@ -523,9 +560,9 @@ if (!empty($attendanceData['data'])) {
                                 $rest = $assessment1Total;
                             }
 
-                            $eightyPercent = 0.8 * $best;
-                            $twentyPercent = 0.2 * $rest;
-                            $totalCIA = $eightyPercent + $twentyPercent;
+                            $eightyPercent = round($midBetterWeight * $best, 2);
+                            $twentyPercent = round($midLesserWeight * $rest, 2);
+                            $totalCIA = round($eightyPercent + $twentyPercent, 2);
 
                             $subj2 =  rtrim(rtrim(number_format($student['marks'][2]['subjective_marks'], 1), '0'), '.');
                             $obj2 =  rtrim(rtrim(number_format($student['marks'][2]['objective_marks'], 1), '0'), '.');

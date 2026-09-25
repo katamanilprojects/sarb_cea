@@ -3,9 +3,18 @@ session_start();
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
+require_once __DIR__ . "/services/SettingsService.php";
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
+$settingsSvc = \Services\SettingsService::getInstance();
+
+$currentSubId = !empty($_POST['sub_id']) ? (int)$_POST['sub_id'] : (!empty($_GET['sub_id']) ? (int)$_GET['sub_id'] : 0);
+$subReg = $currentSubId > 0 ? $ciaObj->getRegulationForSubject($currentSubId) : 'R23';
+
+$projStructure = $settingsSvc->getProjectStructure($subReg);
+$totalInternal = (float)($projStructure['internal_marks'] ?? 60.0);
+$maxComp = $totalInternal / 2; // Equal split for Supervisor and PRC
 
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode'] && !empty($_POST['submit_action'])) {
     unset($_SESSION['secretcode']);
@@ -24,7 +33,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
         foreach ($_POST['student_id'] as $index => $studentId) {
             $c1 = $_POST['component1_marks'][$index];
             $c2 = $_POST['component2_marks'][$index];
-            if (!is_numeric($c1) || !is_numeric($c2) || $c1 > 30 || $c1 < 0 || $c2 > 30 || $c2 < 0) {
+            if (!is_numeric($c1) || !is_numeric($c2) || $c1 > $maxComp || $c1 < 0 || $c2 > $maxComp || $c2 < 0) {
                 $_SESSION["err"] = "Invalid marks entered for one or more students. Please check and try again.";
                 $isValid = false;
                 break;
@@ -76,9 +85,9 @@ require_once("facheader.php");
                             <thead>
                                 <tr>
                                     <th>Adm. No.<br />Student Name</th>
-                                    <th>Supervisor (Max 30)</th>
-                                    <th>P. R. C. (Max 30)</th>
-                                    <th>Total (Max 60)</th>
+                                    <th>Supervisor (Max <?= $maxComp ?>)</th>
+                                    <th>P. R. C. (Max <?= $maxComp ?>)</th>
+                                    <th>Total (Max <?= $totalInternal ?>)</th>
                                 </tr>
                             </thead>
                             <tbody>
@@ -141,11 +150,12 @@ document.addEventListener('DOMContentLoaded', function () {
             let isValid = true;
             let firstInvalid = null;
 
+            const maxComp = <?= json_encode($maxComp) ?>;
             rows.forEach(function (row) {
                 const inputs = row.querySelectorAll('.comp-input');
                 [0, 1].forEach(function (i) {
                     const val = parseFloat(inputs[i].value);
-                    if (isNaN(val) || val < 0 || val > 30) {
+                    if (isNaN(val) || val < 0 || val > maxComp) {
                         isValid = false;
                         inputs[i].style.border = '2px solid red';
                         if (!firstInvalid) firstInvalid = inputs[i];
@@ -157,7 +167,7 @@ document.addEventListener('DOMContentLoaded', function () {
 
             if (!isValid) {
                 e.preventDefault();
-                alert("Please enter valid marks:\n* Supervisor: 0-30\n* P. R. C.: 0-30");
+                alert("Please enter valid marks:\n* Supervisor: 0-" + maxComp + "\n* P. R. C.: 0-" + maxComp);
                 if (firstInvalid) {
                     firstInvalid.focus();
                     setTimeout(function () {

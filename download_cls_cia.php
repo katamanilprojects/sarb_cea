@@ -63,6 +63,12 @@ if (!empty($_POST["cls_id"]) && !empty($_POST["action"]) && $_POST["action"] == 
                             }
                         }
                     } else {
+                    require_once __DIR__ . '/services/SettingsService.php';
+                    require_once __DIR__ . '/cia.class.php';
+                    $ciaHelper = new CIA();
+                    $subReg = $ciaHelper->getRegulationForSubject((int)$selected_sub_id);
+                    $settingsSvc = \Services\SettingsService::getInstance();
+
                     $sno = 1;
 
                     foreach ($studentList as $student) {
@@ -72,18 +78,9 @@ if (!empty($_POST["cls_id"]) && !empty($_POST["action"]) && $_POST["action"] == 
 
                             $assessment2Total = $student['marks'][2]['subjective_marks'] + $student['marks'][2]['objective_marks'] + $student['marks'][2]['assignment_marks'];
 
-                            // Consider 80% of the best assessment and 20% of the remaining one
-                            if ($assessment1Total > $assessment2Total) {
-                                $best = $assessment1Total;
-                                $rest = $assessment2Total;
-                            } else {
-                                $best = $assessment2Total;
-                                $rest = $assessment1Total;
-                            }
-
-                            $eightyPercent = 0.8 * $best;
-                            $twentyPercent = 0.2 * $rest;
-                            $totalCIA = $eightyPercent + $twentyPercent;
+                            // Dynamic weighting derived from centralized academic settings
+                            $ciaCalc = $settingsSvc->calculateCiaFinal((float)$assessment1Total, (float)$assessment2Total, $subReg);
+                            $totalCIA = $ciaCalc['final_rounded'];
                         }
                         if (isset($totalCIA)) {
                             $noofsubjects++;

@@ -21,14 +21,15 @@ $assessment_number = intval($_GET['assessment_number']);
 $subjectDetails = $facultyObj->getSubjectDetails($sub_id);
 $studentList = $facultyObj->getMappedStudents($sub_id);
 
+$regulationCode = $ciaObj->getRegulationForSubject($sub_id);
+
 $FULL_SUBJECTIVE = 30;
 $FULL_D2D = $ciaObj->getTotalMarksByType($sub_id, $assessment_number, "Day-to-Day");
 $FULL_INTERNAL = $ciaObj->getTotalMarksByType($sub_id, $assessment_number, "Internal Exam");
 
-
-// Condensed marks limit
-$CONDENSED_D2D = 15;
-$CONDENSED_INT = 15;
+// Condensed marks limits dynamically retrieved from academic settings
+$CONDENSED_D2D = (float)$ciaObj->getAcademicSetting('lab_cia_day_to_day_marks', $regulationCode, $sub_id, 15.0);
+$CONDENSED_INT = (float)$ciaObj->getAcademicSetting('lab_cia_internal_test_marks', $regulationCode, $sub_id, 15.0);
 
 $condensedMarks = [];
 foreach ($studentList as $student) {

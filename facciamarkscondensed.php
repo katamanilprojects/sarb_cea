@@ -21,15 +21,23 @@ $assessment_number = intval($_GET['assessment_number']);
 $subjectDetails = $facultyObj->getSubjectDetails($sub_id);
 $studentList = $facultyObj->getMappedStudents($sub_id);
 
+$regulationCode = $ciaObj->getRegulationForSubject($sub_id);
+
 $FULL_SUBJECTIVE = 30;
 $FULL_OBJECTIVE = $ciaObj->getTotalMarksByType($sub_id, $assessment_number, "Objective");
+if ($FULL_OBJECTIVE <= 0) {
+    $FULL_OBJECTIVE = (float)$ciaObj->getAcademicSetting('theory_mid_objective_marks', $regulationCode, $sub_id, 10.0);
+}
 $FULL_ASSIGNMENT = $ciaObj->getTotalMarksByType($sub_id, $assessment_number, "Assignment");
+if ($FULL_ASSIGNMENT <= 0) {
+    $FULL_ASSIGNMENT = (float)$ciaObj->getAcademicSetting('theory_assignment_marks', $regulationCode, $sub_id, 5.0);
+}
 
-
-// Condensed marks limit
-$CONDENSED_SUBJECTIVE = 15;
-$CONDENSED_OBJECTIVE = 10;
-$CONDENSED_ASSIGNMENT = 5;
+// Condensed marks limits dynamically loaded from centralized academic settings
+$CONDENSED_SUBJECTIVE = (float)$ciaObj->getAcademicSetting('theory_mid_subjective_condensed', $regulationCode, $sub_id, 15.0);
+$CONDENSED_OBJECTIVE = (float)$ciaObj->getAcademicSetting('theory_mid_objective_marks', $regulationCode, $sub_id, 10.0);
+$CONDENSED_ASSIGNMENT = (float)$ciaObj->getAcademicSetting('theory_assignment_marks', $regulationCode, $sub_id, 5.0);
+$TOTAL_CIA_MARKS = (float)$ciaObj->getAcademicSetting('theory_cia_total_marks', $regulationCode, $sub_id, 30.0);
 
 $condensedMarks = [];
 foreach ($studentList as $student) {

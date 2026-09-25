@@ -1674,4 +1674,106 @@ class CIA extends User
         return $res;
     }
 
+    /**
+     * Look up the active regulation code (e.g. 'R23', 'R20', 'R19') for a subject ID.
+     */
+    public function getRegulationForSubject($sub_id): string
+    {
+        $reg = 'R23';
+        $subId = (int)$sub_id;
+        if ($subId <= 0) {
+            return $reg;
+        }
+
+        try {
+            $stmt = $this->conn->prepare("
+                SELECT c.reg 
+                FROM subjects s 
+                JOIN classes c ON s.class_id = c.id 
+                WHERE s.id = ?
+            ");
+            if ($stmt) {
+                $stmt->bind_param("i", $subId);
+                if ($stmt->execute()) {
+                    $stmt->bind_result($found_reg);
+                    if ($stmt->fetch() && !empty($found_reg)) {
+                        $reg = strtoupper(trim($found_reg));
+                    }
+                }
+                $stmt->close();
+            }
+        } catch (Exception $e) {
+            $this->logs->errLog("CIA - getRegulationForSubject Exception: " . $e->getMessage());
+        }
+        return $reg;
+    }
+
+    /**
+     * Retrieve academic settings instance or specific key dynamically.
+     */
+    public function getAcademicSetting(string $key, ?string $regulation = null, ?int $sub_id = null, mixed $fallback = null): mixed
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        if (empty($regulation) && !empty($sub_id)) {
+            $regulation = $this->getRegulationForSubject($sub_id);
+        }
+        return \Services\SettingsService::getInstance()->get($key, $regulation ?? 'R23', $fallback);
+    }
+
+    /**
+     * Calculate continuous internal assessment (CIA) marks using regulation weights.
+     * Replaces hardcoded 0.8/0.2 formula.
+     */
+    public function calculateCiaFinalMarks(float $mid1, float $mid2, ?string $regulation = null, ?int $sub_id = null): array
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        if (empty($regulation) && !empty($sub_id)) {
+            $regulation = $this->getRegulationForSubject($sub_id);
+        }
+        return \Services\SettingsService::getInstance()->calculateCiaFinal($mid1, $mid2, $regulation ?? 'R23');
+    }
+
+    /**
+     * Dynamic subjective marks condensation.
+     * Replaces hardcoded (total / 30) * 15 with dynamic settings.
+     */
+    public function condenseSubjectiveMarks(float $rawMarks, float $fullMarks = 30.0, ?string $regulation = null, ?int $sub_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        if (empty($regulation) && !empty($sub_id)) {
+            $regulation = $this->getRegulationForSubject($sub_id);
+        }
+        $condensedTarget = (float)$this->getAcademicSetting('theory_mid_subjective_condensed', $regulation, $sub_id, 15.0);
+        $full = max(1.0, $fullMarks);
+        return round(min(($rawMarks / $full) * $condensedTarget, $condensedTarget), 2);
+    }
+
+    /**
+     * Dynamic objective marks condensation.
+     */
+    public function condenseObjectiveMarks(float $rawMarks, float $fullMarks = 10.0, ?string $regulation = null, ?int $sub_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        if (empty($regulation) && !empty($sub_id)) {
+            $regulation = $this->getRegulationForSubject($sub_id);
+        }
+        $condensedTarget = (float)$this->getAcademicSetting('theory_mid_objective_marks', $regulation, $sub_id, 10.0);
+        $full = max(1.0, $fullMarks);
+        return round(min(($rawMarks / $full) * $condensedTarget, $condensedTarget), 2);
+    }
+
+    /**
+     * Dynamic assignment marks condensation.
+     */
+    public function condenseAssignmentMarks(float $rawMarks, float $fullMarks = 5.0, ?string $regulation = null, ?int $sub_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        if (empty($regulation) && !empty($sub_id)) {
+            $regulation = $this->getRegulationForSubject($sub_id);
+        }
+        $condensedTarget = (float)$this->getAcademicSetting('theory_assignment_marks', $regulation, $sub_id, 5.0);
+        $full = max(1.0, $fullMarks);
+        return round(min(($rawMarks / $full) * $condensedTarget, $condensedTarget), 2);
+    }
+
 }

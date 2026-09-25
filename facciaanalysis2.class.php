@@ -3,9 +3,6 @@ require_once("dbcredentials.class.php");
 
 class COAnalysis extends DBCredentials
 {
-    // Define a target threshold for suggestions
-    private const TARGET_ATTAINMENT_THRESHOLD = 60;
-
     public function __construct()
     {
         parent::__construct(); // Initialize DB connection
@@ -44,6 +41,61 @@ class COAnalysis extends DBCredentials
             }
         }
         return strtolower($subRes[0]['sub_type'] ?? 'theory');
+    }
+
+    /**
+     * Resolve active regulation code for the subject(s).
+     */
+    public function getRegulationForSubject($subject_id): string
+    {
+        $ids = $this->normalizeSubjectIds($subject_id);
+        $subId = $ids[0] ?? 0;
+        if ($subId <= 0) {
+            return 'R23';
+        }
+        $query = "SELECT c.reg FROM subjects s JOIN classes c ON s.class_id = c.id WHERE s.id = ?";
+        $rows = $this->fetchAssoc($query, [$subId]);
+        return !empty($rows[0]['reg']) ? strtoupper(trim($rows[0]['reg'])) : 'R23';
+    }
+
+    /**
+     * Fetch dynamic target attainment threshold from centralized academic settings.
+     */
+    public function getTargetAttainmentThreshold($subject_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        $reg = $subject_id ? $this->getRegulationForSubject($subject_id) : 'R23';
+        return (float)\Services\SettingsService::getInstance()->get('co_target_percentage', $reg, 60.0);
+    }
+
+    /**
+     * Compute Direct CO Attainment from CIA and SEE components dynamically.
+     */
+    public function getDirectCoAttainment(float $ciaAttainment, float $seeAttainment, $subject_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        $reg = $subject_id ? $this->getRegulationForSubject($subject_id) : 'R23';
+        return \Services\SettingsService::getInstance()->computeDirectCoAttainment($ciaAttainment, $seeAttainment, $reg);
+    }
+
+    /**
+     * Compute Overall PO/PSO Attainment from Direct and Indirect components dynamically.
+     */
+    public function getOverallPoAttainment(float $directAttainment, float $indirectAttainment, $subject_id = null): float
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        $reg = $subject_id ? $this->getRegulationForSubject($subject_id) : 'R23';
+        return \Services\SettingsService::getInstance()->computeOverallPoAttainment($directAttainment, $indirectAttainment, $reg);
+    }
+
+    /**
+     * Calculate Attainment Level (1, 2, 3) from cohort success rate.
+     */
+    public function getAttainmentLevel(float $cohortPct, $subject_id = null): int
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        $reg = $subject_id ? $this->getRegulationForSubject($subject_id) : 'R23';
+        return \Services\SettingsService::getInstance()->calculateAttainmentLevel($cohortPct, $reg);
     }
 
     /**
@@ -206,17 +258,18 @@ class COAnalysis extends DBCredentials
             $results = $this->fetchAssoc($query, $params);
         }
 
-        // Generate suggestions
+        // Generate suggestions using dynamic academic settings
         $suggestions = [];
+        $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
         foreach ($results as $row) {
-            if ($row['co_attainment_percentage'] < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "Attainment for {$row['co_label']} ({$row['co_attainment_percentage']}%) is below the target (" . self::TARGET_ATTAINMENT_THRESHOLD . "%). Consider reviewing teaching methods or assessment difficulty for this outcome: '{$row['co_description']}'.";
+            if ($row['co_attainment_percentage'] < $targetThreshold) {
+                $suggestions[] = "Attainment for {$row['co_label']} ({$row['co_attainment_percentage']}%) is below the target ({$targetThreshold}%). Consider reviewing teaching methods or assessment difficulty for this outcome: '{$row['co_description']}'.";
             }
         }
 
         // Add overall feedback if no COs meet the target significantly
         $avg_attainment = !empty($results) ? array_sum(array_column($results, 'co_attainment_percentage')) / count($results) : 0;
-        if (!empty($results) && $avg_attainment < self::TARGET_ATTAINMENT_THRESHOLD + 5) { // Example threshold for overall concern
+        if (!empty($results) && $avg_attainment < $targetThreshold + 5) { // Threshold for overall concern
             $suggestions[] = "Overall CO attainment seems low. A review of the course delivery and assessment strategy might be beneficial.";
         } elseif (empty($results)) {
             $suggestions[] = "No CO attainment data found for the selected criteria. Ensure questions are mapped to COs and marks are entered.";
@@ -321,9 +374,10 @@ class COAnalysis extends DBCredentials
                 'contributing_co_count' => $data['contributing_co_count']
             ];
 
-            // Add suggestions for POs
-            if ($final_attainment < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "Attainment for {$po_details[$po_id]['label']} ({$final_attainment}%) is below the target (" . self::TARGET_ATTAINMENT_THRESHOLD . "%). Review the attainment of contributing COs for insights. PO Description: '{$po_details[$po_id]['description']}'.";
+            // Add suggestions for POs using dynamic academic settings
+            $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
+            if ($final_attainment < $targetThreshold) {
+                $suggestions[] = "Attainment for {$po_details[$po_id]['label']} ({$final_attainment}%) is below the target ({$targetThreshold}%). Review the attainment of contributing COs for insights. PO Description: '{$po_details[$po_id]['description']}'.";
             }
         }
 
@@ -504,7 +558,7 @@ class COAnalysis extends DBCredentials
         $suggestions = [];
         $higher_order_low = false;
         $lower_order_low = false;
-        $threshold = self::TARGET_ATTAINMENT_THRESHOLD;
+        $threshold = $this->getTargetAttainmentThreshold($subject_id);
 
         foreach ($results as $row) {
             if ($row['attainment_percentage'] < $threshold) {
@@ -711,6 +765,7 @@ class COAnalysis extends DBCredentials
         }
 
         // Generate suggestions
+        $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
         $suggestions = [];
         $numericResults = array_filter($results, function($r) { return $r['assessment_number'] !== 'all'; });
         $numericResults = array_values($numericResults);
@@ -718,17 +773,17 @@ class COAnalysis extends DBCredentials
         if (count($numericResults) > 1) {
             $first = $numericResults[0]['attainment_percentage'];
             $last = end($numericResults)['attainment_percentage'];
-            if ($last < $first && $last < self::TARGET_ATTAINMENT_THRESHOLD) {
+            if ($last < $first && $last < $targetThreshold) {
                 $suggestions[] = "Comparison shows performance declined from CIA-{$numericResults[0]['assessment_number']} ({$first}%) to CIA-{$numericResults[count($numericResults) - 1]['assessment_number']} ({$last}%).";
-            } elseif ($last < self::TARGET_ATTAINMENT_THRESHOLD && $first < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "Performance across assessments is consistently below the target (" . self::TARGET_ATTAINMENT_THRESHOLD . "%).";
+            } elseif ($last < $targetThreshold && $first < $targetThreshold) {
+                $suggestions[] = "Performance across assessments is consistently below the target (" . $targetThreshold . "%).";
             } else {
                 $suggestions[] = "Performance across assessments noted.";
             }
         } elseif (count($numericResults) == 1) {
             $label = $numericResults[0]['assessment_label'];
-            if ($numericResults[0]['attainment_percentage'] < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "Performance in {$label} ({$numericResults[0]['attainment_percentage']}%) is below the target (" . self::TARGET_ATTAINMENT_THRESHOLD . "%).";
+            if ($numericResults[0]['attainment_percentage'] < $targetThreshold) {
+                $suggestions[] = "Performance in {$label} ({$numericResults[0]['attainment_percentage']}%) is below the target (" . $targetThreshold . "%).";
             } else {
                 $suggestions[] = "Performance in {$label} meets the target.";
             }
@@ -891,10 +946,11 @@ class COAnalysis extends DBCredentials
         }
 
         // Generate suggestions
+        $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
         $suggestions = [];
         foreach ($results as $row) {
-            if ($row['attainment_percentage'] < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "Performance in '{$row['component_type']}' components ({$row['attainment_percentage']}%) is below target (" . self::TARGET_ATTAINMENT_THRESHOLD . "%). This might indicate students struggle with this question format or the topics assessed via this component.";
+            if ($row['attainment_percentage'] < $targetThreshold) {
+                $suggestions[] = "Performance in '{$row['component_type']}' components ({$row['attainment_percentage']}%) is below target (" . $targetThreshold . "%). This might indicate students struggle with this question format or the topics assessed via this component.";
             }
         }
         if (empty($results)) {
@@ -1036,10 +1092,11 @@ class COAnalysis extends DBCredentials
             $results = $this->fetchAssoc($query, $params);
         }
 
+        $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
         $suggestions = [];
         foreach ($results as $row) {
-            if ($row['avg_attainment'] < self::TARGET_ATTAINMENT_THRESHOLD) {
-                $suggestions[] = "CO {$row['co_label']} average ({$row['avg_attainment']}%) is below target. Consider remedial support.";
+            if ($row['avg_attainment'] < $targetThreshold) {
+                $suggestions[] = "CO {$row['co_label']} average ({$row['avg_attainment']}%) is below target (" . $targetThreshold . "%). Consider remedial support.";
             }
         }
 

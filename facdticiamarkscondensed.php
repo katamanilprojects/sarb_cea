@@ -21,9 +21,11 @@ $assessment_number = intval($_GET['assessment_number']);
 $subjectDetails = $facultyObj->getSubjectDetails($sub_id);
 $studentList = $facultyObj->getMappedStudents($sub_id);
 
-// Define condensed marks limits
-$CONDENSED_ACTIVITY = 15;
-$CONDENSED_INTERNAL = 15;
+$regulationCode = $ciaObj->getRegulationForSubject($sub_id);
+
+// Dynamically retrieve condensed marks limits from centralized academic settings
+$CONDENSED_ACTIVITY = (float)$ciaObj->getAcademicSetting('lab_cia_day_to_day_marks', $regulationCode, $sub_id, 15.0);
+$CONDENSED_INTERNAL = (float)$ciaObj->getAcademicSetting('lab_cia_internal_test_marks', $regulationCode, $sub_id, 15.0);
 
 // Calculate total possible marks for scaling
 $FULL_ACTIVITY = $ciaObj->getTotalMarksByType($sub_id, $assessment_number, "Activity");

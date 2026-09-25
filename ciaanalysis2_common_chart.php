@@ -177,7 +177,12 @@
                 </div>
             </div>
             <div class="card-footer text-muted small">
-                Analysis generated on: <?php echo date('Y-m-d H:i:s'); ?>. Target Attainment Threshold set at 60% for suggestions.
+                <?php
+                require_once __DIR__ . '/facciaanalysis2.class.php';
+                $coAnalysisFooter = new COAnalysis();
+                $targetThreshFooter = !empty($selected_sub_id) ? $coAnalysisFooter->getTargetAttainmentThreshold($selected_sub_id) : 60.0;
+                ?>
+                Analysis generated on: <?php echo date('Y-m-d H:i:s'); ?>. Target Attainment Threshold set at <?php echo rtrim(rtrim(number_format($targetThreshFooter, 2), '0'), '.'); ?>% for suggestions.
                 <?php
                 // Check if ANY data was found for the subject - basic check using one endpoint
                 //$facanalysisObj = new COAnalysis(); // Already instantiated

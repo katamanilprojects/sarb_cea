@@ -3,9 +3,18 @@ session_start();
 $page_title = "Add";
 require_once("faculty.class.php");
 require_once("cia.class.php");
+require_once __DIR__ . "/services/SettingsService.php";
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
+$settingsSvc = \Services\SettingsService::getInstance();
+
+$currentSubId = !empty($_POST['sub_id']) ? (int)$_POST['sub_id'] : (!empty($_GET['sub_id']) ? (int)$_GET['sub_id'] : 0);
+$subReg = $currentSubId > 0 ? $ciaObj->getRegulationForSubject($currentSubId) : 'R23';
+
+$maxSubjective = (float)$settingsSvc->get('theory_mid_subjective_condensed', $subReg, 15.0);
+$maxObjective = (float)$settingsSvc->get('theory_mid_objective_marks', $subReg, 10.0);
+$maxAssignment = (float)$settingsSvc->get('theory_assignment_marks', $subReg, 5.0);
 
 // Handle form submission
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode'] && !empty($_POST['submit_action'])) {
@@ -36,7 +45,7 @@ if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_
             $assignmentMarks = $_POST['assignment_marks'][$index];
 
             // Validate marks (ensure they are within the allowed range)
-            if ($subjectiveMarks > 15 || $subjectiveMarks < 0 || $objectiveMarks > 10 || $objectiveMarks < 0 || $assignmentMarks > 5 || $assignmentMarks < 0 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
+            if ($subjectiveMarks > $maxSubjective || $subjectiveMarks < 0 || $objectiveMarks > $maxObjective || $objectiveMarks < 0 || $assignmentMarks > $maxAssignment || $assignmentMarks < 0 || !is_numeric($subjectiveMarks) || !is_numeric($objectiveMarks) || !is_numeric($assignmentMarks)) {
                 $_SESSION["err"] = "Invalid marks entered for one or more students. Please check and try again.";
                 $isValid = false;
                 break;
@@ -115,18 +124,18 @@ require_once("facheader.php");
                             <thead>
                                 <tr>
                                     <th>Adm. No.<br />Student Name</th>
-                                    <th>Assignment (Max 5)</th>
-                                    <th>Objective (Max 10)</th>
-                                    <th>Subjective (Max 15)</th>
+                                    <th>Assignment (Max <?= $maxAssignment ?>)</th>
+                                    <th>Objective (Max <?= $maxObjective ?>)</th>
+                                    <th>Subjective (Max <?= $maxSubjective ?>)</th>
                                 </tr>
                             </thead>
                             <tbody>
                                 <?php foreach ($studentList as $key => $student) : ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($student['username'], ENT_QUOTES, 'UTF-8'); ?><br /><?php echo htmlspecialchars($student['name'], ENT_QUOTES, 'UTF-8'); ?><input type="hidden" name="student_id[]" value="<?php echo htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8'); ?>"></td>
-                                        <td><input type="number" step="any" min="0" max="5" name="assignment_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['assignment_marks'] : ''; ?>" required /></td>
-                                        <td><input type="number" step="any" min="0" max="10" name="objective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['objective_marks'] : ''; ?>" required /></td>
-                                        <td><input type="number" step="any" min="0" max="15" name="subjective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['subjective_marks'] : ''; ?>" required /></td>
+                                        <td><input type="number" step="any" min="0" max="<?= $maxAssignment ?>" name="assignment_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['assignment_marks'] : ''; ?>" required /></td>
+                                        <td><input type="number" step="any" min="0" max="<?= $maxObjective ?>" name="objective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['objective_marks'] : ''; ?>" required /></td>
+                                        <td><input type="number" step="any" min="0" max="<?= $maxSubjective ?>" name="subjective_marks[]" class="form-control" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['subjective_marks'] : ''; ?>" required /></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
@@ -168,6 +177,10 @@ require_once("facheader.php");
                 let isValid = true;
                 let firstInvalidInput = null; // To store the first invalid input
 
+                const maxSubj = <?= json_encode($maxSubjective) ?>;
+                const maxObj = <?= json_encode($maxObjective) ?>;
+                const maxAss = <?= json_encode($maxAssignment) ?>;
+
                 subjectiveInputs.forEach((input, index) => {
                     const subjectiveMarks = parseFloat(input.value);
                     const objectiveMarks = parseFloat(objectiveInputs[index].value);
@@ -175,35 +188,35 @@ require_once("facheader.php");
 
                     // Validate if the inputs are filled and within the specified ranges
                     if (
-                        isNaN(subjectiveMarks) || subjectiveMarks > 15 || subjectiveMarks < 0 ||
-                        isNaN(objectiveMarks) || objectiveMarks > 10 || objectiveMarks < 0 ||
-                        isNaN(assignmentMarks) || assignmentMarks > 5 || assignmentMarks < 0
+                        isNaN(subjectiveMarks) || subjectiveMarks > maxSubj || subjectiveMarks < 0 ||
+                        isNaN(objectiveMarks) || objectiveMarks > maxObj || objectiveMarks < 0 ||
+                        isNaN(assignmentMarks) || assignmentMarks > maxAss || assignmentMarks < 0
                     ) {
                         isValid = false;
 
                         // Identify the first invalid input and focus on it
                         if (!firstInvalidInput) {
-                            if (isNaN(assignmentMarks) || assignmentMarks > 5 || assignmentMarks < 0) {
+                            if (isNaN(assignmentMarks) || assignmentMarks > maxAss || assignmentMarks < 0) {
                                 firstInvalidInput = assignmentInputs[index];
-                            } else if (isNaN(objectiveMarks) || objectiveMarks > 10 || objectiveMarks < 0) {
+                            } else if (isNaN(objectiveMarks) || objectiveMarks > maxObj || objectiveMarks < 0) {
                                 firstInvalidInput = objectiveInputs[index];
-                            } else if (isNaN(subjectiveMarks) || subjectiveMarks > 15 || subjectiveMarks < 0) {
+                            } else if (isNaN(subjectiveMarks) || subjectiveMarks > maxSubj || subjectiveMarks < 0) {
                                 firstInvalidInput = input;
                             }
                         }
 
                         // Apply red border to invalid fields
-                        if (isNaN(subjectiveMarks) || subjectiveMarks > 15 || subjectiveMarks < 0) {
+                        if (isNaN(subjectiveMarks) || subjectiveMarks > maxSubj || subjectiveMarks < 0) {
                             input.style.border = "2px solid red"; // Highlight invalid subjective field
                         }else{
                             input.style.border = "";
                         }
-                        if (isNaN(objectiveMarks) || objectiveMarks > 10 || objectiveMarks < 0) {
+                        if (isNaN(objectiveMarks) || objectiveMarks > maxObj || objectiveMarks < 0) {
                             objectiveInputs[index].style.border = "2px solid red"; // Highlight invalid objective field
                         }else{
                             objectiveInputs[index].style.border = "";
                         }
-                        if (isNaN(assignmentMarks) || assignmentMarks > 5 || assignmentMarks < 0) {
+                        if (isNaN(assignmentMarks) || assignmentMarks > maxAss || assignmentMarks < 0) {
                             assignmentInputs[index].style.border = "2px solid red"; // Highlight invalid assignment field
                         }else{
                             assignmentInputs[index].style.border = "";
@@ -218,7 +231,7 @@ require_once("facheader.php");
 
                 if (!isValid) {
                     e.preventDefault(); // Prevent form submission if validation fails
-                    alert("Please enter valid marks:\n* Subjective: 0-15\n* Objective: 0-10\n* Assignment: 0-5");
+                    alert("Please enter valid marks:\n* Subjective: 0-" + maxSubj + "\n* Objective: 0-" + maxObj + "\n* Assignment: 0-" + maxAss);
 
                     // Focus on the first invalid input and set the cursor there
                     if (firstInvalidInput) {

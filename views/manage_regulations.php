@@ -1,7 +1,12 @@
 
 <div class="container mt-5">
     <div class="card">
-        <div class="card-header">Manage Regulations</div>
+        <div class="card-header d-flex justify-content-between align-items-center">
+            <span>Manage Regulations</span>
+            <a href="superadminacademicsettings.php" class="btn btn-sm btn-primary">
+                <i class="bi bi-sliders me-1"></i>Configure Academic Settings Engine
+            </a>
+        </div>
         <div class="card-body">
 
             <?php if (!empty($msg)) echo "<div class='alert alert-info'>$msg</div>"; ?>

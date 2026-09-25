@@ -161,4 +161,57 @@ class AttendanceRules extends User
             return ['status' => 0, 'error' => $e->getMessage()];
         }
     }
+
+    /**
+     * Map regulation ID to regulation code (e.g., 'R23', 'R20', 'R19').
+     */
+    public function getRegulationCodeById(int $reg_id): string
+    {
+        try {
+            $stmt = $this->conn->prepare("SELECT `regulation` FROM `regulations` WHERE `id` = ?");
+            if ($stmt) {
+                $stmt->bind_param("i", $reg_id);
+                if ($stmt->execute()) {
+                    $stmt->bind_result($reg);
+                    if ($stmt->fetch() && !empty($reg)) {
+                        $stmt->close();
+                        return strtoupper(trim($reg));
+                    }
+                }
+                $stmt->close();
+            }
+        } catch (Exception $e) {
+            $this->logs->errLog("getRegulationCodeById Exception: " . $e->getMessage());
+        }
+        return 'R23';
+    }
+
+    /**
+     * Fetch dynamic attendance thresholds (aggregate minimum, condonation floor, subject minimum)
+     * configured in the centralized academic settings engine.
+     */
+    public function getAttendanceThresholds(?string $regulation = 'R23'): array
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        $settings = \Services\SettingsService::getInstance();
+        return [
+            'min_aggregate' => (float) $settings->get('attendance_min_aggregate_pct', $regulation, 75.0),
+            'condone_floor' => (float) $settings->get('attendance_condone_floor_pct', $regulation, 65.0),
+            'min_subject'   => (float) $settings->get('attendance_min_subject_pct', $regulation, 40.0),
+        ];
+    }
+
+    /**
+     * Evaluate student attendance compliance status using dynamic autonomous rules.
+     *
+     * @param float $aggregatePct Overall attendance %
+     * @param float $minSubjectPct Lowest individual subject attendance %
+     * @param string|null $regulation Regulation code (e.g. 'R23', 'R20', 'R19')
+     * @return array ['status' => 'ELIGIBLE'|'CONDONATION'|'DETAINED', 'reason' => string]
+     */
+    public function evaluateStudentEligibility(float $aggregatePct, float $minSubjectPct = 100.0, ?string $regulation = 'R23'): array
+    {
+        require_once __DIR__ . '/services/SettingsService.php';
+        return \Services\SettingsService::getInstance()->evaluateAttendanceEligibility($aggregatePct, $minSubjectPct, $regulation);
+    }
 }
