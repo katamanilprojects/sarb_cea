@@ -9,6 +9,8 @@
 .env.php
 *.local.php
 *.local.json
+dbcredentials.class.php
+!dbcredentials.class.php.example
 .devin/
 .continue/
 
@@ -55,6 +57,7 @@ Thumbs.db
 *~
 
 # Archives, Dumps & Temp Files
+*.sql
 *.sql.gz
 *.dump
 *.tar
@@ -65,3 +68,8 @@ Thumbs.db
 *.bak
 *.old
 *.orig
+
+# User Manuals & PII Documents
+*_manual_*.pdf
+fac_user_manual*.pdf
+hod_manual*.pdf
