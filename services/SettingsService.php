@@ -595,7 +595,11 @@ class SettingsService
             'lesser_weight' => $lesserWeight,
             'better_component' => $betterComp,
             'lesser_component' => $lesserComp,
-            'final_cia' => $final
+            'better_weighted' => $betterComp,
+            'lesser_weighted' => $lesserComp,
+            'final_cia' => $final,
+            'final_rounded' => round($final),
+            'final_unrounded' => round($betterComp + $lesserComp, 2)
         ];
     }
 

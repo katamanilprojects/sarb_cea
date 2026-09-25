@@ -1,7 +1,22 @@
 <?php if (!empty($_POST['action'])) : 
-function e($str) {
-    return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+if (!function_exists('e')) {
+    function e($str) {
+        return htmlspecialchars((string)$str, ENT_QUOTES, 'UTF-8');
+    }
 }
+require_once __DIR__ . '/services/SettingsService.php';
+require_once __DIR__ . '/cia.class.php';
+$ciaHelper = new CIA();
+$activeReg = !empty($selected_sub_id) ? $ciaHelper->getRegulationForSubject((int)$selected_sub_id) : 'R23';
+$settingsSvc = \Services\SettingsService::getInstance();
+
+$minSubjectPct = (float)$settingsSvc->get('attendance_min_subject_pct', $activeReg, 40.0);
+$condoneFloor = (float)$settingsSvc->get('attendance_condone_floor_pct', $activeReg, 65.0);
+$minAggregatePct = (float)$settingsSvc->get('attendance_min_aggregate_pct', $activeReg, 75.0);
+$betterWt = (float)$settingsSvc->get('theory_mid_better_weight', $activeReg, 0.80);
+$lesserWt = (float)$settingsSvc->get('theory_mid_lesser_weight', $activeReg, 0.20);
+$betterPct = round($betterWt * 100);
+$lesserPct = round($lesserWt * 100);
 ?>
     <div class="card">
         <div class="card-header">
@@ -53,20 +68,6 @@ function e($str) {
                     </tbody>
                 </table>
                 <?php
-                require_once __DIR__ . '/services/SettingsService.php';
-                require_once __DIR__ . '/cia.class.php';
-                $ciaHelper = new CIA();
-                $activeReg = !empty($selected_sub_id) ? $ciaHelper->getRegulationForSubject((int)$selected_sub_id) : 'R23';
-                $settingsSvc = \Services\SettingsService::getInstance();
-
-                $minSubjectPct = (float)$settingsSvc->get('attendance_min_subject_pct', $activeReg, 40.0);
-                $condoneFloor = (float)$settingsSvc->get('attendance_condone_floor_pct', $activeReg, 65.0);
-                $minAggregatePct = (float)$settingsSvc->get('attendance_min_aggregate_pct', $activeReg, 75.0);
-                $betterWt = (float)$settingsSvc->get('theory_mid_better_weight', $activeReg, 0.80);
-                $lesserWt = (float)$settingsSvc->get('theory_mid_lesser_weight', $activeReg, 0.20);
-                $betterPct = round($betterWt * 100);
-                $lesserPct = round($lesserWt * 100);
-
                 $lessThan40 = [];
                 $lessThan65 = [];
                 $between65And75 = [];
@@ -327,8 +328,8 @@ function e($str) {
                                     <th rowspan="2" style="width:80px; font-size:11; text-align:center; vertical-align:middle;">Adm.No</th>
                                     <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 1</th>
                                     <th colspan="4" style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Continuous Internal Assessment - 2</th>
-                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $betterPct; ?>% of Best</th>
-                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $lesserPct; ?>% of Rest</th>
+                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $betterPct . '% of Best</th>
+                                    <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $lesserPct . '% of Rest</th>
                                     <th rowspan="2" style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final CIA</th>
                                 </tr>
                                 <tr>
@@ -479,8 +480,8 @@ function e($str) {
                                     <th style="width:80px; font-size:11; text-align:center; vertical-align:middle;">Adm.No</th>
                                     <th style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Internal Assessment - 1</th>
                                     <th style="width:200px; font-size:11; text-align:center; vertical-align:middle;">Internal Assessment - 2</th>
-                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $betterPct; ?>% of Best</th>
-                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;"><?php echo $lesserPct; ?>% of Rest</th>
+                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $betterPct . '% of Best</th>
+                                    <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">' . $lesserPct . '% of Rest</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final Internal</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Assignment</th>
                                     <th style="width:50px; font-size:11; text-align:center; vertical-align:middle;">Final CIA</th>
@@ -694,10 +695,10 @@ function e($str) {
             ?>
                 <form id="exportForm" method="post" action="export_excel.php">
                     <input type="hidden" name="table_html" id="table_html" />
-                    <input type="hidden" name="class" value="<?php echo $details['data']['classname'] . '(' . $details['data']['acad_year'] . ')'; ?>" />
-                    <input type="hidden" name="subject" value="<?php echo $details['data']['sub_fullname']; ?>" />
-                    <input type="hidden" name="faculty" value="<?php echo $details['data']['faculty_name']; ?>" />
-                    <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>" />
+                    <input type="hidden" name="class" value="<?php echo htmlspecialchars(($details['data']['classname'] ?? '') . '(' . ($details['data']['acad_year'] ?? '') . ')'); ?>" />
+                    <input type="hidden" name="subject" value="<?php echo htmlspecialchars($details['data']['sub_fullname'] ?? ''); ?>" />
+                    <input type="hidden" name="faculty" value="<?php echo htmlspecialchars($details['data']['faculty_name'] ?? ''); ?>" />
+                    <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode'] ?? ''; ?>" />
 
                     <button type="submit" class="btn btn-success">Download as Excel</button>
                 </form>
