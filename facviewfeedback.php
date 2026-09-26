@@ -42,21 +42,11 @@ $filteredSubIds = array_column($filteredFacultySubjects, 'id');
 $auth_error = null;
 
 if ($view_level === 'faculty') {
-    // Faculty self-appraisal
-    $feedbackData = $feedbackService->getFacultyFeedback($selected_fac_id);
+    // Faculty self-appraisal (accurately filtered by academic year when selected)
+    $feedbackData = $feedbackService->getFacultyFeedback($selected_fac_id, null, $selected_acad_year);
     if (($feedbackData['status'] ?? 0) == 1) {
         $coFeedbackReport = $feedbackData['co_feedback'] ?? [];
         $subjects = $feedbackData['subjects'] ?? [];
-        // If academic year is selected, filter subjects and CO feedback
-        if (!empty($selected_acad_year)) {
-            $feedbackData['subjects'] = array_values(array_filter($feedbackData['subjects'], function($s) use ($selected_acad_year) {
-                return ($s['acad_year'] ?? '') === $selected_acad_year;
-            }));
-            $filteredSubCodes = array_column($feedbackData['subjects'], 'subcode');
-            $feedbackData['co_feedback'] = array_values(array_filter($feedbackData['co_feedback'], function($c) use ($filteredSubCodes) {
-                return in_array($c['subcode'] ?? '', $filteredSubCodes);
-            }));
-        }
     }
 } else {
     // Subject-wise feedback
@@ -79,8 +69,8 @@ if ($view_level === 'faculty') {
                 $coFeedbackReport = $feedbackData['co_feedback'] ?? [];
                 $qnFeedbackReport = $feedbackData['qn_feedback'] ?? [];
                 $totalStudents = $feedbackData['total_enrolled'] ?? 0;
-                // Align academic year if not yet set
-                if (empty($selected_acad_year) && !empty($feedbackData['meta']['acad_year'])) {
+                // Align academic year if not explicitly posted or set
+                if (!isset($_POST['acad_year']) && empty($selected_acad_year) && !empty($feedbackData['meta']['acad_year'])) {
                     $selected_acad_year = $feedbackData['meta']['acad_year'];
                 }
             }

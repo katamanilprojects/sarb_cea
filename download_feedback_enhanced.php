@@ -46,6 +46,7 @@ $sub_id  = intval($_POST['sub_id'] ?? $_GET['sub_id'] ?? 0);
 $cls_id  = intval($_POST['cls_id'] ?? $_GET['cls_id'] ?? 0);
 $fac_id  = intval($_POST['fac_id'] ?? $_GET['fac_id'] ?? 0);
 $dept_id = intval($_POST['dept_id'] ?? $_GET['dept_id'] ?? 0);
+$acad_year = trim($_POST['acad_year'] ?? $_GET['acad_year'] ?? '');
 
 // Role scope enforcement
 if ($activeRole === 'faculty') {
@@ -84,7 +85,7 @@ if ($activeRole === 'faculty') {
         }
     } elseif ($level === 'faculty' && $fac_id > 0) {
         $feedbackService = new FeedbackService();
-        $facMeta = $feedbackService->getFacultyFeedback($fac_id)['faculty'] ?? [];
+        $facMeta = $feedbackService->getFacultyFeedback($fac_id, null, $acad_year)['faculty'] ?? [];
         if (!empty($facMeta) && isset($facMeta['dept_id']) && $facMeta['dept_id'] != $userDeptId) {
             die("Access Denied: Faculty does not belong to your department.");
         }
@@ -106,8 +107,8 @@ if ($format === 'csv') {
             $data = $feedbackService->getClassFeedback($cls_id);
             $filenamePrefix = "feedback_class_" . $cls_id;
         } elseif ($level === 'faculty') {
-            $data = $feedbackService->getFacultyFeedback($fac_id, $cls_id);
-            $filenamePrefix = "feedback_faculty_" . $fac_id;
+            $data = $feedbackService->getFacultyFeedback($fac_id, $cls_id, $acad_year);
+            $filenamePrefix = "feedback_faculty_" . $fac_id . (!empty($acad_year) ? "_{$acad_year}" : "");
         } elseif ($level === 'department') {
             $data = $feedbackService->getDepartmentFeedback($dept_id);
             $filenamePrefix = "feedback_department_" . $dept_id;
@@ -264,6 +265,7 @@ if ($format === 'csv') {
             fputcsv($output, ['Faculty Name:', $fac['faculty_name'] ?? 'N/A']);
             fputcsv($output, ['Designation:', $fac['designation'] ?? 'N/A']);
             fputcsv($output, ['Department:', $fac['dept_fullname'] ?? 'N/A']);
+            fputcsv($output, ['Academic Year:', $data['meta']['acad_year'] ?? (!empty($acad_year) ? $acad_year : 'All Academic Years')]);
             fputcsv($output, []);
             
             fputcsv($output, ['Total Assigned Courses:', $data['summary']['total_subjects'] ?? count($data['subjects'] ?? [])]);
@@ -272,19 +274,46 @@ if ($format === 'csv') {
                 fputcsv($output, ['Faculty Survey Score:', number_format($data['faculty_evaluations']['avg_score'], 2)]);
             }
             fputcsv($output, []);
+
+            if (!empty($data['academic_year_summary'])) {
+                fputcsv($output, ['ACADEMIC YEAR PERFORMANCE SUMMARY']);
+                fputcsv($output, ['Academic Year', 'Courses Taught', 'CO Responses', 'CO Feedback Average', 'Faculty Survey Score', 'Overall Rating']);
+                foreach ($data['academic_year_summary'] as $ayStats) {
+                    fputcsv($output, [
+                        $ayStats['acad_year'],
+                        $ayStats['total_subjects'],
+                        $ayStats['total_co_responses'],
+                        $ayStats['co_average'] > 0 ? number_format($ayStats['co_average'], 2) : 'N/A',
+                        $ayStats['faculty_eval_score'] > 0 ? number_format($ayStats['faculty_eval_score'], 2) : 'N/A',
+                        $ayStats['overall_rating'] > 0 ? number_format($ayStats['overall_rating'], 2) : 'N/A'
+                    ]);
+                }
+                fputcsv($output, []);
+            }
             
             // Assigned Courses
             fputcsv($output, ['ASSIGNED COURSES']);
-            fputcsv($output, ['S.No', 'Class', 'Subject Code', 'Subject Name', 'Type', 'Academic Year']);
+            fputcsv($output, ['S.No', 'Class', 'Subject Code', 'Subject Name', 'Type', 'Academic Year', 'CO Feedback Average']);
             $sno = 1;
             foreach ($data['subjects'] as $sub) {
+                $sid = $sub['id'] ?? 0;
+                $avg = floatval($sub['summary']['overall_co_avg'] ?? 0);
+                if ($avg <= 0 && !empty($data['co_feedback'])) {
+                    $subCOs = array_filter($data['co_feedback'], fn($c) => ($c['subject_id'] ?? 0) == $sid && intval($c['total_responses'] ?? 0) > 0);
+                    if (!empty($subCOs)) {
+                        $subCoSum = array_sum(array_map(fn($c) => floatval($c['average_rating']) * intval($c['total_responses']), $subCOs));
+                        $subCoCnt = array_sum(array_column($subCOs, 'total_responses'));
+                        $avg = $subCoCnt > 0 ? round($subCoSum / $subCoCnt, 2) : 0;
+                    }
+                }
                 fputcsv($output, [
                     $sno++,
                     $sub['classname'] ?? 'N/A',
                     $sub['subcode'],
                     $sub['sub_fullname'],
                     ucfirst($sub['sub_type'] ?? 'Theory'),
-                    $sub['acad_year'] ?? 'N/A'
+                    $sub['acad_year'] ?? 'N/A',
+                    $avg > 0 ? number_format($avg, 2) : 'N/A'
                 ]);
             }
             fputcsv($output, []);
@@ -379,7 +408,8 @@ if ($format === 'pdf') {
             'sub_id' => $sub_id,
             'cls_id' => $cls_id,
             'fac_id' => $fac_id,
-            'dept_id' => $dept_id
+            'dept_id' => $dept_id,
+            'acad_year' => $acad_year
         ]);
         
         $filename = basename($filepath);

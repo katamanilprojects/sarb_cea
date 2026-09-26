@@ -157,11 +157,16 @@ class FeedbackExcelService
             case 'faculty':
                 return $this->feedbackService->getFacultyFeedback(
                     intval($params['fac_id'] ?? 0),
-                    intval($params['cls_id'] ?? 0)
+                    intval($params['cls_id'] ?? 0),
+                    !empty($params['acad_year']) ? $params['acad_year'] : null
                 );
             case 'department':
                 return $this->feedbackService->getDepartmentFeedback(
-                    intval($params['dept_id'] ?? 0)
+                    intval($params['dept_id'] ?? 0),
+                    null,
+                    null,
+                    null,
+                    !empty($params['acad_year']) ? $params['acad_year'] : null
                 );
             default:
                 throw new Exception("Invalid feedback level: $level");
@@ -272,6 +277,9 @@ class FeedbackExcelService
             $row++;
             $sheet->setCellValue("A$row", "Department:");
             $sheet->setCellValue("B$row", $faculty['dept_fullname'] ?? 'N/A');
+            $row++;
+            $sheet->setCellValue("A$row", "Academic Year:");
+            $sheet->setCellValue("B$row", !empty($data['meta']['acad_year']) ? $data['meta']['acad_year'] : 'All Academic Years');
         } elseif ($level === 'department') {
             $dept = $data['department'] ?? [];
             $sheet->setCellValue("A$row", "Department:");
@@ -324,24 +332,31 @@ class FeedbackExcelService
         if ($level === 'subject') {
             $kpiData[] = ['label' => 'Total Enrolled', 'value' => $data['total_enrolled'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Responses Received', 'value' => $data['total_responded'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Response Rate (%)', 'value' => $data['response_rate'] ?? 0, 'type' => 'percentage'];
-            $kpiData[] = ['label' => 'Overall CO Rating', 'value' => $data['summary']['overall_avg'] ?? 0, 'type' => 'rating'];
+            $respRate = floatval($data['response_rate'] ?? 0);
+            $kpiData[] = ['label' => 'Response Rate (%)', 'value' => $respRate > 0 ? $respRate : 'N/A', 'type' => 'percentage'];
+            $avg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Overall CO Rating', 'value' => $avg > 0 ? $avg : 'N/A', 'type' => 'rating'];
         } elseif ($level === 'class') {
             $kpiData[] = ['label' => 'Total Students', 'value' => $data['total_students'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Total Responses', 'value' => $data['total_responded'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Response Rate (%)', 'value' => $data['response_rate'] ?? 0, 'type' => 'percentage'];
-            $kpiData[] = ['label' => 'Class Average Rating', 'value' => $data['summary']['overall_avg'] ?? 0, 'type' => 'rating'];
+            $respRate = floatval($data['response_rate'] ?? 0);
+            $kpiData[] = ['label' => 'Response Rate (%)', 'value' => $respRate > 0 ? $respRate : 'N/A', 'type' => 'percentage'];
+            $avg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Class Average Rating', 'value' => $avg > 0 ? $avg : 'N/A', 'type' => 'rating'];
         } elseif ($level === 'faculty') {
             $kpiData[] = ['label' => 'Total Subjects', 'value' => $data['summary']['total_subjects'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'CO Feedback Average', 'value' => $data['summary']['overall_co_avg'] ?? 0, 'type' => 'rating'];
+            $coAvg = floatval($data['summary']['overall_co_avg'] ?? 0);
+            $kpiData[] = ['label' => 'CO Feedback Average', 'value' => $coAvg > 0 ? $coAvg : 'N/A', 'type' => 'rating'];
             if (!empty($data['faculty_evaluations']['total_evaluations'])) {
-                $kpiData[] = ['label' => 'Faculty Survey Score', 'value' => $data['faculty_evaluations']['avg_score'] ?? 0, 'type' => 'rating'];
+                $feScore = floatval($data['faculty_evaluations']['avg_score'] ?? 0);
+                $kpiData[] = ['label' => 'Faculty Survey Score', 'value' => $feScore > 0 ? $feScore : 'N/A', 'type' => 'rating'];
             }
         } elseif ($level === 'department') {
             $kpiData[] = ['label' => 'Total Classes', 'value' => $data['summary']['total_classes'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Total Subjects', 'value' => $data['summary']['total_subjects'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Total Students', 'value' => $data['summary']['total_students'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Department Average', 'value' => $data['summary']['overall_avg'] ?? 0, 'type' => 'rating'];
+            $deptAvg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Department Average', 'value' => $deptAvg > 0 ? $deptAvg : 'N/A', 'type' => 'rating'];
         }
         
         return $kpiData;
@@ -352,6 +367,9 @@ class FeedbackExcelService
      */
     private function getKPIColor($value, $type)
     {
+        if ($value === 'N/A' || !is_numeric($value)) {
+            return '6C757D';
+        }
         if ($type === 'percentage') {
             if ($value >= 80) return $this->colors['accent_green'];
             if ($value >= 60) return $this->colors['accent_orange'];
@@ -400,7 +418,8 @@ class FeedbackExcelService
             
             // Status color coding
             $statusColor = $stat['status'] === 'Above Target' ? $this->colors['accent_green'] : 
-                          ($stat['status'] === 'Below Target' ? $this->colors['accent_red'] : $this->colors['accent_orange']);
+                          ($stat['status'] === 'Below Target' ? $this->colors['accent_red'] : 
+                          ($stat['status'] === 'N/A' ? '6C757D' : $this->colors['accent_orange']));
             $sheet->getStyle('D' . $row)->getFont()->setColor(new Color($statusColor))->setBold(true);
             
             $row++;
@@ -414,30 +433,31 @@ class FeedbackExcelService
     {
         $stats = [];
         
-        $overallAvg = $data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0);
-        $responseRate = $data['response_rate'] ?? 0;
+        $overallAvg = floatval($data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0));
+        $responseRate = floatval($data['response_rate'] ?? 0);
+        $totalResponded = intval($data['total_responded'] ?? ($data['summary']['total_responses'] ?? ($data['summary']['total_responded'] ?? 0)));
         
         $stats[] = [
             'metric' => 'Overall Rating',
-            'value' => number_format($overallAvg, 2),
+            'value' => $overallAvg > 0 ? number_format($overallAvg, 2) : 'N/A',
             'benchmark' => '≥ 3.5',
-            'status' => $overallAvg >= 3.5 ? 'Above Target' : ($overallAvg >= 3.0 ? 'On Target' : 'Below Target')
+            'status' => $overallAvg <= 0 ? 'N/A' : ($overallAvg >= 3.5 ? 'Above Target' : ($overallAvg >= 3.0 ? 'On Target' : 'Below Target'))
         ];
         
         $stats[] = [
             'metric' => 'Response Rate',
-            'value' => number_format($responseRate, 1) . '%',
+            'value' => ($totalResponded > 0 && $responseRate > 0) ? number_format($responseRate, 1) . '%' : 'N/A',
             'benchmark' => '≥ 75%',
-            'status' => $responseRate >= 75 ? 'Above Target' : ($responseRate >= 60 ? 'On Target' : 'Below Target')
+            'status' => ($totalResponded <= 0 || $responseRate <= 0) ? 'N/A' : ($responseRate >= 75 ? 'Above Target' : ($responseRate >= 60 ? 'On Target' : 'Below Target'))
         ];
         
         if ($level === 'subject' || $level === 'class') {
-            $positiveRate = $data['summary']['positive_response_pct'] ?? 0;
+            $positiveRate = floatval($data['summary']['positive_response_pct'] ?? 0);
             $stats[] = [
                 'metric' => 'Positive Response Rate',
-                'value' => number_format($positiveRate, 1) . '%',
+                'value' => ($totalResponded > 0 && $positiveRate > 0) ? number_format($positiveRate, 1) . '%' : 'N/A',
                 'benchmark' => '≥ 70%',
-                'status' => $positiveRate >= 70 ? 'Above Target' : ($positiveRate >= 50 ? 'On Target' : 'Below Target')
+                'status' => ($totalResponded <= 0 || $positiveRate <= 0) ? 'N/A' : ($positiveRate >= 70 ? 'Above Target' : ($positiveRate >= 50 ? 'On Target' : 'Below Target'))
             ];
         }
         
@@ -538,7 +558,7 @@ class FeedbackExcelService
         $sheet->getRowDimension($row)->setRowHeight(30);
         
         $row += 2;
-        $headers = ['S.No', 'Class', 'Subject Code', 'Subject Name', 'Type', 'Academic Year', 'CO Average', 'Status'];
+        $headers = ['S.No', 'Class', 'Subject Code', 'Subject Name', 'Type', 'Academic Year', 'CO Feedback Average', 'Status'];
         $col = 'A';
         foreach ($headers as $header) {
             $sheet->setCellValue($col . $row, $header);
@@ -554,8 +574,15 @@ class FeedbackExcelService
         $sno = 1;
         foreach ($subjects as $sub) {
             $sid = $sub['id'] ?? 0;
-            $subCOs = array_filter($data['co_feedback'] ?? [], fn($c) => ($c['subject_id'] ?? 0) == $sid);
-            $avg = !empty($subCOs) ? round(array_sum(array_column($subCOs, 'average_rating')) / count($subCOs), 2) : 0;
+            $avg = floatval($sub['summary']['overall_co_avg'] ?? 0);
+            if ($avg <= 0 && !empty($data['co_feedback'])) {
+                $subCOs = array_filter($data['co_feedback'], fn($c) => ($c['subject_id'] ?? 0) == $sid && intval($c['total_responses'] ?? 0) > 0);
+                if (!empty($subCOs)) {
+                    $subCoSum = array_sum(array_map(fn($c) => floatval($c['average_rating']) * intval($c['total_responses']), $subCOs));
+                    $subCoCnt = array_sum(array_column($subCOs, 'total_responses'));
+                    $avg = $subCoCnt > 0 ? round($subCoSum / $subCoCnt, 2) : 0;
+                }
+            }
             $status = $avg >= 4.0 ? 'Excellent' : ($avg >= 3.0 ? 'Good' : ($avg > 0 ? 'Needs Improvement' : 'N/A'));
             
             $col = 'A';
@@ -581,6 +608,44 @@ class FeedbackExcelService
         }
         
         $this->applyTableStyling($sheet, "A1:H" . ($row - 1));
+
+        if (!empty($data['academic_year_summary'])) {
+            $row += 2;
+            $sheet->setCellValue("A$row", "ACADEMIC YEAR PERFORMANCE SUMMARY");
+            $sheet->mergeCells("A" . $row . ":F" . $row);
+            $sheet->getStyle("A$row")->getFont()->setBold(true)->setSize(12)->setColor(new Color($this->colors['header_text']));
+            $sheet->getStyle("A$row")->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($this->colors['header_bg']);
+            $sheet->getStyle("A$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+            $sheet->getRowDimension($row)->setRowHeight(25);
+            $row++;
+
+            $ayHeaders = ['Academic Year', 'Courses Taught', 'CO Responses', 'CO Feedback Average', 'Faculty Survey Score', 'Overall Rating'];
+            $col = 'A';
+            foreach ($ayHeaders as $h) {
+                $sheet->setCellValue($col . $row, $h);
+                $sheet->getStyle($col . $row)->getFont()->setBold(true);
+                $sheet->getStyle($col . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($this->colors['subheader_bg']);
+                $sheet->getStyle($col . $row)->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                $col++;
+            }
+            $row++;
+            $startAyRow = $row;
+            foreach ($data['academic_year_summary'] as $ayStats) {
+                $sheet->setCellValue("A$row", $ayStats['acad_year']);
+                $sheet->setCellValue("B$row", $ayStats['total_subjects']);
+                $sheet->setCellValue("C$row", $ayStats['total_co_responses']);
+                $sheet->setCellValue("D$row", $ayStats['co_average'] > 0 ? number_format($ayStats['co_average'], 2) : 'N/A');
+                $sheet->setCellValue("E$row", $ayStats['faculty_eval_score'] > 0 ? number_format($ayStats['faculty_eval_score'], 2) : 'N/A');
+                $sheet->setCellValue("F$row", $ayStats['overall_rating'] > 0 ? number_format($ayStats['overall_rating'], 2) : 'N/A');
+                $sheet->getStyle("A$row:F$row")->getAlignment()->setHorizontal(Alignment::HORIZONTAL_CENTER);
+                if (($row % 2) == 0) {
+                    $sheet->getStyle('A' . $row . ':F' . $row)->getFill()->setFillType(Fill::FILL_SOLID)->getStartColor()->setRGB($this->colors['neutral_gray']);
+                }
+                $row++;
+            }
+            $this->applyTableStyling($sheet, "A" . ($startAyRow - 1) . ":F" . ($row - 1));
+        }
+
         $sheet->getColumnDimension('A')->setWidth(8);
         $sheet->getColumnDimension('B')->setWidth(20);
         $sheet->getColumnDimension('C')->setWidth(15);

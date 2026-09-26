@@ -46,6 +46,7 @@ $sub_id  = intval($_POST['sub_id'] ?? $_GET['sub_id'] ?? 0);
 $cls_id  = intval($_POST['cls_id'] ?? $_GET['cls_id'] ?? 0);
 $fac_id  = intval($_POST['fac_id'] ?? $_GET['fac_id'] ?? 0);
 $dept_id = intval($_POST['dept_id'] ?? $_GET['dept_id'] ?? 0);
+$acad_year = trim($_POST['acad_year'] ?? $_GET['acad_year'] ?? '');
 
 // Role scope enforcement
 if ($activeRole === 'faculty') {
@@ -84,7 +85,7 @@ if ($activeRole === 'faculty') {
         }
     } elseif ($level === 'faculty' && $fac_id > 0) {
         $feedbackService = new FeedbackService();
-        $facMeta = $feedbackService->getFacultyFeedback($fac_id)['faculty'] ?? [];
+        $facMeta = $feedbackService->getFacultyFeedback($fac_id, null, $acad_year)['faculty'] ?? [];
         if (!empty($facMeta) && isset($facMeta['dept_id']) && $facMeta['dept_id'] != $userDeptId) {
             die("Access Denied: Faculty does not belong to your department.");
         }
@@ -97,7 +98,8 @@ try {
         'sub_id' => $sub_id,
         'cls_id' => $cls_id,
         'fac_id' => $fac_id,
-        'dept_id' => $dept_id
+        'dept_id' => $dept_id,
+        'acad_year' => $acad_year
     ];
     
     // Validate format

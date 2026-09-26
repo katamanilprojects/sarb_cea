@@ -638,24 +638,35 @@ class FeedbackService
      *
      * @param int $faculty_id
      * @param int|null $class_id
+     * @param string|null $acad_year
      * @return array
      */
-    public function getFacultyFeedback($faculty_id, $class_id = null)
+    public function getFacultyFeedback($faculty_id, $class_id = null, $acad_year = null)
     {
         $myname = $this->classname . " - getFacultyFeedback - ";
         $res = [
             'status' => 0,
+            'meta' => [
+                'acad_year' => !empty($acad_year) ? $acad_year : 'All Academic Years'
+            ],
             'faculty' => [],
             'subjects' => [],
+            'total_enrolled' => 0,
+            'total_responded' => 0,
+            'response_rate' => 0,
             'co_feedback' => [],
             'faculty_evaluations' => [],
+            'academic_year_summary' => [],
             'summary' => [
                 'overall_avg' => 0,
                 'overall_co_avg' => 0,
                 'overall_fac_eval_avg' => 0,
                 'positive_response_pct' => 0,
                 'total_responses' => 0,
-                'total_subjects' => 0
+                'total_subjects' => 0,
+                'total_enrolled' => 0,
+                'total_responded' => 0,
+                'response_rate' => 0
             ]
         ];
 
@@ -684,17 +695,31 @@ class FeedbackService
             }
             $res['faculty'] = $fac;
 
-            // 2. Fetch assigned subjects
+            // 2. Fetch assigned subjects (filtered by class_id or acad_year if specified)
             $subQuery = "
                 SELECT s.id, s.subcode, s.sub_fullname, s.sub_shortname, s.sub_type, c.id AS class_id, c.classname, c.acad_year
                 FROM faculty_sub fs
                 JOIN subjects s ON fs.sub_id = s.id
                 JOIN classes c ON s.class_id = c.id
-                WHERE fs.faculty_id = ? " . (!empty($class_id) ? " AND s.class_id = " . intval($class_id) : "") . "
-                ORDER BY c.acad_year DESC, s.sub_fullname ASC
+                WHERE fs.faculty_id = ?
             ";
+            $bindTypes = "i";
+            $bindParams = [$faculty_id];
+
+            if (!empty($class_id)) {
+                $subQuery .= " AND s.class_id = ?";
+                $bindTypes .= "i";
+                $bindParams[] = intval($class_id);
+            }
+            if (!empty($acad_year)) {
+                $subQuery .= " AND c.acad_year = ?";
+                $bindTypes .= "s";
+                $bindParams[] = strval($acad_year);
+            }
+            $subQuery .= " ORDER BY c.acad_year DESC, s.sub_fullname ASC";
+
             $stmtSubs = $this->conn->prepare($subQuery);
-            $stmtSubs->bind_param("i", $faculty_id);
+            $stmtSubs->bind_param($bindTypes, ...$bindParams);
             $stmtSubs->execute();
             $subsResult = $stmtSubs->get_result();
             $subjects = $subsResult->fetch_all(MYSQLI_ASSOC);
@@ -711,6 +736,23 @@ class FeedbackService
             $subjectIds = array_column($subjects, 'id');
             $subIdList = implode(",", array_map('intval', $subjectIds));
 
+            // Enrollment & Response stats across assigned subjects
+            $facEnrollSql = "SELECT COUNT(DISTINCT stu_id) AS total FROM student_sub WHERE sub_id IN ($subIdList)";
+            $stmtFErr = $this->conn->query($facEnrollSql);
+            $facEnrollRow = $stmtFErr ? $stmtFErr->fetch_assoc() : [];
+            $res['total_enrolled'] = intval($facEnrollRow['total'] ?? 0);
+
+            $facRespSql = "SELECT COUNT(DISTINCT student_id) AS total FROM student_co_feedback WHERE subject_id IN ($subIdList)";
+            $stmtFResp = $this->conn->query($facRespSql);
+            $facRespRow = $stmtFResp ? $stmtFResp->fetch_assoc() : [];
+            $res['total_responded'] = intval($facRespRow['total'] ?? 0);
+
+            if ($res['total_enrolled'] > 0) {
+                $res['response_rate'] = round(($res['total_responded'] / $res['total_enrolled']) * 100, 1);
+            } else {
+                $res['response_rate'] = 0;
+            }
+
             // 3. CO feedback for faculty's subjects
             $coSql = "
                 SELECT 
@@ -718,6 +760,7 @@ class FeedbackService
                     s.subcode,
                     s.sub_fullname,
                     c.classname,
+                    c.acad_year,
                     co.co_number,
                     co.co_description,
                     COALESCE(AVG(scf.rating), 0) AS average_rating,
@@ -732,8 +775,8 @@ class FeedbackService
                 JOIN course_outcomes co ON s.id = co.sub_id
                 LEFT JOIN student_co_feedback scf ON co.id = scf.co_id AND scf.subject_id = s.id
                 WHERE s.id IN ($subIdList)
-                GROUP BY s.id, s.subcode, s.sub_fullname, c.classname, co.id, co.co_number, co.co_description
-                ORDER BY c.classname ASC, s.subcode ASC, co.co_number ASC
+                GROUP BY s.id, s.subcode, s.sub_fullname, c.classname, c.acad_year, co.id, co.co_number, co.co_description
+                ORDER BY c.acad_year DESC, c.classname ASC, s.subcode ASC, co.co_number ASC
             ";
             $coResult = $this->conn->query($coSql);
             $allCOs = [];
@@ -772,12 +815,13 @@ class FeedbackService
             // Fetch qualitative comments for faculty
             $facRemSql = "
                 SELECT 
-                    s.subcode, s.sub_fullname,
+                    s.subcode, s.sub_fullname, c.acad_year,
                     sff.faculty_strengths, sff.improvement_areas, sff.additional_comments, sff.submitted_at,
                     sff.is_anonymous,
                     CASE WHEN sff.is_anonymous = 1 THEN 'Anonymous' ELSE stu.username END AS student_roll
                 FROM student_faculty_feedback sff
                 JOIN subjects s ON sff.subject_id = s.id
+                JOIN classes c ON s.class_id = c.id
                 JOIN students stu ON sff.student_id = stu.id
                 WHERE sff.faculty_id = ? AND sff.subject_id IN ($subIdList)
                   AND (COALESCE(sff.faculty_strengths, '') != '' OR COALESCE(sff.improvement_areas, '') != '' OR COALESCE(sff.additional_comments, '') != '')
@@ -797,9 +841,82 @@ class FeedbackService
                 'remarks' => $facRemarks
             ];
 
+            // Attach per-subject summary stats using calculateSummaryStats
+            $enrichedSubjects = [];
+            foreach ($subjects as $sub) {
+                $sid = $sub['id'];
+                $subCOs = array_filter($allCOs, fn($c) => ($c['subject_id'] ?? 0) == $sid);
+                $sub['summary'] = $this->calculateSummaryStats($subCOs);
+                $enrichedSubjects[] = $sub;
+            }
+            $subjects = $enrichedSubjects;
+            $res['subjects'] = $subjects;
+
+            // 5. Compute Academic Year-Wise Performance Summary
+            $facYearEvalSql = "
+                SELECT 
+                    c.acad_year,
+                    COUNT(sff.id) AS total_evaluations,
+                    COALESCE(AVG((fac_q1+fac_q2+fac_q3+fac_q4+fac_q5+fac_q6+fac_q7+fac_q8+fac_q9+fac_q10+fac_q11+fac_q12+fac_q13+fac_q14+fac_q15+fac_q16+fac_q17+fac_q18+fac_q19)/19.0), 0) AS avg_faculty_score
+                FROM student_faculty_feedback sff
+                JOIN subjects s ON sff.subject_id = s.id
+                JOIN classes c ON s.class_id = c.id
+                WHERE sff.faculty_id = ? AND sff.subject_id IN ($subIdList)
+                GROUP BY c.acad_year
+            ";
+            $stmtFEY = $this->conn->prepare($facYearEvalSql);
+            $stmtFEY->bind_param("i", $faculty_id);
+            $stmtFEY->execute();
+            $feyRows = $stmtFEY->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmtFEY->close();
+
+            $feyMap = [];
+            foreach ($feyRows as $r) {
+                $feyMap[$r['acad_year']] = [
+                    'total_evaluations' => intval($r['total_evaluations'] ?? 0),
+                    'avg_faculty_score' => round(floatval($r['avg_faculty_score'] ?? 0), 2)
+                ];
+            }
+
+            $distinctYears = array_values(array_unique(array_filter(array_column($subjects, 'acad_year'))));
+            rsort($distinctYears);
+
+            $aySummary = [];
+            foreach ($distinctYears as $yr) {
+                $yrSubs = array_filter($subjects, fn($s) => ($s['acad_year'] ?? '') === $yr);
+                $yrSubIds = array_column($yrSubs, 'id');
+                $yrCOs = array_filter($allCOs, fn($co) => in_array($co['subject_id'] ?? 0, $yrSubIds));
+                
+                $yrStats = $this->calculateSummaryStats($yrCOs);
+                $yrCOAvg = floatval($yrStats['overall_co_avg'] ?? 0);
+                $yrCOResp = count($yrCOs) > 0 ? max(array_column($yrCOs, 'total_responses')) : 0;
+                $yrFacScore = $feyMap[$yr]['avg_faculty_score'] ?? 0;
+                $yrTotalEvals = $feyMap[$yr]['total_evaluations'] ?? 0;
+
+                if ($yrCOAvg > 0 && $yrFacScore > 0) {
+                    $yrOverall = round(($yrCOAvg + $yrFacScore) / 2, 2);
+                } else {
+                    $yrOverall = $yrCOAvg > 0 ? $yrCOAvg : $yrFacScore;
+                }
+
+                $aySummary[$yr] = [
+                    'acad_year' => $yr,
+                    'total_subjects' => count($yrSubs),
+                    'total_co_responses' => $yrCOResp,
+                    'co_average' => $yrCOAvg,
+                    'faculty_eval_score' => $yrFacScore,
+                    'total_evaluations' => $yrTotalEvals,
+                    'overall_rating' => $yrOverall
+                ];
+            }
+            $res['academic_year_summary'] = $aySummary;
+
             $res['summary'] = $this->calculateSummaryStats($allCOs);
             $res['summary']['total_subjects'] = count($subjects);
             $res['summary']['overall_fac_eval_avg'] = $res['faculty_evaluations']['avg_score'];
+            $res['summary']['total_enrolled'] = $res['total_enrolled'];
+            $res['summary']['total_responded'] = $res['total_responded'];
+            $res['summary']['response_rate'] = $res['response_rate'];
             $res['status'] = 1;
 
         } catch (Exception $e) {
@@ -829,7 +946,7 @@ class FeedbackService
 
         // If faculty is selected, delegate to faculty feedback
         if (!empty($faculty_id) && $faculty_id !== 'all') {
-            return $this->getFacultyFeedback($faculty_id, $class_id);
+            return $this->getFacultyFeedback($faculty_id, $class_id, $acad_year);
         }
 
         // If class is selected, delegate to class feedback
@@ -915,6 +1032,8 @@ class FeedbackService
             $res['summary']['total_responses'] = $totalResponsesDept;
             $res['summary']['total_ratings_count'] = $totalRatingsDept;
             $res['summary']['overall_avg'] = ($totalRatingsDept > 0) ? round($weightedRatingSum / $totalRatingsDept, 2) : (($totalResponsesDept > 0) ? round($weightedRatingSum / $totalResponsesDept, 2) : 0);
+            $res['response_rate'] = $totalClassStudents > 0 ? round(($totalResponsesDept / $totalClassStudents) * 100, 1) : 0;
+            $res['summary']['response_rate'] = $res['response_rate'];
             $res['status'] = 1;
 
         } catch (Exception $e) {

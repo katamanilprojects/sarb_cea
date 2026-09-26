@@ -85,6 +85,7 @@ $canExport = $hasContent && (
 );
 
 $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $selected_sub_id;
+$effectiveAcadYear = !empty($selected_acad_year) ? $selected_acad_year : ($feedbackData['meta']['acad_year'] ?? '');
 ?>
 
 <style>
@@ -118,6 +119,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-success bg-white shadow-sm">
                             <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
                         </button>
@@ -130,6 +132,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-secondary bg-white shadow-sm">
                             <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                         </button>
@@ -142,6 +145,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-danger bg-white shadow-sm">
                             <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
                         </button>
@@ -175,7 +179,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <div class="col-md-3">
                         <div class="p-3 bg-light border rounded text-center">
                             <div class="text-muted small text-uppercase fw-semibold">Dept Average</div>
-                            <h3 class="mt-2 mb-0 text-dark"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                            <h3 class="mt-2 mb-0 <?= $kpi_overall_avg > 0 ? 'text-dark' : 'text-muted' ?>">
+                                <?= $kpi_overall_avg > 0 ? number_format($kpi_overall_avg, 2) . ' <small class="text-muted fs-6">/ 5.0</small>' : 'N/A' ?>
+                            </h3>
                         </div>
                     </div>
 
@@ -189,7 +195,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <div class="col-md-4">
                         <div class="p-3 bg-light border rounded text-center">
                             <div class="text-muted small text-uppercase fw-semibold">CO Feedback Average</div>
-                            <h3 class="mt-2 mb-0 text-success"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                            <h3 class="mt-2 mb-0 <?= $kpi_overall_avg > 0 ? 'text-success' : 'text-muted' ?>">
+                                <?= $kpi_overall_avg > 0 ? number_format($kpi_overall_avg, 2) . ' <small class="text-muted fs-6">/ 5.0</small>' : 'N/A' ?>
+                            </h3>
                         </div>
                     </div>
                     <div class="col-md-4">
@@ -222,7 +230,9 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     <div class="col-sm-6 col-md">
                         <div class="p-3 bg-light border rounded text-center h-100">
                             <div class="text-muted small text-uppercase fw-semibold">Average Rating</div>
-                            <h3 class="mt-2 mb-0 text-dark"><?= number_format($kpi_overall_avg, 2) ?> <small class="text-muted fs-6">/ 5.0</small></h3>
+                            <h3 class="mt-2 mb-0 <?= $kpi_overall_avg > 0 ? 'text-dark' : 'text-muted' ?>">
+                                <?= $kpi_overall_avg > 0 ? number_format($kpi_overall_avg, 2) . ' <small class="text-muted fs-6">/ 5.0</small>' : 'N/A' ?>
+                            </h3>
                         </div>
                     </div>
                     <div class="col-sm-6 col-md">
@@ -346,6 +356,66 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
 
             <?php elseif ($activeViewLevel === 'faculty' && !empty($feedbackData['subjects'])): ?>
                 <!-- Faculty Level Overview -->
+                <?php if (!empty($feedbackData['academic_year_summary'])): ?>
+                    <h5 class="fw-bold text-secondary mb-3">
+                        <i class="bi bi-calendar3 me-2"></i>Academic Year-Wise Performance Overview
+                    </h5>
+                    <div class="table-responsive mb-4">
+                        <table class="table table-hover table-bordered align-middle">
+                            <thead class="table-light">
+                                <tr>
+                                    <th>Academic Year</th>
+                                    <th class="text-center">Assigned Courses</th>
+                                    <th class="text-center">CO Responses</th>
+                                    <th class="text-center">CO Feedback Average</th>
+                                    <th class="text-center">Faculty Survey Score (1-5)</th>
+                                    <th class="text-center">Overall Performance</th>
+                                </tr>
+                            </thead>
+                            <tbody>
+                                <?php foreach ($feedbackData['academic_year_summary'] as $ayStats): 
+                                    $coA = floatval($ayStats['co_average'] ?? 0);
+                                    $feS = floatval($ayStats['faculty_eval_score'] ?? 0);
+                                    $ovR = floatval($ayStats['overall_rating'] ?? 0);
+                                ?>
+                                    <tr>
+                                        <td><strong><i class="bi bi-calendar-check me-1 text-primary"></i><?= htmlspecialchars($ayStats['acad_year']) ?></strong></td>
+                                        <td class="text-center"><?= $ayStats['total_subjects'] ?></td>
+                                        <td class="text-center"><?= $ayStats['total_co_responses'] ?></td>
+                                        <td class="text-center">
+                                            <?php if ($coA > 0): ?>
+                                                <span class="badge <?= $coA >= 3.5 ? 'bg-success' : ($coA >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                    <?= number_format($coA, 2) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted">N/A</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php if ($feS > 0): ?>
+                                                <span class="badge <?= $feS >= 3.5 ? 'bg-success' : ($feS >= 2.5 ? 'bg-primary' : 'bg-warning text-dark') ?> fs-6">
+                                                    <?= number_format($feS, 2) ?>
+                                                </span>
+                                            <?php else: ?>
+                                                <span class="text-muted">N/A</span>
+                                            <?php endif; ?>
+                                        </td>
+                                        <td class="text-center">
+                                            <?php if ($ovR > 0): ?>
+                                                <strong class="text-<?= $ovR >= 3.5 ? 'success' : ($ovR >= 2.5 ? 'primary' : 'warning') ?> fs-6">
+                                                    <?= number_format($ovR, 2) ?> <small class="text-muted">/ 5.0</small>
+                                                </strong>
+                                            <?php else: ?>
+                                                <span class="text-muted">N/A</span>
+                                            <?php endif; ?>
+                                        </td>
+                                    </tr>
+                                <?php endforeach; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                <?php endif; ?>
+
                 <h5 class="fw-bold text-secondary mb-3">Assigned Courses Feedback</h5>
                 <div class="table-responsive mb-4">
                     <table class="table table-hover table-bordered align-middle">
@@ -355,15 +425,40 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                                 <th>Subject Code</th>
                                 <th>Subject Name</th>
                                 <th class="text-center">Academic Year</th>
+                                <th class="text-center">CO Feedback Average</th>
+                                <th class="text-center">Performance Status</th>
                             </tr>
                         </thead>
                         <tbody>
-                            <?php foreach ($feedbackData['subjects'] as $sub): ?>
+                            <?php foreach ($feedbackData['subjects'] as $sub): 
+                                $sid = $sub['id'] ?? 0;
+                                $avg = floatval($sub['summary']['overall_co_avg'] ?? 0);
+                                if ($avg <= 0 && !empty($feedbackData['co_feedback'])) {
+                                    $subCOs = array_filter($feedbackData['co_feedback'], fn($c) => ($c['subject_id'] ?? 0) == $sid && intval($c['total_responses'] ?? 0) > 0);
+                                    if (!empty($subCOs)) {
+                                        $subCoSum = array_sum(array_map(fn($c) => floatval($c['average_rating']) * intval($c['total_responses']), $subCOs));
+                                        $subCoCnt = array_sum(array_column($subCOs, 'total_responses'));
+                                        $avg = $subCoCnt > 0 ? round($subCoSum / $subCoCnt, 2) : 0;
+                                    }
+                                }
+                                $status = $avg >= 4.0 ? 'Excellent' : ($avg >= 3.0 ? 'Good' : ($avg > 0 ? 'Needs Improvement' : 'Pending'));
+                                $statusBadge = $avg >= 4.0 ? 'bg-success' : ($avg >= 3.0 ? 'bg-primary' : ($avg > 0 ? 'bg-warning text-dark' : 'bg-secondary'));
+                            ?>
                                 <tr>
                                     <td><?= htmlspecialchars($sub['classname']) ?></td>
                                     <td><strong><?= htmlspecialchars($sub['subcode']) ?></strong></td>
                                     <td><?= htmlspecialchars($sub['sub_fullname']) ?></td>
                                     <td class="text-center"><?= htmlspecialchars($sub['acad_year']) ?></td>
+                                    <td class="text-center">
+                                        <?php if ($avg > 0): ?>
+                                            <span class="badge <?= $statusBadge ?> fs-6"><?= number_format($avg, 2) ?></span>
+                                        <?php else: ?>
+                                            <span class="text-muted">N/A</span>
+                                        <?php endif; ?>
+                                    </td>
+                                    <td class="text-center">
+                                        <span class="badge <?= $statusBadge ?>"><?= $status ?></span>
+                                    </td>
                                 </tr>
                             <?php endforeach; ?>
                         </tbody>
@@ -1181,6 +1276,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-success">
                             <i class="bi bi-file-earmark-excel me-1"></i>Export Excel
                         </button>
@@ -1193,6 +1289,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-secondary">
                             <i class="bi bi-file-earmark-spreadsheet me-1"></i>Export CSV
                         </button>
@@ -1205,6 +1302,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                         <input type="hidden" name="cls_id" value="<?= htmlspecialchars($selected_cls_id ?? '') ?>">
                         <input type="hidden" name="fac_id" value="<?= htmlspecialchars($selected_fac_id ?? '') ?>">
                         <input type="hidden" name="dept_id" value="<?= htmlspecialchars($selected_dept_id ?? '') ?>">
+                        <input type="hidden" name="acad_year" value="<?= htmlspecialchars($effectiveAcadYear) ?>">
                         <button type="submit" class="btn btn-sm btn-outline-danger">
                             <i class="bi bi-file-earmark-pdf me-1"></i>Export PDF
                         </button>

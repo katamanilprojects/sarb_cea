@@ -461,8 +461,10 @@ class EnhancedPDFService
             $facName = htmlspecialchars($fac['faculty_name'] ?? 'N/A');
             $deptName = htmlspecialchars($fac['dept_fullname'] ?? 'N/A');
             $desig = htmlspecialchars($fac['designation'] ?? 'Faculty');
+            $acadYear = htmlspecialchars(!empty($data['meta']['acad_year']) ? $data['meta']['acad_year'] : 'All Academic Years');
             
             $html .= '
+                            <tr><td style="padding: 6px 0; font-weight: bold; color: #1e3a8a;">Academic Year:</td><td>' . $acadYear . '</td></tr>
                             <tr><td style="padding: 6px 0; font-weight: bold; color: #1e3a8a;">Faculty Name:</td><td>' . $facName . '</td></tr>
                             <tr><td style="padding: 6px 0; font-weight: bold; color: #1e3a8a;">Designation:</td><td>' . $desig . '</td></tr>
                             <tr><td style="padding: 6px 0; font-weight: bold; color: #1e3a8a;">Department:</td><td>' . $deptName . '</td></tr>
@@ -863,7 +865,8 @@ class EnhancedPDFService
         
         foreach ($stats as $stat) {
             $statusColor = $stat['status'] === 'Above Target' ? 'success' : 
-                          ($stat['status'] === 'Below Target' ? 'danger' : 'warning');
+                          ($stat['status'] === 'Below Target' ? 'danger' : 
+                          ($stat['status'] === 'N/A' ? 'secondary' : 'warning'));
             $html .= '
                 <tr>
                     <td class="text-bold">' . $stat['metric'] . '</td>
@@ -1183,24 +1186,67 @@ class EnhancedPDFService
             <thead>
                 <tr>
                     <th style="width: 5%;">#</th>
-                    <th style="width: 25%;">Class</th>
-                    <th style="width: 15%;">Subject Code</th>
-                    <th style="width: 40%;">Subject Name</th>
-                    <th style="width: 15%; text-align: center;">Academic Year</th>
+                    <th style="width: 23%;">Class</th>
+                    <th style="width: 14%;">Subject Code</th>
+                    <th style="width: 30%;">Subject Name</th>
+                    <th style="width: 14%; text-align: center;">Academic Year</th>
+                    <th style="width: 14%; text-align: center;">CO Feedback Average</th>
                 </tr>
             </thead>
             <tbody>';
         $sno = 1;
         foreach (($data['subjects'] ?? []) as $sub) {
+            $sid = $sub['id'] ?? 0;
+            $avg = floatval($sub['summary']['overall_co_avg'] ?? 0);
+            if ($avg <= 0 && !empty($data['co_feedback'])) {
+                $subCOs = array_filter($data['co_feedback'], fn($c) => ($c['subject_id'] ?? 0) == $sid && intval($c['total_responses'] ?? 0) > 0);
+                if (!empty($subCOs)) {
+                    $subCoSum = array_sum(array_map(fn($c) => floatval($c['average_rating']) * intval($c['total_responses']), $subCOs));
+                    $subCoCnt = array_sum(array_column($subCOs, 'total_responses'));
+                    $avg = $subCoCnt > 0 ? round($subCoSum / $subCoCnt, 2) : 0;
+                }
+            }
             $html .= '<tr>
                 <td style="text-align: center;">' . ($sno++) . '</td>
                 <td>' . htmlspecialchars($sub['classname'] ?? '') . '</td>
                 <td class="text-bold">' . htmlspecialchars($sub['subcode'] ?? '') . '</td>
                 <td>' . htmlspecialchars($sub['sub_fullname'] ?? '') . '</td>
                 <td style="text-align: center;">' . htmlspecialchars($sub['acad_year'] ?? '') . '</td>
+                <td style="text-align: center; font-weight: bold;">' . ($avg > 0 ? number_format($avg, 2) : 'N/A') . '</td>
             </tr>';
         }
         $html .= '</tbody></table>';
+
+        if (!empty($data['academic_year_summary'])) {
+            $html .= '<div class="section-title" style="margin-top: 25px;">Academic Year Performance Summary</div>';
+            $html .= '<table class="data-table">
+                <thead>
+                    <tr>
+                        <th style="width: 20%;">Academic Year</th>
+                        <th style="width: 14%; text-align: center;">Courses</th>
+                        <th style="width: 16%; text-align: center;">CO Responses</th>
+                        <th style="width: 18%; text-align: center;">CO Feedback Average</th>
+                        <th style="width: 16%; text-align: center;">Faculty Survey</th>
+                        <th style="width: 16%; text-align: center;">Overall</th>
+                    </tr>
+                </thead>
+                <tbody>';
+            foreach ($data['academic_year_summary'] as $ayStats) {
+                $coA = floatval($ayStats['co_average'] ?? 0);
+                $feS = floatval($ayStats['faculty_eval_score'] ?? 0);
+                $ovR = floatval($ayStats['overall_rating'] ?? 0);
+                $html .= '<tr>
+                    <td class="text-bold">' . htmlspecialchars($ayStats['acad_year']) . '</td>
+                    <td style="text-align: center;">' . $ayStats['total_subjects'] . '</td>
+                    <td style="text-align: center;">' . $ayStats['total_co_responses'] . '</td>
+                    <td style="text-align: center;">' . ($coA > 0 ? number_format($coA, 2) : 'N/A') . '</td>
+                    <td style="text-align: center;">' . ($feS > 0 ? number_format($feS, 2) : 'N/A') . '</td>
+                    <td style="text-align: center; font-weight: bold;">' . ($ovR > 0 ? number_format($ovR, 2) . ' / 5.0' : 'N/A') . '</td>
+                </tr>';
+            }
+            $html .= '</tbody></table>';
+        }
+
         $this->mpdf->WriteHTML($html);
         $this->mpdf->AddPage();
     }
@@ -1351,11 +1397,16 @@ class EnhancedPDFService
             case 'faculty':
                 return $this->feedbackService->getFacultyFeedback(
                     intval($params['fac_id'] ?? 0),
-                    intval($params['cls_id'] ?? 0)
+                    intval($params['cls_id'] ?? 0),
+                    !empty($params['acad_year']) ? $params['acad_year'] : null
                 );
             case 'department':
                 return $this->feedbackService->getDepartmentFeedback(
-                    intval($params['dept_id'] ?? 0)
+                    intval($params['dept_id'] ?? 0),
+                    null,
+                    null,
+                    null,
+                    !empty($params['acad_year']) ? $params['acad_year'] : null
                 );
             default:
                 throw new Exception("Invalid feedback level: $level");
@@ -1369,23 +1420,30 @@ class EnhancedPDFService
         if ($level === 'subject') {
             $kpiData[] = ['label' => 'Total Enrolled', 'value' => $data['total_enrolled'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Responses', 'value' => $data['total_responded'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Response Rate', 'value' => ($data['response_rate'] ?? 0) . '%', 'type' => 'percentage'];
-            $kpiData[] = ['label' => 'Overall Rating', 'value' => number_format($data['summary']['overall_avg'] ?? 0, 2), 'type' => 'rating'];
+            $respRate = floatval($data['response_rate'] ?? 0);
+            $kpiData[] = ['label' => 'Response Rate', 'value' => ($respRate > 0 ? $respRate . '%' : 'N/A'), 'type' => 'percentage'];
+            $avg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Overall Rating', 'value' => $avg > 0 ? number_format($avg, 2) : 'N/A', 'type' => 'rating'];
         } elseif ($level === 'class') {
             $kpiData[] = ['label' => 'Total Students', 'value' => $data['total_students'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Responses', 'value' => $data['total_responded'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Response Rate', 'value' => ($data['response_rate'] ?? 0) . '%', 'type' => 'percentage'];
-            $kpiData[] = ['label' => 'Class Average', 'value' => number_format($data['summary']['overall_avg'] ?? 0, 2), 'type' => 'rating'];
+            $respRate = floatval($data['response_rate'] ?? 0);
+            $kpiData[] = ['label' => 'Response Rate', 'value' => ($respRate > 0 ? $respRate . '%' : 'N/A'), 'type' => 'percentage'];
+            $avg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Class Average', 'value' => $avg > 0 ? number_format($avg, 2) : 'N/A', 'type' => 'rating'];
         } elseif ($level === 'faculty') {
             $kpiData[] = ['label' => 'Courses Assigned', 'value' => count($data['subjects'] ?? []), 'type' => 'count'];
-            $kpiData[] = ['label' => 'CO Overall Average', 'value' => number_format($data['summary']['overall_co_avg'] ?? 0, 2), 'type' => 'rating'];
+            $coAvg = floatval($data['summary']['overall_co_avg'] ?? 0);
+            $kpiData[] = ['label' => 'CO Feedback Average', 'value' => $coAvg > 0 ? number_format($coAvg, 2) : 'N/A', 'type' => 'rating'];
             $kpiData[] = ['label' => 'Student Evaluations', 'value' => $data['faculty_evaluations']['total_evaluations'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Appraisal Score (1-5)', 'value' => !empty($data['faculty_evaluations']['avg_score']) ? number_format($data['faculty_evaluations']['avg_score'], 2) : 'N/A', 'type' => 'rating'];
+            $feScore = floatval($data['faculty_evaluations']['avg_score'] ?? 0);
+            $kpiData[] = ['label' => 'Faculty Survey Score', 'value' => $feScore > 0 ? number_format($feScore, 2) : 'N/A', 'type' => 'rating'];
         } elseif ($level === 'department') {
             $kpiData[] = ['label' => 'Total Classes', 'value' => $data['summary']['total_classes'] ?? count($data['classes'] ?? []), 'type' => 'count'];
             $kpiData[] = ['label' => 'Total Students', 'value' => $data['summary']['total_students'] ?? 0, 'type' => 'count'];
             $kpiData[] = ['label' => 'Total Responses', 'value' => $data['summary']['total_responses'] ?? 0, 'type' => 'count'];
-            $kpiData[] = ['label' => 'Department Average', 'value' => number_format($data['summary']['overall_avg'] ?? 0, 2), 'type' => 'rating'];
+            $deptAvg = floatval($data['summary']['overall_avg'] ?? 0);
+            $kpiData[] = ['label' => 'Department Average', 'value' => $deptAvg > 0 ? number_format($deptAvg, 2) : 'N/A', 'type' => 'rating'];
         }
         
         return $kpiData;
@@ -1394,21 +1452,22 @@ class EnhancedPDFService
     private function getSummaryStatistics($data, $level)
     {
         $stats = [];
-        $overallAvg = $data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0);
-        $responseRate = $data['response_rate'] ?? 0;
+        $overallAvg = floatval($data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0));
+        $responseRate = floatval($data['response_rate'] ?? 0);
+        $totalResponded = intval($data['total_responded'] ?? ($data['summary']['total_responses'] ?? ($data['summary']['total_responded'] ?? 0)));
         
         $stats[] = [
             'metric' => 'Overall Rating',
-            'value' => number_format($overallAvg, 2),
+            'value' => $overallAvg > 0 ? number_format($overallAvg, 2) : 'N/A',
             'benchmark' => '≥ 3.5',
-            'status' => $overallAvg >= 3.5 ? 'Above Target' : ($overallAvg >= 3.0 ? 'On Target' : 'Below Target')
+            'status' => $overallAvg <= 0 ? 'N/A' : ($overallAvg >= 3.5 ? 'Above Target' : ($overallAvg >= 3.0 ? 'On Target' : 'Below Target'))
         ];
         
         $stats[] = [
             'metric' => 'Response Rate',
-            'value' => number_format($responseRate, 1) . '%',
+            'value' => ($totalResponded > 0 && $responseRate > 0) ? number_format($responseRate, 1) . '%' : 'N/A',
             'benchmark' => '≥ 75%',
-            'status' => $responseRate >= 75 ? 'Above Target' : ($responseRate >= 60 ? 'On Target' : 'Below Target')
+            'status' => ($totalResponded <= 0 || $responseRate <= 0) ? 'N/A' : ($responseRate >= 75 ? 'Above Target' : ($responseRate >= 60 ? 'On Target' : 'Below Target'))
         ];
         
         return $stats;
@@ -1416,13 +1475,21 @@ class EnhancedPDFService
     
     private function getKPIColor($value, $type)
     {
+        $cleanVal = str_replace('%', '', strval($value));
+        if ($value === 'N/A' || !is_numeric($cleanVal)) {
+            return '#6c757d';
+        }
+        $val = floatval($cleanVal);
+        if ($val <= 0) {
+            return '#6c757d';
+        }
         if ($type === 'percentage') {
-            if ($value >= 80) return $this->colors['success'];
-            if ($value >= 60) return $this->colors['warning'];
+            if ($val >= 80) return $this->colors['success'];
+            if ($val >= 60) return $this->colors['warning'];
             return $this->colors['danger'];
         } elseif ($type === 'rating') {
-            if ($value >= 4.0) return $this->colors['success'];
-            if ($value >= 3.0) return $this->colors['warning'];
+            if ($val >= 4.0) return $this->colors['success'];
+            if ($val >= 3.0) return $this->colors['warning'];
             return $this->colors['danger'];
         }
         return $this->colors['accent'];
@@ -1475,13 +1542,20 @@ class EnhancedPDFService
     
     private function getResponseRate($data)
     {
-        $rate = $data['response_rate'] ?? 0;
+        $rate = floatval($data['response_rate'] ?? 0);
+        $totalResponded = intval($data['total_responded'] ?? ($data['summary']['total_responses'] ?? ($data['summary']['total_responded'] ?? 0)));
+        if ($rate <= 0 || $totalResponded <= 0) {
+            return 'N/A (No responses recorded)';
+        }
         return $rate >= 75 ? 'Excellent (≥75%)' : ($rate >= 60 ? 'Good (60-74%)' : 'Needs Improvement (<60%)');
     }
     
     private function getOverallPerformance($data)
     {
-        $avg = $data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0);
+        $avg = floatval($data['summary']['overall_avg'] ?? ($data['summary']['overall_co_avg'] ?? 0));
+        if ($avg <= 0) {
+            return 'N/A (No evaluations recorded)';
+        }
         return $avg >= 4.0 ? 'Outstanding (≥4.0)' : ($avg >= 3.0 ? 'Satisfactory (3.0-3.9)' : 'Below Expectations (<3.0)');
     }
     
@@ -1505,7 +1579,7 @@ class EnhancedPDFService
         $coFeedback = $data['co_feedback'] ?? [];
         
         foreach ($coFeedback as $co) {
-            if ($co['average_rating'] < 3.0) {
+            if ($co['average_rating'] > 0 && $co['average_rating'] < 3.0) {
                 $areas[] = 'CO' . $co['co_number'] . ' (' . number_format($co['average_rating'], 2) . ')';
             }
         }
