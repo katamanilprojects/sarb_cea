@@ -40,6 +40,9 @@ require_once("facheader.php"); // Ensure this includes Bootstrap CSS and potenti
                                 <a href="facciamarks.php" class="btn btn-outline-success d-block mb-2">
                                     <i class="bi bi-pencil-square me-1"></i> Enter CIA Marks & MetaData
                                 </a>
+                                <a href="facseemarks.php" class="btn btn-outline-primary d-block mb-2">
+                                    <i class="bi bi-journal-check me-1"></i> Enter SEE Marks & MetaData
+                                </a>
                                 <a href="facciaanalysis2.php" class="btn btn-outline-success d-block">
                                     <i class="bi bi-graph-up me-1"></i> View CIA Analysis
                                 </a>

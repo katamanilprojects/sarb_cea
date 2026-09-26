@@ -744,6 +744,144 @@ if (!empty($attendanceData['data'])) {
         $mpdf->WriteHTML($internalMarksHTML);
     }
 
+    // ==========================================
+    // SECTION: EXTERNAL QUESTION PAPER & ATTAINMENT
+    // ==========================================
+    require_once("cia.class.php");
+    $ciaObj = new CIA();
+    $cosList = $ciaObj->getCOsBySubjectId($sub_id);
+
+    if (!empty($cosList['data'])) {
+        $regCode = $ciaObj->getRegulationForSubject($sub_id);
+        $w_cia = (float)$ciaObj->getAcademicSetting('attainment_direct_cia_weight', $regCode, $sub_id, 0.30);
+        $w_see = (float)$ciaObj->getAcademicSetting('attainment_direct_see_weight', $regCode, $sub_id, 0.70);
+
+        $ciaAttainment = $ciaObj->calculateCIACOAttainment($sub_id);
+        $seeAttainment = $ciaObj->calculateSEECOAttainment($sub_id);
+        $isSeePending = (!empty($seeAttainment['pending']) || empty($seeAttainment['status']));
+
+        $seeComponent = $ciaObj->getOrCreateSEEComponent($sub_id, 'SEE-Theory');
+        $seeQuestions = $ciaObj->getQuestionsByComponent($seeComponent['id']);
+
+        if (!empty($seeQuestions) || !$isSeePending) {
+            $mpdf->AddPage();
+
+            $seeAnalysisHTML = '<div style="font-family: Arial, sans-serif;">
+                <h3 style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; font-size: 15px;">
+                    Semester End Examination (SEE) Question Paper Analysis
+                </h3>';
+
+            if (empty($seeQuestions)) {
+                $seeAnalysisHTML .= '<p style="text-align: center; color: red; font-style: italic; font-size: 11px;">Question paper metadata has not been configured.</p>';
+            } else {
+                $seeAnalysisHTML .= '<table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-top: 15px; font-size: 11px;">
+                    <thead>
+                        <tr style="background-color: #f2f2f2;">
+                            <th style="width: 15%; text-align: center;">Q. No</th>
+                            <th style="width: 20%; text-align: center;">Type</th>
+                            <th style="width: 15%; text-align: center;">Marks</th>
+                            <th style="width: 25%; text-align: center;">Bloom\'s Taxonomy Level</th>
+                            <th style="width: 25%; text-align: center;">Mapped Course Outcomes</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+
+                $btlDistribution = [];
+                foreach ($seeQuestions as $q) {
+                    $cosMapped = $ciaObj->getCOsByQuestion($q['id']);
+                    $btlId = intval($q['blooms_level_id']);
+                    $btlDistribution[$btlId] = isset($btlDistribution[$btlId]) ? ($btlDistribution[$btlId] + floatval($q['marks'])) : floatval($q['marks']);
+
+                    $seeAnalysisHTML .= '<tr>
+                        <td style="text-align: center; font-weight: bold;">Q' . htmlspecialchars($q['question_label']) . '</td>
+                        <td style="text-align: center;">' . htmlspecialchars($q['question_type']) . '</td>
+                        <td style="text-align: center;">' . floatval($q['marks']) . '</td>
+                        <td style="text-align: center;">Level ' . $btlId . '</td>
+                        <td style="text-align: center;">' . (!empty($cosMapped) ? implode(', ', $cosMapped) : 'N/A') . '</td>
+                    </tr>';
+                }
+
+                $seeAnalysisHTML .= '</tbody></table>';
+
+                // Bloom\'s Taxonomy Summary
+                $seeAnalysisHTML .= '<h4 style="margin-top: 20px; font-size: 13px;">Bloom\'s Taxonomy Marks Weightage Distribution:</h4>
+                <table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 11px;">
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="text-align: center;">Remember (L1)</th>
+                        <th style="text-align: center;">Understand (L2)</th>
+                        <th style="text-align: center;">Apply (L3)</th>
+                        <th style="text-align: center;">Analyze (L4)</th>
+                        <th style="text-align: center;">Evaluate (L5)</th>
+                        <th style="text-align: center;">Create (L6)</th>
+                    </tr>
+                    <tr>';
+
+                for ($lvl = 1; $lvl <= 6; $lvl++) {
+                    $mVal = isset($btlDistribution[$lvl]) ? $btlDistribution[$lvl] . ' M' : '0 M';
+                    $seeAnalysisHTML .= '<td style="text-align: center; font-weight: bold;">' . $mVal . '</td>';
+                }
+
+                $seeAnalysisHTML .= '</tr></table>';
+            }
+
+            $seeAnalysisHTML .= '</div>';
+            $mpdf->WriteHTML($seeAnalysisHTML);
+
+            // ==========================================
+            // SECTION: DIRECT CO ATTAINMENT MATRIX
+            // ==========================================
+            $mpdf->AddPage();
+            $coMatrixHTML = '<div style="font-family: Arial, sans-serif;">
+                <h3 style="text-align: center; border-bottom: 2px solid #000; padding-bottom: 5px; font-size: 15px;">
+                    Course Outcome (CO) Direct Attainment Matrix
+                </h3>';
+
+            if ($isSeePending) {
+                $coMatrixHTML .= '<div style="background-color: #fff3cd; color: #856404; padding: 8px 12px; border: 1px solid #ffeeba; margin-top: 10px; margin-bottom: 12px; font-size: 10px;">
+                    <strong>Notice:</strong> Semester End Examination (SEE) marks have not been submitted yet. Direct attainment shown below is calculated strictly using Continuous Internal Assessment (CIA).
+                </div>';
+            }
+
+            $ciaWeightPct = round($w_cia * 100);
+            $seeWeightPct = round($w_see * 100);
+
+            $coMatrixHTML .= '<table border="1" cellpadding="5" cellspacing="0" style="width: 100%; border-collapse: collapse; margin-top: 10px; font-size: 11px;">
+                <thead>
+                    <tr style="background-color: #f2f2f2;">
+                        <th style="text-align: center; width: 25%;">Course Outcome</th>
+                        <th style="text-align: center; width: 25%;">Internal (CIA) Attainment Level</th>
+                        <th style="text-align: center; width: 25%;">External (SEE) Attainment Level</th>
+                        <th style="text-align: center; width: 25%;">Weighted Direct Attainment<br><small>(' . $ciaWeightPct . '% CIA + ' . $seeWeightPct . '% SEE)</small></th>
+                    </tr>
+                </thead>
+                <tbody>';
+
+            foreach ($cosList['data'] as $co) {
+                $coNum = $co['co_number'];
+                $ciaLevel = isset($ciaAttainment['data'][$coNum]['attainment_level']) ? floatval($ciaAttainment['data'][$coNum]['attainment_level']) : 0.0;
+
+                if ($isSeePending) {
+                    $seeLevelText = 'Pending';
+                    $finalDirect = $ciaLevel;
+                } else {
+                    $seeLevel = isset($seeAttainment['data'][$coNum]['attainment_level']) ? floatval($seeAttainment['data'][$coNum]['attainment_level']) : 0.0;
+                    $seeLevelText = $seeLevel;
+                    $finalDirect = round(($w_cia * $ciaLevel) + ($w_see * $seeLevel), 2);
+                }
+
+                $coMatrixHTML .= '<tr>
+                    <td style="font-weight: bold; text-align: center;">CO' . htmlspecialchars($coNum) . '</td>
+                    <td style="text-align: center;">' . $ciaLevel . '</td>
+                    <td style="text-align: center;">' . $seeLevelText . '</td>
+                    <td style="text-align: center; font-weight: bold; background-color: #e9ecef;">' . $finalDirect . '</td>
+                </tr>';
+            }
+
+            $coMatrixHTML .= '</tbody></table></div>';
+            $mpdf->WriteHTML($coMatrixHTML);
+        }
+    }
+
     // Output PDF to browser
     $mpdf->Output('attendance_report_' . date("dmyhis") . '.pdf', 'D');
 } else {

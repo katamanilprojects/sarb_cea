@@ -64,6 +64,7 @@ require_once("facheader.php");
 										<li><i class="bi bi-paperclip me-2"></i> Add / View Attachments related to Continuous Internal Assessments</li>
 									</ul>
 								</li>
+								<li><strong class="my-2 d-block"><i class="bi bi-journal-check me-2"></i>Add / View Semester End Examination (SEE) Marks & MetaData: </strong> Use this option to configure external question paper blueprints (compulsory short questions & Either/Or choice groups), enter detailed question scores (Mode A) or direct university ledger totals (Mode B), and calculate external Course Outcome direct attainment.</li>
 								<li><strong class="my-2 d-block"><i class="bi bi-pie-chart me-2"></i>CIA Analysis: </strong>Use this option to View CIA Analysis. To get Analysis, Add Detailed Marks of the Student for each Course</li>
 								<li>
 									<strong class="my-2 d-block"><i class="bi bi-chat-left-text me-2"></i>View Student Feedbacks: </strong> Access and review feedback provided by students, which can be valuable for course improvement and understanding student perspectives.

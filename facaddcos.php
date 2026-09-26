@@ -3,9 +3,11 @@ session_start();
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
+require_once("courseoutcome.class.php");
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
+$coObj = new CourseOutcome();
 $faculty_id = $_SESSION['facid'];
 $facultySubjects = $facultyObj->getSubjectsByFacultyId($faculty_id);
 $selected_sub_id = null;
@@ -21,7 +23,7 @@ if (isset($_POST['submit_cos'])) {
         $b = substr($k, 2);
         $v = trim($v);
         if ($a == "co") {
-            $ciaObj->addCO($selected_sub_id, $b, $v);
+            $coObj->addCO($selected_sub_id, $b, $v);
         }
     }
 }
@@ -32,7 +34,7 @@ if (!empty($_POST['add_co']) && !empty($_POST['co_number']) && !empty($_POST['co
         unset($_SESSION['secretcode']);
         $co_description = trim($_POST['co_description']);
         $co_number = trim($_POST['co_number']);
-        $ciaObj->addCO($selected_sub_id, $co_number, $co_description);
+        $coObj->addCO($selected_sub_id, $co_number, $co_description);
         $_SESSION['succ'] = "CO added successfully.";
     } else {
         $_SESSION['err'] = "Invalid request. Please try again.";
@@ -67,7 +69,7 @@ if (isset($_POST['submit_qn_question']) && !empty($selected_sub_id)) {
 }
 
 // Fetch existing COs
-$courseOutcomes = $selected_sub_id ? $ciaObj->getCOsBySubjectId($selected_sub_id) : [];
+$courseOutcomes = $selected_sub_id ? $coObj->getCOsBySubjectId($selected_sub_id) : [];
 $questionnaireQuestions = $selected_sub_id ? $facultyObj->getSubjectQuestionnaireQuestions($selected_sub_id) : [];
 
 // Generate new secret code

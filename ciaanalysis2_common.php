@@ -196,14 +196,18 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                                     if (label) {
                                                         label += ': ';
                                                     }
-                                                    if (context.parsed.y !== null) {
-                                                        label += context.parsed.y + (isPercentage ? '%' : '');
+                                                    const itemData = response.data[context.dataIndex];
+                                                    if (context.parsed.y !== null && context.parsed.y !== undefined && (!itemData || itemData.is_assessed !== false)) {
+                                                        const formattedVal = isPercentage ? parseFloat(context.parsed.y).toFixed(2) + '%' : context.parsed.y;
+                                                        label += formattedVal;
+                                                    } else {
+                                                        label += 'Not Assessed in this Assessment';
                                                     }
                                                     // Add description on tooltip (example for CO chart)
-                                                    if (endpoint === 'co_attainment' && response.data[context.dataIndex]?.co_description) {
-                                                        label += `\n(${response.data[context.dataIndex].co_description})`;
-                                                    } else if (endpoint === 'po_attainment' && response.data[context.dataIndex]?.po_description) {
-                                                        label += `\n(${response.data[context.dataIndex].po_description})`;
+                                                    if (endpoint === 'co_attainment' && itemData?.co_description) {
+                                                        label += `\n(${itemData.co_description})`;
+                                                    } else if (endpoint === 'po_attainment' && itemData?.po_description) {
+                                                        label += `\n(${itemData.po_description})`;
                                                     }
                                                     return label;
                                                 }
@@ -259,10 +263,15 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                 // Apply conditional styling for low CO attainment
                                 let attainmentClass = '';
                                 let attainmentDisplay = item.co_attainment;
-                                if (attainmentDisplay !== 'N/A' && parseFloat(attainmentDisplay) < TARGET_THRESHOLD) {
-                                    attainmentClass = 'low-attainment';
+                                if (attainmentDisplay !== 'N/A' && attainmentDisplay !== null && attainmentDisplay !== undefined) {
+                                    const numVal = parseFloat(attainmentDisplay);
+                                    if (numVal < TARGET_THRESHOLD) {
+                                        attainmentClass = 'low-attainment';
+                                    }
+                                    attainmentDisplay = numVal.toFixed(2) + '%';
+                                } else {
+                                    attainmentDisplay = 'N/A';
                                 }
-                                if (attainmentDisplay !== 'N/A') attainmentDisplay += '%'; // Add % sign
 
 
                                 tableHtml += `<tr>
@@ -316,6 +325,20 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                     plugins: {
                                         legend: {
                                             display: true
+                                        },
+                                        tooltip: {
+                                            callbacks: {
+                                                label: function(context) {
+                                                    let label = context.dataset.label || '';
+                                                    if (label) label += ': ';
+                                                    if (context.parsed.y !== null && context.parsed.y !== undefined) {
+                                                        label += parseFloat(context.parsed.y).toFixed(2) + '%';
+                                                    } else {
+                                                        label += 'Not Assessed in this Assessment';
+                                                    }
+                                                    return label;
+                                                }
+                                            }
                                         }
                                     },
                                     scales: {
@@ -438,6 +461,7 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                 }
 
                                 const pct = parseFloat(item.attainment_percentage);
+                                const pctFormatted = (!isNaN(pct)) ? pct.toFixed(2) : '0.00';
                                 const meetsTarget = pct >= TARGET_THRESHOLD;
                                 const statusBadge = meetsTarget 
                                     ? `<span class="badge bg-success p-2">&check; Target Met (&ge; ${TARGET_THRESHOLD}%)</span>`
@@ -452,7 +476,7 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                         </div>
                                         <div class="mt-1">
                                             <div class="display-6 fw-bold ${meetsTarget ? 'text-success' : 'text-danger'} mb-1">
-                                                ${pct}%
+                                                ${pctFormatted}%
                                             </div>
                                             <div class="mb-2">${statusBadge}</div>
                                             <div class="d-flex justify-content-center gap-2 text-muted small">
@@ -648,7 +672,10 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                                             tooltip: {
                                                 callbacks: {
                                                     label: function(context) {
-                                                        return (context.dataset.label || '') + ': ' + context.parsed.y + '%';
+                                                        const yVal = (context.parsed.y !== null && context.parsed.y !== undefined)
+                                                            ? parseFloat(context.parsed.y).toFixed(2) + '%'
+                                                            : 'N/A';
+                                                        return (context.dataset.label || '') + ': ' + yVal;
                                                     }
                                                 }
                                             }
@@ -700,15 +727,16 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                         loadQuestionDifficultyTable(); // function below
 
 
-                        // Add listener to redraw charts if tab becomes visible (useful if rendering issues occur)
+                        // Add listener to redraw charts if tab becomes visible (handles Chart.js rendering in hidden tabs)
                         $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
                             const targetPaneId = $(e.target).attr('data-bs-target');
-                            const canvasId = $(targetPaneId).find('canvas').attr('id');
-                            if (canvasId && chartInstances[canvasId]) {
-                                // Optional: Force resize/render if needed, but Chart.js 4 often handles this well
-                                // chartInstances[canvasId].resize();
-                            } else if (targetPaneId === '#copo-matrix-tab-pane') {
-                                // Reload matrix if needed, or just ensure it's visible
+                            if (targetPaneId) {
+                                $(targetPaneId).find('canvas').each(function() {
+                                    const canvasId = $(this).attr('id');
+                                    if (canvasId && chartInstances[canvasId]) {
+                                        chartInstances[canvasId].resize();
+                                    }
+                                });
                             }
                         });
                     } else {

@@ -370,7 +370,7 @@ $exportSubId = ($selected_sub_id === 'all' || empty($selected_sub_id)) ? '' : $s
                     </table>
                 </div>
 
-                <?php if (!empty($feedbackData['co_feedback'])): ?>
+                <?php if (!empty($feedbackData['co_feedback']) && empty($hideFacultyCOBreakdown)): ?>
                     <h5 class="fw-bold text-secondary mb-3">Course Outcomes Breakdown</h5>
                     <div class="table-responsive">
                         <table class="table table-striped table-bordered align-middle">

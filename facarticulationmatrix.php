@@ -4,9 +4,11 @@ $page_title = "Articulation Matrix";
 require_once("facheader.php"); // Ensure this handles faculty login checks
 require_once("faculty.class.php");
 require_once("cia.class.php");
+require_once("courseoutcome.class.php");
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
+$coObj = new CourseOutcome();
 $faculty_id = $_SESSION['facid'];
 
 $facultySubjects = $facultyObj->getSubjectsByFacultyId($faculty_id);
@@ -34,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             // Check if save button was clicked AND if we are conceptually in 'Add' mode (even though mode is re-checked later)
             if (isset($_POST['save_mappings']) && $selected_sub_id) {
                 // Fetch COs and POs/PSOs needed for saving
-                $cos_result_save = $ciaObj->getCOsBySubjectId($selected_sub_id);
-                $pops_result_save = $ciaObj->getRelevantPoPso($selected_sub_id);
+                $cos_result_save = $coObj->getCOsBySubjectId($selected_sub_id);
+                $pops_result_save = $coObj->getRelevantPoPso($selected_sub_id);
                 $submitted_mappings = $_POST['mapping'] ?? [];
 
                 if ($cos_result_save['status'] && $pops_result_save['status'] && !empty($cos_result_save['data']) && !empty($pops_result_save['data'])) {
@@ -65,7 +67,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             // If a valid weightage is submitted, add it using addUpdate (handles potential duplicates gracefully)
                             if ($submitted_weightage !== null) {
-                                if ($ciaObj->addUpdateCoPoMapping($co_id, $po_id, $submitted_weightage)) {
+                                if ($coObj->addUpdateCoPoMapping($co_id, $po_id, $submitted_weightage)) {
                                     $changes_made++;
                                 } else {
                                     $errors_occurred++;
@@ -86,11 +88,11 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             // --- Fetch Data for Display (runs after potential save or just for view) ---
             if ($selected_sub_id) {
-                $co_result = $ciaObj->getCOsBySubjectId($selected_sub_id);
+                $co_result = $coObj->getCOsBySubjectId($selected_sub_id);
                 if ($co_result['status']) { $courseOutcomes = $co_result['data']; }
                 else { $err .= " Could not fetch Course Outcomes."; }
 
-                $pops_result = $ciaObj->getRelevantPoPso($selected_sub_id); // Uses updated method with ordering
+                $pops_result = $coObj->getRelevantPoPso($selected_sub_id);
                 if ($pops_result['status']) { $poPsoItems = $pops_result['data']; }
                 else { $err .= " Could not fetch POs/PSOs for this subject's regulation/specialization."; }
 
@@ -98,7 +100,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                 if (!empty($courseOutcomes) && !empty($poPsoItems)) {
                     $co_ids = array_column($courseOutcomes, 'id');
                     $po_pso_ids = array_column($poPsoItems, 'id');
-                    $currentMappings = $ciaObj->getCoPoMappings($co_ids, $po_pso_ids);
+                    $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
                     // Set Mode based on whether mappings *now* exist (after potential save)
                     if (!empty($currentMappings)) {
                         $matrix_mode = 'View'; // If mappings exist, switch to View mode

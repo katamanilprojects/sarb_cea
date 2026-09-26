@@ -166,6 +166,9 @@ require_once("facheader.php");
             </div>
 
             <?php
+            // Hide the redundant raw Course Outcomes Breakdown in faculty self-appraisal view,
+            // as faculty inspect comprehensive CO indirect attainment under "Subject-wise CO Feedback".
+            $hideFacultyCOBreakdown = true;
             require_once("modulefeedback.php");
             ?>
         </div>
