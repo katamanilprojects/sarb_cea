@@ -604,7 +604,7 @@ class HOD extends User
     {
         $res = null;
         try {
-            $stmt = $this->conn->prepare("SELECT id, classname, start_date, end_date, reg_id, reg, spec_id, yearsem, acad_year FROM classes WHERE id = ?");
+            $stmt = $this->conn->prepare("SELECT c.id, c.classname, c.start_date, c.end_date, c.reg_id, r.regulation, r.regulation AS reg, c.spec_id, c.yearsem, c.acad_year FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id WHERE c.id = ?");
             $stmt->bind_param("i", $class_id);
             $stmt->execute();
             $result = $stmt->get_result();

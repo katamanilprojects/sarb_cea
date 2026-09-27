@@ -83,7 +83,6 @@ $loadGroupContext = function($progId, $acadYear, $yearSem) use ($superadmin, $pr
         'end_date' => $firstClass['end_date'] ?? '',
         'timing_id' => $firstClass['timing_id'] ?? '',
         'reg_id' => $firstClass['reg_id'] ?? '',
-        'reg' => $firstClass['reg'] ?? '',
         'regulation' => $firstClass['regulation'] ?? ($firstClass['reg'] ?? ''),
         'status' => $firstClass['status'] ?? 1,
         'classes' => $groupClasses,
@@ -201,7 +200,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     'start_date' => $postStartDate,
                     'end_date' => $postEndDate,
                     'timing_id' => $postTimingId,
-                    'reg' => $selectedRegulation,
                     'reg_id' => $postRegId,
                     'status' => $postStatus
                 ]);
@@ -238,7 +236,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                             'start_date' => $postStartDate,
                             'end_date' => $postEndDate,
                             'timing_id' => $postTimingId,
-                            'reg' => $selectedRegulation,
                             'reg_id' => $postRegId,
                             'status' => $postStatus,
                         ];
@@ -478,7 +475,7 @@ require_once("superadminheader.php");
                                                                             <td><?= htmlspecialchars($classGroup['start_date'] ?? ''); ?></td>
                                                                             <td><?= htmlspecialchars($classGroup['end_date'] ?? ''); ?></td>
                                                                             <td><?= (int)($classGroup['timing_id'] ?? 0); ?></td>
-                                                                            <td><?= htmlspecialchars(!empty($classGroup['regulation']) ? $classGroup['regulation'] : ($classGroup['reg'] ?? '')); ?></td>
+                                                                            <td><?= htmlspecialchars($classGroup['regulation'] ?? ($classGroup['reg'] ?? '')); ?></td>
                                                                             <td>
                                                                                 <?php
                                                                                 $endDate = !empty($classGroup['end_date']) ? strtotime($classGroup['end_date']) : false;

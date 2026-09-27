@@ -50,9 +50,10 @@ trait COAttainmentTrait
         if ($subId <= 0) {
             return 'R23';
         }
-        $query = "SELECT c.reg FROM subjects s JOIN classes c ON s.class_id = c.id WHERE s.id = ?";
+        $query = "SELECT r.regulation FROM subjects s JOIN classes c ON s.class_id = c.id JOIN regulations r ON c.reg_id = r.id WHERE s.id = ?";
         $rows = $this->fetchAssoc($query, [$subId]);
-        return !empty($rows[0]['reg']) ? strtoupper(trim($rows[0]['reg'])) : 'R23';
+        $foundReg = $rows[0]['regulation'] ?? ($rows[0]['reg'] ?? '');
+        return !empty($foundReg) ? strtoupper(trim($foundReg)) : 'R23';
     }
 
     /**

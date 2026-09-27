@@ -175,7 +175,6 @@ Academic classes/cohorts defining a group of students in an academic year, semes
 | `status` | `int(11)` | No | - | 1 | 1 = Current / Active, 0 = Archived |
 | `spec_id` | `int(5)` | No | UNI | - | Foreign key referencing specialization.id |
 | `timing_id` | `int(11)` | No | - | 1 | Class timing slot group ID referencing class_timings.timing_id |
-| `reg` | `varchar(10)` | No | - | - | Regulation name string (e.g., R20) |
 | `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 

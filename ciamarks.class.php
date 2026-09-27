@@ -834,9 +834,10 @@ trait CIAMarksTrait
 
         try {
             $stmt = $this->conn->prepare("
-                SELECT c.reg 
+                SELECT r.regulation 
                 FROM subjects s 
                 JOIN classes c ON s.class_id = c.id 
+                JOIN regulations r ON c.reg_id = r.id 
                 WHERE s.id = ?
             ");
             if ($stmt) {

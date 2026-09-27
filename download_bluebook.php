@@ -88,7 +88,7 @@ if (!empty($attendanceData['data'])) {
 
     $regulation = 'R23';
     $dbConn = DBCredentials::getInstance()->getConnection();
-    if ($rStmt = $dbConn->prepare("SELECT c.reg FROM subjects s JOIN classes c ON s.class_id = c.id WHERE s.id = ?")) {
+    if ($rStmt = $dbConn->prepare("SELECT r.regulation FROM subjects s JOIN classes c ON s.class_id = c.id JOIN regulations r ON c.reg_id = r.id WHERE s.id = ?")) {
         $rStmt->bind_param("i", $sub_id);
         if ($rStmt->execute()) {
             $rStmt->bind_result($foundReg);

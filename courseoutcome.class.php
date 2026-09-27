@@ -77,9 +77,10 @@ trait CourseOutcomeTrait
         $regulation = null;
 
         try {
-            $query_class_details = "SELECT c.spec_id, c.reg, c.acad_year
+            $query_class_details = "SELECT c.spec_id, r.regulation, c.acad_year
                                     FROM subjects s
                                     JOIN classes c ON s.class_id = c.id
+                                    JOIN regulations r ON c.reg_id = r.id
                                     WHERE s.id = ?";
             $stmt1 = $this->conn->prepare($query_class_details);
             if (!$stmt1) { throw new Exception("Prepare failed (stmt1): " . $this->conn->error); }

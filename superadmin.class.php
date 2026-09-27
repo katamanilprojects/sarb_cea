@@ -247,7 +247,7 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.start_date, c.end_date, c.spec_id, c.timing_id, c.reg_id, c.reg, r.regulation, c.status FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id");
+            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.start_date, c.end_date, c.spec_id, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id");
             $stmt->execute();
             $result = $stmt->get_result();
             $res['data'] = $result->fetch_all(MYSQLI_ASSOC);
@@ -268,29 +268,17 @@ class SuperAdmin extends User
         $start_date = $data['start_date'];
         $timing_id = (int) $data['timing_id'];
         $reg_id = !empty($data['reg_id']) ? (int) $data['reg_id'] : null;
-        $reg = $data['reg'] ?? '';
         $end_date = $data['end_date'];
         $status = (int) $data['status'];
 
         try {
-            if (!empty($reg_id) && empty($reg)) {
-                $stmtReg = $this->conn->prepare("SELECT regulation FROM regulations WHERE id = ? LIMIT 1");
-                $stmtReg->bind_param("i", $reg_id);
-                $stmtReg->execute();
-                $resultReg = $stmtReg->get_result();
-                if ($rowReg = $resultReg->fetch_assoc()) {
-                    $reg = $rowReg['regulation'];
-                }
-                $stmtReg->close();
-            }
-
             if (!empty($data["id"])) {
                 $class_id = (int) $data["id"];
-                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, reg = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("sssissiisii", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $reg, $status, $class_id);
+                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, status = ? WHERE id = ?");
+                $stmt->bind_param("sssissiiii", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status, $class_id);
             } else {
-                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, spec_id, start_date, end_date, timing_id, reg_id, reg, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssissiisi", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $reg, $status);
+                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, spec_id, start_date, end_date, timing_id, reg_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("sssissiii", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status);
             }
 
             if (!$stmt->execute()) {
@@ -443,12 +431,12 @@ class SuperAdmin extends User
     {
         $res = [];
         try {
-            $stmt = $this->conn->prepare("SELECT p.prog_shortname, s.prog_id, c.acad_year, c.yearsem, c.start_date, c.end_date, c.timing_id, c.reg_id, c.reg, r.regulation, c.status
+            $stmt = $this->conn->prepare("SELECT p.prog_shortname, s.prog_id, c.acad_year, c.yearsem, c.start_date, c.end_date, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status
             FROM classes c
             JOIN specialization s ON c.spec_id = s.id
             JOIN programs p ON s.prog_id = p.id
             LEFT JOIN regulations r ON c.reg_id = r.id
-            GROUP BY p.prog_shortname, s.prog_id, c.acad_year, c.yearsem, c.start_date, c.end_date, c.status, c.timing_id, c.reg_id, c.reg, r.regulation order by c.status desc, c.acad_year desc, p.prog_shortname asc, c.yearsem asc");
+            GROUP BY p.prog_shortname, s.prog_id, c.acad_year, c.yearsem, c.start_date, c.end_date, c.status, c.timing_id, c.reg_id, r.regulation order by c.status desc, c.acad_year desc, p.prog_shortname asc, c.yearsem asc");
             $stmt->execute();
             $result = $stmt->get_result();
             $res = $result->fetch_all(MYSQLI_ASSOC);
@@ -476,7 +464,7 @@ class SuperAdmin extends User
     public function getGroupedClassDetails($prog_id, $acad_year, $yearsem)
     {
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.start_date, c.end_date, c.timing_id, c.reg_id, c.reg, r.regulation, c.status, c.yearsem, s.prog_id
+            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.start_date, c.end_date, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status, c.yearsem, s.prog_id
             FROM classes c
             JOIN specialization s ON c.spec_id = s.id
             LEFT JOIN regulations r ON c.reg_id = r.id
@@ -495,7 +483,7 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0, 'data' => []];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.classname, c.acad_year, c.yearsem, c.start_date, c.end_date, c.timing_id, c.reg_id, c.reg, r.regulation, c.status, c.spec_id, s.spec_shortname, s.prog_id, p.prog_shortname
+            $stmt = $this->conn->prepare("SELECT c.id, c.classname, c.acad_year, c.yearsem, c.start_date, c.end_date, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status, c.spec_id, s.spec_shortname, s.prog_id, p.prog_shortname
             FROM classes c
             JOIN specialization s ON c.spec_id = s.id
             JOIN programs p ON s.prog_id = p.id
@@ -520,7 +508,6 @@ class SuperAdmin extends User
         $start_date = $data['start_date'];
         $end_date = $data['end_date'];
         $timing_id = $data['timing_id'];
-        $reg = $data['reg'];
         $reg_id = !empty($data['reg_id']) ? (int)$data['reg_id'] : null;
         $status = $data['status'];
 
@@ -535,10 +522,10 @@ class SuperAdmin extends User
             $classIds = $result->fetch_all(MYSQLI_ASSOC);
 
             $stmt = $this->conn->prepare("UPDATE classes
-                SET acad_year = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, reg = ?, status = ?
+                SET acad_year = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, status = ?
                 WHERE id = ?");
             foreach ($classIds as $class) {
-                $stmt->bind_param("sssiisii", $acad_year_new, $start_date, $end_date, $timing_id, $reg_id, $reg, $status, $class['id']);
+                $stmt->bind_param("sssiisi", $acad_year_new, $start_date, $end_date, $timing_id, $reg_id, $status, $class['id']);
                 $stmt->execute();
             }
 

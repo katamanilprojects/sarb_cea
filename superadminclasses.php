@@ -141,7 +141,6 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'end_date' => $_POST['end_date'],
             'timing_id' => (int)$_POST['timing_id'],
             'reg_id' => (int)$_POST['reg_id'],
-            'reg' => $selectedRegulation,
             'status' => $_POST['status'] ?? 1
         ];
 
@@ -409,7 +408,7 @@ require_once("superadminheader.php");
                                                                                                 <td><?= htmlspecialchars($class['start_date']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['end_date']); ?></td>
                                                                                                 <td><?= (int)$class['timing_id']; ?></td>
-                                                                                                <td><?= htmlspecialchars(!empty($class['regulation']) ? $class['regulation'] : $class['reg']); ?></td>
+                                                                                                <td><?= htmlspecialchars($class['regulation'] ?? ($class['reg'] ?? '')); ?></td>
                                                                                                 <td><?= !empty($class['status']) ? 'Active' : 'Inactive'; ?></td>
                                                                                                 <td>
                                                                                                     <a href="superadminclasses.php?edit=<?= (int)$class['id']; ?>" class="btn btn-sm btn-primary">Edit</a>
