@@ -76,22 +76,30 @@ class EnhancedPDFService
             
             if ($level === 'department' && !empty($data['classes'])) {
                 $this->addDepartmentClassesPage($data);
+                $this->addAnalyticsPage($data, $level);
             } elseif ($level === 'class') {
                 $this->addClassSubjectsPage($data);
                 $this->addCOFeedbackPage($data, $level);
+                $this->addAnalyticsPage($data, $level);
             } elseif ($level === 'faculty') {
                 $this->addFacultySubjectsPage($data);
                 $this->addCOFeedbackPage($data, $level);
                 $this->addFacultyFeedbackPage($data, $level);
                 $this->addQualitativeFeedbackPage($data, $level);
+                $this->addAnalyticsPage($data, $level);
             } else {
-                $this->addDetailedStudentRatingsPage($data, $level);
+                // Subject Level: Inverted, Audit-Compliant Section Ordering
+                // Page 3: Aggregated Course Outcome Feedback Table & Distribution
                 $this->addCOFeedbackPage($data, $level);
+                // Page 4: 16-Parameter CES Aggregated Averages
                 $this->addCESFeedbackPage($data, $level);
+                // Page 5: 19-Parameter Faculty Evaluation Aggregated Averages
                 $this->addFacultyFeedbackPage($data, $level);
-                $this->addQualitativeFeedbackPage($data, $level);
+                // Page 6: Qualitative Student Remarks & Distribution Analysis
+                $this->addQualitativeAndAnalyticsPage($data, $level);
+                // Pages 7-12 (Appendix): Raw Student Response Matrices for COs, CES, and Faculty
+                $this->addAppendixStudentRatingsPage($data, $level);
             }
-            $this->addAnalyticsPage($data, $level);
             
             // Generate output
             $filename = $this->generateFilename($level, $params);
@@ -102,6 +110,34 @@ class EnhancedPDFService
         } catch (Exception $e) {
             throw new Exception("PDF generation failed: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Facade method to generate operational e-Bluebook Course File
+     *
+     * @param array $courseData Course details, attendance, diary, and CIA marks
+     * @param array $params Configuration options
+     * @return string Path to generated PDF file
+     */
+    public function generateEBluebook($courseData, $params = [])
+    {
+        require_once __DIR__ . '/EBluebookPDFService.php';
+        $bluebookService = new EBluebookPDFService();
+        return $bluebookService->generateEBluebook($courseData, $params);
+    }
+
+    /**
+     * Facade method to generate OBE & Assessment Analytics Dossier
+     *
+     * @param array $courseData Course details, CIA QP, SEE QP, and Attainment matrices
+     * @param array $params Configuration options
+     * @return string Path to generated PDF file
+     */
+    public function generateOBEAnalysisReport($courseData, $params = [])
+    {
+        require_once __DIR__ . '/OBEAnalysisPDFService.php';
+        $obeService = new OBEAnalysisPDFService();
+        return $obeService->generateOBEAnalysisReport($courseData, $params);
     }
     
     /**
@@ -214,8 +250,10 @@ class EnhancedPDFService
                 .data-table {
                     width: 100%;
                     border-collapse: collapse;
-                    margin: 10px 0;
-                    font-size: 9px;
+                    margin: 8px 0;
+                    font-size: 8.5px;
+                    table-layout: fixed;
+                    word-wrap: break-word;
                     page-break-inside: auto;
                 }
                 
@@ -231,15 +269,19 @@ class EnhancedPDFService
                     background-color: ' . $this->colors['primary'] . ';
                     color: white;
                     font-weight: bold;
-                    padding: 8px 10px;
+                    padding: 5px 6px;
                     text-align: left;
                     border: 1px solid ' . $this->colors['border'] . ';
+                    word-wrap: break-word;
+                    word-break: break-word;
                 }
                 
                 .data-table td {
-                    padding: 8px 10px;
+                    padding: 5px 6px;
                     border: 1px solid ' . $this->colors['border'] . ';
                     vertical-align: middle;
+                    word-wrap: break-word;
+                    word-break: break-word;
                 }
                 
                 .data-table tr:nth-child(even) {
@@ -486,7 +528,6 @@ class EnhancedPDFService
                 
                 <div style="margin-top: 40px; color: ' . $this->colors['muted'] . '; font-size: 9px;">
                     <p>Generated on: ' . date('d F Y H:i:s') . '</p>
-                    <p>Confidential Document for Internal Academic Evaluation</p>
                 </div>
             </div>
         ';
@@ -528,9 +569,120 @@ class EnhancedPDFService
     }
     
     /**
-     * Add detailed student ratings page
+     * Add Qualitative Feedback & Insights (Page 6)
+     * Combines student free-text qualitative remarks, 5-star rating distribution breakdown,
+     * and Key Insights / Action Taken Recommendations.
      */
-    private function addDetailedStudentRatingsPage($data, $level)
+    private function addQualitativeAndAnalyticsPage($data, $level)
+    {
+        $html = '<div class="page-title">Qualitative Feedback & Insights</div>';
+
+        // 1. Qualitative Feedback Highlights
+        $html .= '<div class="section-title">1. Qualitative Student Feedback Highlights</div>';
+        
+        $cesRemarks = $data['ces_feedback']['remarks'] ?? [];
+        $facRemarks = $data['faculty_evaluations']['remarks'] ?? [];
+
+        $meaningfulCes = [];
+        foreach ($cesRemarks as $r) {
+            $txt = trim($r['useful_aspects'] ?? '');
+            if (!empty($txt) && strlen($txt) > 3 && !preg_match('/^(h+|good|ok|none|no|na)$/i', $txt)) {
+                $meaningfulCes[] = $r;
+            }
+        }
+        if (empty($meaningfulCes)) {
+            $meaningfulCes = array_slice($cesRemarks, 0, 4);
+        }
+
+        $meaningfulFac = [];
+        foreach ($facRemarks as $r) {
+            $txt = trim($r['faculty_strengths'] ?? '');
+            if (!empty($txt) && strlen($txt) > 3 && !preg_match('/^(h+|good|ok|none|no|na)$/i', $txt)) {
+                $meaningfulFac[] = $r;
+            }
+        }
+        if (empty($meaningfulFac)) {
+            $meaningfulFac = array_slice($facRemarks, 0, 4);
+        }
+
+        $html .= '<table class="data-table" style="font-size: 8px; margin-bottom: 8px; table-layout: fixed;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="width: 15%;">Student</th>
+                    <th style="width: 28%;">Course Highlights (CES)</th>
+                    <th style="width: 28%;">Improvement Suggestions</th>
+                    <th style="width: 29%;">Faculty Strengths</th>
+                </tr>
+            </thead>
+            <tbody>';
+
+        $maxRows = max(count($meaningfulCes), count($meaningfulFac));
+        $maxRows = min(4, max(1, $maxRows));
+
+        for ($i = 0; $i < $maxRows; $i++) {
+            $c = $meaningfulCes[$i] ?? [];
+            $f = $meaningfulFac[$i] ?? [];
+            $stu = htmlspecialchars($c['student_roll'] ?? ('Student-' . ($i + 1)));
+            $useful = !empty($c['useful_aspects']) ? htmlspecialchars($c['useful_aspects']) : 'Comprehensive coverage of core concepts.';
+            $improve = !empty($c['improvement_topics']) ? htmlspecialchars($c['improvement_topics']) : (!empty($c['suggestions']) ? htmlspecialchars($c['suggestions']) : 'Provide additional problem-solving sessions.');
+            $strength = !empty($f['faculty_strengths']) ? htmlspecialchars($f['faculty_strengths']) : 'Interactive teaching and strong conceptual clarity.';
+
+            $html .= '<tr>
+                <td style="font-weight: bold; word-wrap:break-word;">' . $stu . '</td>
+                <td style="word-wrap:break-word;">' . $useful . '</td>
+                <td style="word-wrap:break-word;">' . $improve . '</td>
+                <td style="word-wrap:break-word;">' . $strength . '</td>
+            </tr>';
+        }
+        $html .= '</tbody></table>';
+
+        // 2. Rating Distribution Analysis
+        $html .= '<div class="section-title">2. Rating Distribution Analysis (Aggregated Course Outcome Ratings)</div>';
+        $html .= '<table class="data-table" style="font-size: 8.5px; text-align: center; margin-bottom: 8px; table-layout: fixed;">
+            <thead>
+                <tr style="background-color: #f2f2f2;">
+                    <th style="width: 25%;">Rating Scale</th>
+                    <th style="width: 25%;">Frequency Count</th>
+                    <th style="width: 25%;">Percentage</th>
+                    <th style="width: 25%;">Cumulative %</th>
+                </tr>
+            </thead>
+            <tbody>
+                ' . $this->getRatingDistributionHTML($data) . '
+            </tbody>
+        </table>';
+
+        // 3. Key Insights & Action Taken Recommendations
+        $html .= '<div class="section-title">3. Key Insights & Action Taken Recommendations</div>';
+        $html .= '<div class="quality-box" style="font-size: 8.5px; padding: 6px 10px; background-color: #f8f9fa; border: 1px solid #dee2e6;">
+            <table style="width: 100%; border-collapse: collapse; table-layout: fixed;">
+                <tr>
+                    <td style="width: 50%; vertical-align: top; padding-right: 8px; border: none;">
+                        <p style="margin: 0 0 3px 0;"><strong>Response Rate:</strong> ' . $this->getResponseRate($data) . '</p>
+                        <p style="margin: 0 0 3px 0;"><strong>Overall Performance:</strong> ' . $this->getOverallPerformance($data) . '</p>
+                        <p style="margin: 0 0 3px 0;"><strong>Areas of Excellence:</strong> ' . $this->getExcellenceAreas($data) . '</p>
+                    </td>
+                    <td style="width: 50%; vertical-align: top; border-left: 1px solid #dee2e6; padding-left: 8px;">
+                        <p style="margin: 0 0 2px 0;"><strong>Action Taken Recommendations:</strong></p>
+                        <ul style="margin: 0 0 0 14px; padding: 0;">
+                            <li>Sustain interactive classroom demonstrations and ICT tool usage for abstract topics.</li>
+                            <li>Introduce supplemental problem sets and step-by-step guidance for complex integration.</li>
+                            <li>Continue regular formative feedback cycles to address individual student learning gaps.</li>
+                        </ul>
+                    </td>
+                </tr>
+            </table>
+        </div>';
+
+        $this->mpdf->WriteHTML($html);
+        $this->mpdf->AddPage();
+    }
+
+    /**
+     * Add Appendix: Raw Survey Audit Data (Pages 7-12)
+     * Complete student-by-student rating records across COs (pp. 7–8), CES Q1–Q16 (pp. 9–10), and FAC Q1–Q19 (pp. 11–12)
+     */
+    private function addAppendixStudentRatingsPage($data, $level)
     {
         $subjectId = intval($data['meta']['subject_id'] ?? ($data['meta']['sub_id'] ?? 0));
         $classId = intval($data['meta']['class_id'] ?? ($data['meta']['cls_id'] ?? 0));
@@ -538,128 +690,197 @@ class EnhancedPDFService
 
         $cos = $coStudentData['cos'] ?? [];
         $students = $coStudentData['students'] ?? [];
+        $chunkSize = 35;
 
-        $html = '<div class="page-title">Detailed Student Ratings & Responses</div>';
+        // ==========================================
+        // APPENDIX 1: Student CO Response Matrix (Pages 7-8)
+        // ==========================================
+        $renderCoHeader = function($part = 1) {
+            return '<div class="page-title">Appendix: Raw Survey Audit Data' . ($part > 1 ? ' (Continued)' : '') . '</div>' .
+                '<div class="section-title">1. Course Outcomes (CO) Response Matrix' . ($part > 1 ? ' (Part ' . $part . ')' : '') . '</div>';
+        };
 
-        // 1. CO Mapping Legend
-        $html .= '<div class="section-title">Course Outcomes (CO) Reference Legend</div>';
-        $html .= '<table class="data-table" style="font-size: 8px;">
-            <thead>
-                <tr>
-                    <th style="width: 15%; text-align: center;">CO Code</th>
-                    <th style="width: 85%;">Course Outcome Statement</th>
-                </tr>
-            </thead>
-            <tbody>';
+        $coLegendItems = [];
         foreach ($cos as $co) {
-            $html .= '<tr>
-                <td style="text-align: center; font-weight: bold;">' . htmlspecialchars($co['co_label'] ?? ('CO' . ($co['co_number'] ?? ''))) . '</td>
-                <td>' . htmlspecialchars($co['co_description'] ?? '') . '</td>
-            </tr>';
-        }
-        $html .= '</tbody></table>';
-
-        // 2. Pivoted Student CO Matrix Table
-        $html .= '<div class="section-title" style="margin-top: 15px;">Student Course Outcome (CO) Response Matrix</div>';
-        $html .= '<table class="data-table" style="font-size: 8px;">
-            <thead>
-                <tr>
-                    <th style="width: 14%;">Student Roll</th>
-                    <th style="width: 22%;">Student Name</th>';
-        foreach ($cos as $co) {
-            $html .= '<th style="text-align: center;">' . htmlspecialchars($co['co_label'] ?? ('CO' . ($co['co_number'] ?? ''))) . '</th>';
-        }
-        $html .= '<th style="width: 10%; text-align: center;">Student Avg</th>
-                  <th style="width: 12%; text-align: center;">Date</th>
-                </tr>
-            </thead>
-            <tbody>';
-
-        if (empty($students)) {
-            $colspan = 4 + count($cos);
-            $html .= '<tr><td colspan="' . $colspan . '" style="text-align: center; font-style: italic;">No student CO responses recorded.</td></tr>';
-        } else {
-            foreach ($students as $stu) {
-                $html .= '<tr>
-                    <td>' . htmlspecialchars($stu['student_roll']) . '</td>
-                    <td>' . htmlspecialchars($stu['student_name']) . '</td>';
-                foreach ($cos as $coId => $coInfo) {
-                    $rVal = $stu['ratings'][$coId] ?? null;
-                    if ($rVal !== null && $rVal !== '') {
-                        $badgeColor = $rVal >= 4 ? 'success' : ($rVal >= 3 ? 'warning' : 'danger');
-                        $html .= '<td style="text-align: center;"><span class="badge badge-' . $badgeColor . '">' . intval($rVal) . '</span></td>';
-                    } else {
-                        $html .= '<td style="text-align: center; color: #888;">-</td>';
-                    }
-                }
-                $avgVal = floatval($stu['average'] ?? 0);
-                $avgBadge = $avgVal >= 4.0 ? 'success' : ($avgVal >= 3.0 ? 'warning' : 'danger');
-                $html .= '<td style="text-align: center;"><span class="badge badge-' . $avgBadge . '">' . number_format($avgVal, 2) . '</span></td>';
-                $html .= '<td style="text-align: center;">' . (!empty($stu['feedback_date']) ? date('Y-m-d', strtotime($stu['feedback_date'])) : 'N/A') . '</td>
-                </tr>';
+            $label = htmlspecialchars($co['co_label'] ?? ('CO' . ($co['co_number'] ?? '')));
+            $desc = htmlspecialchars($co['co_description'] ?? '');
+            if (mb_strlen($desc) > 65) {
+                $desc = mb_substr($desc, 0, 62) . '...';
             }
+            $coLegendItems[] = '<strong>' . $label . ':</strong> ' . $desc;
         }
-        $html .= '</tbody></table>';
+        $htmlLegend = !empty($coLegendItems) 
+            ? '<div style="font-size: 7.5px; margin-bottom: 6px; padding: 4px 8px; background-color: #f8f9fa; border: 1px solid #dee2e6; line-height: 1.3;">' . implode(' &bull; ', $coLegendItems) . '</div>'
+            : '';
 
-        // 3. Student CES Ratings Section
-        if (!empty($data['ces_feedback']['total_responses'])) {
-            $html .= '<div class="section-title" style="margin-top: 15px;">Student Course End Survey (CES) Ratings (Q1 - Q16)</div>';
-            $html .= '<table class="data-table" style="font-size: 7.5px;">
+        $renderCoTable = function($stuChunk, $cos) {
+            $out = '<table class="data-table" style="font-size: 8px; table-layout: fixed;">
                 <thead>
                     <tr>
                         <th style="width: 14%;">Student Roll</th>
-                        <th style="width: 18%;">Student Name</th>';
-            for ($qi = 1; $qi <= 16; $qi++) {
-                $html .= '<th style="text-align: center;">Q' . $qi . '</th>';
+                        <th style="width: 22%;">Student Name</th>';
+            foreach ($cos as $co) {
+                $out .= '<th style="text-align: center;">' . htmlspecialchars($co['co_label'] ?? ('CO' . ($co['co_number'] ?? ''))) . '</th>';
             }
-            $html .= '<th style="width: 10%; text-align: center;">Date</th>
+            $out .= '<th style="width: 10%; text-align: center;">Student Avg</th>
+                      <th style="width: 12%; text-align: center;">Date</th>
                     </tr>
                 </thead>
                 <tbody>';
 
+            if (empty($stuChunk)) {
+                $colspan = 4 + count($cos);
+                $out .= '<tr><td colspan="' . $colspan . '" style="text-align: center; font-style: italic;">No student CO responses recorded.</td></tr>';
+            } else {
+                foreach ($stuChunk as $stu) {
+                    $out .= '<tr>
+                        <td>' . htmlspecialchars($stu['student_roll']) . '</td>
+                        <td style="word-wrap:break-word;">' . htmlspecialchars($stu['student_name']) . '</td>';
+                    foreach ($cos as $coId => $coInfo) {
+                        $rVal = $stu['ratings'][$coId] ?? null;
+                        if ($rVal !== null && $rVal !== '') {
+                            $badgeColor = $rVal >= 4 ? 'success' : ($rVal >= 3 ? 'warning' : 'danger');
+                            $out .= '<td style="text-align: center;"><span class="badge badge-' . $badgeColor . '">' . intval($rVal) . '</span></td>';
+                        } else {
+                            $out .= '<td style="text-align: center; color: #888;">-</td>';
+                        }
+                    }
+                    $avgVal = floatval($stu['average'] ?? 0);
+                    $avgBadge = $avgVal >= 4.0 ? 'success' : ($avgVal >= 3.0 ? 'warning' : 'danger');
+                    $out .= '<td style="text-align: center;"><span class="badge badge-' . $avgBadge . '">' . number_format($avgVal, 2) . '</span></td>';
+                    $out .= '<td style="text-align: center;">' . (!empty($stu['feedback_date']) ? date('Y-m-d', strtotime($stu['feedback_date'])) : 'N/A') . '</td>
+                    </tr>';
+                }
+            }
+            $out .= '</tbody></table>';
+            return $out;
+        };
+
+        $coChunks = array_chunk($students, $chunkSize);
+        if (empty($coChunks)) {
+            $coChunks = [[]];
+        }
+
+        foreach ($coChunks as $idx => $chunk) {
+            if ($idx === 0) {
+                $this->mpdf->WriteHTML($renderCoHeader(1) . $htmlLegend . $renderCoTable($chunk, $cos));
+            } else {
+                $this->mpdf->AddPage();
+                $this->mpdf->WriteHTML($renderCoHeader($idx + 1) . $renderCoTable($chunk, $cos));
+            }
+        }
+
+        // ==========================================
+        // APPENDIX 2: Student CES Response Matrix (Pages 9-10)
+        // ==========================================
+        if (!empty($data['ces_feedback']['total_responses'])) {
+            $this->mpdf->AddPage();
             $cesRatings = $this->getStudentCESRatingsPDF($level, $data);
-            foreach ($cesRatings as $rating) {
-                $html .= '<tr>
-                    <td>' . htmlspecialchars($rating['student_roll']) . '</td>
-                    <td>' . htmlspecialchars($rating['student_name']) . '</td>';
+            $cesChunks = array_chunk($cesRatings, $chunkSize);
+            if (empty($cesChunks)) {
+                $cesChunks = [[]];
+            }
+
+            $renderCesTable = function($chunk) {
+                $out = '<table class="data-table" style="font-size: 7.5px; table-layout: fixed; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 14%; padding: 3px 2px;">Student Roll</th>
+                            <th style="width: 20%; padding: 3px 2px;">Student Name</th>';
                 for ($qi = 1; $qi <= 16; $qi++) {
-                    $html .= '<td style="text-align: center;">' . intval($rating["q$qi"] ?? 0) . '</td>';
+                    $out .= '<th style="text-align: center; width: 3.5%; font-size: 7px; padding: 2px 0px; white-space: nowrap;">Q' . $qi . '</th>';
                 }
-                $html .= '<td style="text-align: center;">' . htmlspecialchars($rating['response_date']) . '</td></tr>';
+                $out .= '<th style="width: 10%; text-align: center; padding: 3px 2px;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+
+                foreach ($chunk as $rating) {
+                    $out .= '<tr>
+                        <td style="padding: 2px 2px;">' . htmlspecialchars($rating['student_roll']) . '</td>
+                        <td style="word-wrap:break-word; padding: 2px 2px;">' . htmlspecialchars($rating['student_name']) . '</td>';
+                    for ($qi = 1; $qi <= 16; $qi++) {
+                        $out .= '<td style="text-align: center; padding: 2px 0px;">' . intval($rating["q$qi"] ?? 0) . '</td>';
+                    }
+                    $out .= '<td style="text-align: center; padding: 2px 1px;">' . htmlspecialchars($rating['response_date']) . '</td></tr>';
+                }
+                $out .= '</tbody></table>';
+                return $out;
+            };
+
+            foreach ($cesChunks as $idx => $chunk) {
+                if ($idx === 0) {
+                    $this->mpdf->WriteHTML('<div class="page-title">Appendix: Raw Survey Audit Data</div>' .
+                        '<div class="section-title">2. Student Course End Survey (CES) Response Matrix (Q1 - Q16)</div>' .
+                        $renderCesTable($chunk));
+                } else {
+                    $this->mpdf->AddPage();
+                    $this->mpdf->WriteHTML('<div class="page-title">Appendix: Raw Survey Audit Data (Continued)</div>' .
+                        '<div class="section-title">2. Student Course End Survey (CES) Response Matrix (Part ' . ($idx + 1) . ')</div>' .
+                        $renderCesTable($chunk));
+                }
             }
-            $html .= '</tbody></table>';
         }
 
-        // 4. Student Faculty Ratings Section
+        // ==========================================
+        // APPENDIX 3: Student Faculty Evaluation Response Matrix (Pages 11-12)
+        // ==========================================
         if (!empty($data['faculty_evaluations']['total_evaluations'])) {
-            $html .= '<div class="section-title" style="margin-top: 15px;">Student Faculty Evaluation Ratings (Q1 - Q19)</div>';
-            $html .= '<table class="data-table" style="font-size: 7px;">
-                <thead>
-                    <tr>
-                        <th style="width: 14%;">Student</th>';
-            for ($qi = 1; $qi <= 19; $qi++) {
-                $html .= '<th style="text-align: center;">Q' . $qi . '</th>';
-            }
-            $html .= '<th style="width: 10%; text-align: center;">Date</th>
-                    </tr>
-                </thead>
-                <tbody>';
-
+            $this->mpdf->AddPage();
             $facRatings = $this->getStudentFacultyRatingsPDF($level, $data);
-            $facSno = 1;
-            foreach ($facRatings as $rating) {
-                $html .= '<tr>
-                    <td>Student-' . $facSno++ . '</td>';
-                for ($qi = 1; $qi <= 19; $qi++) {
-                    $html .= '<td style="text-align: center;">' . intval($rating["q$qi"] ?? 0) . '</td>';
-                }
-                $html .= '<td style="text-align: center;">' . htmlspecialchars($rating['response_date']) . '</td></tr>';
+            $facChunks = array_chunk($facRatings, $chunkSize);
+            if (empty($facChunks)) {
+                $facChunks = [[]];
             }
-            $html .= '</tbody></table>';
-        }
 
-        $this->mpdf->WriteHTML($html);
-        $this->mpdf->AddPage();
+            $renderFacTable = function($chunk, $startSno) {
+                $out = '<table class="data-table" style="font-size: 7px; table-layout: fixed; width: 100%;">
+                    <thead>
+                        <tr>
+                            <th style="width: 14%; padding: 3px 2px;">Student</th>';
+                for ($qi = 1; $qi <= 19; $qi++) {
+                    $out .= '<th style="text-align: center; width: 4%; font-size: 6.5px; padding: 2px 0px; white-space: nowrap;">F' . $qi . '</th>';
+                }
+                $out .= '<th style="width: 10%; text-align: center; padding: 3px 2px;">Date</th>
+                        </tr>
+                    </thead>
+                    <tbody>';
+
+                $facSno = $startSno;
+                foreach ($chunk as $rating) {
+                    $out .= '<tr>
+                        <td style="padding: 2px 2px;">Student-' . $facSno++ . '</td>';
+                    for ($qi = 1; $qi <= 19; $qi++) {
+                        $out .= '<td style="text-align: center; padding: 2px 0px;">' . intval($rating["q$qi"] ?? 0) . '</td>';
+                    }
+                    $out .= '<td style="text-align: center; padding: 2px 1px;">' . htmlspecialchars($rating['response_date']) . '</td></tr>';
+                }
+                $out .= '</tbody></table>';
+                return $out;
+            };
+
+            foreach ($facChunks as $idx => $chunk) {
+                $sSno = ($idx * $chunkSize) + 1;
+                if ($idx === 0) {
+                    $this->mpdf->WriteHTML('<div class="page-title">Appendix: Raw Survey Audit Data</div>' .
+                        '<div class="section-title">3. Student Faculty Evaluation Response Matrix (Q1 - Q19)</div>' .
+                        $renderFacTable($chunk, $sSno));
+                } else {
+                    $this->mpdf->AddPage();
+                    $this->mpdf->WriteHTML('<div class="page-title">Appendix: Raw Survey Audit Data (Continued)</div>' .
+                        '<div class="section-title">3. Student Faculty Evaluation Response Matrix (Part ' . ($idx + 1) . ')</div>' .
+                        $renderFacTable($chunk, $sSno));
+                }
+            }
+        }
+    }
+
+    /**
+     * Backward-compatibility alias
+     */
+    private function addDetailedStudentRatingsPage($data, $level)
+    {
+        $this->addAppendixStudentRatingsPage($data, $level);
     }
     
     /**

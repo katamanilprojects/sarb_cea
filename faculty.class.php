@@ -574,10 +574,13 @@ class Faculty extends User
 				$dateFilter = "AND d.date BETWEEN ? AND ?";
 			}
 
-			$query = "SELECT d.date, ct.hour_desc, ct.start_time, ct.end_time, d.diary, d.co_addressed, co.co_number 
+			$query = "SELECT d.date, ct.hour_desc, ct.start_time, ct.end_time, d.diary, d.co_addressed, 
+			                 COALESCE(co.co_number, lp_co.co_number) as co_number 
 			          FROM diary d 
 			          LEFT JOIN class_timings ct ON d.hour=ct.id 
 			          LEFT JOIN course_outcomes co ON d.co_addressed = co.id 
+			          LEFT JOIN lesson_plans lp ON d.lesson_plan_id = lp.id
+			          LEFT JOIN course_outcomes lp_co ON lp.co_id = lp_co.id
 			          WHERE d.sub_id = ? " . $dateFilter . " ORDER BY d.date, ct.id";
 			$stmt = $this->conn->prepare($query);
 			if (!$stmt) {

@@ -35,6 +35,15 @@ function renderAccordion() {
                 <li><strong>\( \mu \)</strong> = Average marks obtained for the question</li>
                 <li><strong>\( N \)</strong> = Total number of students</li>
             </ul>
+        HTML],
+        [8, "Comprehensive Direct & Overall Attainment (NBA/NAAC Compliance)", <<<HTML
+            <p><strong>1. Direct Course Outcome Attainment:</strong></p>
+            <p>$$ \\text{Direct Level} = (w_{\\text{cia}} \\times \\text{CIA Level}) + (w_{\\text{see}} \\times \\text{SEE Level}) $$</p>
+            <p><strong>2. Overall Course Outcome Attainment:</strong></p>
+            <p>$$ \\text{Overall Level} = (w_{\\text{direct}} \\times \\text{Direct Level}) + (w_{\\text{indirect}} \\times \\text{Indirect Feedback Level}) $$</p>
+            <p><strong>3. Overall Program Outcome (PO / PSO) Attainment:</strong></p>
+            <p>$$ \\text{PO Level} = \\frac{\\sum (\\text{Overall CO Level} \\times \\text{Weightage})}{\\sum \\text{Weightage}} $$</p>
+            <p class='small text-muted'>* Default institutional weights under autonomous regulations: 30% CIA + 70% SEE for Direct Attainment; 80% Direct + 20% Indirect Student Feedback for Overall Attainment.</p>
         HTML]
     ];
 
@@ -707,30 +716,263 @@ function renderAnalysisScripts($selected_sub_id, $selected_assessment_number) {
                         });
                 }
 
-                // Load all charts and data when the document is ready AND subject/assessment selected
-                $(document).ready(function() {
-                    if (SUB_ID && ASSESSMENT_NUMBER) {
-                        // Load charts for each tab
+                // Function to load Comprehensive Outcome Attainment (Direct, Indirect, Overall)
+                function loadComprehensiveAttainment() {
+                    const coContainer = $('#comprehensiveCoTableContainer');
+                    if (coContainer.length === 0) {
+                        return; // Tab is not present when SEE marks are not submitted
+                    }
+                    const poContainer = $('#comprehensivePoTableContainer');
+                    const bannerContainer = $('#comprehensiveWeightsBanner');
+                    const badgeContainer = $('#seeSubmissionBadge');
+                    const suggContainerId = 'comprehensiveSuggestions';
+
+                    $.getJSON(`facciaanalysis2.class.php?action=comprehensive_attainment&sub_id=${SUB_ID}`)
+                        .done(function(response) {
+                            if (!response || !response.cos || response.cos.length === 0) {
+                                coContainer.html('<p class="p-3 text-muted">No Course Outcomes (COs) configured or available for this subject.</p>');
+                                if (response && response.suggestions) {
+                                    displaySuggestions(suggContainerId, response.suggestions);
+                                }
+                                return;
+                            }
+
+                            const meta = response.meta || {};
+                            const isSeeSubmitted = meta.is_see_submitted;
+                            const wCia = Math.round((meta.w_cia || 0.3) * 100);
+                            const wSee = Math.round((meta.w_see || 0.7) * 100);
+                            const wDir = Math.round((meta.w_direct || 0.8) * 100);
+                            const wInd = Math.round((meta.w_indirect || 0.2) * 100);
+
+                            // Update SEE submission status badge
+                            if (isSeeSubmitted) {
+                                badgeContainer.removeClass('bg-secondary bg-warning text-dark').addClass('bg-success').html('<i class="bi bi-check-circle-fill me-1"></i>SEE Results Finalized');
+                            } else {
+                                badgeContainer.removeClass('bg-secondary bg-success').addClass('bg-warning text-dark').html('<i class="bi bi-hourglass-split me-1"></i>SEE Pending (CIA Only)');
+                            }
+
+                            // Weights banner
+                            bannerContainer.html(`
+                                <span class="badge bg-dark p-2"><i class="bi bi-shield-check me-1"></i>Regulation: ${meta.regulation || 'R23'}</span>
+                                <span class="badge bg-primary p-2"><i class="bi bi-pie-chart me-1"></i>Direct: ${wCia}% CIA + ${wSee}% SEE</span>
+                                <span class="badge bg-info text-dark p-2"><i class="bi bi-sliders me-1"></i>Overall: ${wDir}% Direct + ${wInd}% Feedback (Indirect)</span>
+                                <span class="badge bg-secondary p-2"><i class="bi bi-bullseye me-1"></i>Benchmark Target: ${meta.target_threshold || 60}%</span>
+                            `);
+
+                            // 1. Build CO Attainment Table
+                            let coHtml = `
+                                <table class="table table-bordered table-hover align-middle mb-0 text-center" style="font-size: 0.88rem;">
+                                    <thead class="table-dark">
+                                        <tr>
+                                            <th rowspan="2" class="align-middle" style="width: 7%;">CO</th>
+                                            <th colspan="2" class="table-primary text-dark">Internal (CIA)</th>
+                                            <th colspan="2" class="table-info text-dark">External (SEE)</th>
+                                            <th rowspan="2" class="table-primary text-dark align-middle" style="width: 11%;">Direct Level<br><small>(${wCia}% CIA + ${wSee}% SEE)</small></th>
+                                            <th colspan="2" class="table-warning text-dark">Student Feedback</th>
+                                            <th rowspan="2" class="table-success text-dark align-middle fw-bold" style="width: 11%;">Overall Level<br><small>(${wDir}% Dir + ${wInd}% Ind)</small></th>
+                                            <th rowspan="2" class="align-middle" style="width: 15%;">Attainment Status</th>
+                                        </tr>
+                                        <tr>
+                                            <th class="table-light text-dark" style="width: 8%;">Cohort %</th>
+                                            <th class="table-light text-dark" style="width: 7%;">Level</th>
+                                            <th class="table-light text-dark" style="width: 8%;">Cohort %</th>
+                                            <th class="table-light text-dark" style="width: 7%;">Level</th>
+                                            <th class="table-light text-dark" style="width: 9%;">Avg Rating</th>
+                                            <th class="table-light text-dark" style="width: 7%;">Level</th>
+                                        </tr>
+                                    </thead>
+                                    <tbody>
+                            `;
+
+                            response.cos.forEach(co => {
+                                const ciaPctStr = (co.cia_pct !== null) ? parseFloat(co.cia_pct).toFixed(2) + '%' : 'N/A';
+                                const seePctStr = (co.see_pct !== null) ? parseFloat(co.see_pct).toFixed(2) + '%' : (isSeeSubmitted ? '0.00%' : '<span class="text-muted fst-italic">Pending</span>');
+                                const seeLvlStr = (co.see_level !== null) ? co.see_level : (isSeeSubmitted ? '0' : '<span class="text-muted fst-italic">Pending</span>');
+                                const fbRatingStr = (co.indirect_avg_rating !== null) ? (parseFloat(co.indirect_avg_rating).toFixed(2) + ' / 5') : 'N/A';
+                                const fbLvlStr = (co.indirect_level !== null) ? co.indirect_level : 'N/A';
+
+                                coHtml += `
+                                    <tr>
+                                        <td class="fw-bold" title="${co.co_description || ''}">${co.co_label}</td>
+                                        <td>${ciaPctStr}</td>
+                                        <td class="fw-bold">${co.cia_level}</td>
+                                        <td>${seePctStr}</td>
+                                        <td class="fw-bold">${seeLvlStr}</td>
+                                        <td class="fw-bold bg-light">${parseFloat(co.direct_attainment).toFixed(2)}</td>
+                                        <td>${fbRatingStr}</td>
+                                        <td class="fw-bold">${fbLvlStr}</td>
+                                        <td class="fw-bold text-primary fs-6 bg-success bg-opacity-10">${parseFloat(co.overall_attainment).toFixed(2)}</td>
+                                        <td><span class="badge ${co.status_badge}">${co.status_text}</span></td>
+                                    </tr>
+                                `;
+                            });
+
+                            coHtml += '</tbody></table>';
+                            coContainer.html(coHtml);
+
+                            // 2. Render Chart.js Multi-bar Comparison Chart
+                            const chartCanvas = document.getElementById('comprehensiveChart');
+                            if (chartCanvas) {
+                                if (chartInstances['comprehensiveChart']) {
+                                    chartInstances['comprehensiveChart'].destroy();
+                                }
+
+                                const labels = response.cos.map(c => c.co_label);
+                                const ciaLevels = response.cos.map(c => c.cia_level);
+                                const seeLevels = response.cos.map(c => (c.see_level !== null ? c.see_level : 0));
+                                const directLevels = response.cos.map(c => parseFloat(c.direct_attainment));
+                                const indirectLevels = response.cos.map(c => (c.indirect_level !== null ? c.indirect_level : 0));
+                                const overallLevels = response.cos.map(c => parseFloat(c.overall_attainment));
+
+                                chartInstances['comprehensiveChart'] = new Chart(chartCanvas, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: labels,
+                                        datasets: [
+                                            {
+                                                label: 'CIA Level',
+                                                data: ciaLevels,
+                                                backgroundColor: 'rgba(54, 162, 235, 0.7)',
+                                                borderColor: 'rgb(54, 162, 235)',
+                                                borderWidth: 1
+                                            },
+                                            {
+                                                label: 'SEE Level',
+                                                data: seeLevels,
+                                                backgroundColor: 'rgba(255, 159, 64, 0.7)',
+                                                borderColor: 'rgb(255, 159, 64)',
+                                                borderWidth: 1
+                                            },
+                                            {
+                                                label: 'Direct Attainment',
+                                                data: directLevels,
+                                                backgroundColor: 'rgba(153, 102, 255, 0.7)',
+                                                borderColor: 'rgb(153, 102, 255)',
+                                                borderWidth: 1
+                                            },
+                                            {
+                                                label: 'Indirect (Feedback)',
+                                                data: indirectLevels,
+                                                backgroundColor: 'rgba(255, 205, 86, 0.7)',
+                                                borderColor: 'rgb(255, 205, 86)',
+                                                borderWidth: 1
+                                            },
+                                            {
+                                                label: 'Final Overall Level',
+                                                data: overallLevels,
+                                                backgroundColor: 'rgba(75, 192, 192, 0.85)',
+                                                borderColor: 'rgb(75, 192, 192)',
+                                                borderWidth: 1.5
+                                            }
+                                        ]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        plugins: {
+                                            legend: {
+                                                position: 'top',
+                                                labels: { boxWidth: 14 }
+                                            },
+                                            tooltip: {
+                                                callbacks: {
+                                                    label: function(context) {
+                                                        return context.dataset.label + ': Level ' + parseFloat(context.parsed.y).toFixed(2);
+                                                    }
+                                                }
+                                            }
+                                        },
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true,
+                                                max: 3.2,
+                                                ticks: {
+                                                    stepSize: 0.5,
+                                                    callback: function(v) { return 'Level ' + v; }
+                                                }
+                                            }
+                                        }
+                                    }
+                                });
+                            }
+
+                            // 3. Build PO/PSO Table
+                            if (response.pos && response.pos.length > 0) {
+                                let poHtml = `
+                                    <table class="table table-bordered table-striped table-hover align-middle mb-0 text-center" style="font-size: 0.88rem;">
+                                        <thead class="table-light">
+                                            <tr>
+                                                <th>PO / PSO</th>
+                                                <th>Direct</th>
+                                                <th>Indirect</th>
+                                                <th class="table-success text-dark">Overall</th>
+                                            </tr>
+                                        </thead>
+                                        <tbody>
+                                `;
+                                response.pos.forEach(p => {
+                                    poHtml += `
+                                        <tr>
+                                            <td class="fw-bold" title="${p.po_description || ''}">${p.po_label}</td>
+                                            <td>${parseFloat(p.direct_attainment).toFixed(2)}</td>
+                                            <td>${parseFloat(p.indirect_attainment).toFixed(2)}</td>
+                                            <td class="fw-bold text-success">${parseFloat(p.overall_attainment).toFixed(2)}</td>
+                                        </tr>
+                                    `;
+                                });
+                                poHtml += '</tbody></table>';
+                                poContainer.html(poHtml);
+                            } else {
+                                poContainer.html('<p class="p-3 text-muted">No CO-PO mapping configured.</p>');
+                            }
+
+                            // Display suggestions
+                            if (response.suggestions) {
+                                displaySuggestions(suggContainerId, response.suggestions);
+                            }
+                        })
+                        .fail(function(jqXHR, textStatus, errorThrown) {
+                            console.error('Error fetching comprehensive attainment:', textStatus, errorThrown);
+                            coContainer.html('<p class="p-3 text-danger">Error loading comprehensive attainment data.</p>');
+                        });
+                }
+
+                // Track loaded tabs to load data on-demand (lazy-load) and prevent connection floods
+                const loadedTabs = {};
+
+                function loadTabData(targetPaneId) {
+                    if (loadedTabs[targetPaneId]) return;
+                    loadedTabs[targetPaneId] = true;
+
+                    if (targetPaneId === '#overview-tab-pane') {
+                        loadAssessmentSnapshot();
+                        loadChart('component_performance', 'componentChart', 'component_type', 'attainment_percentage', 'Component Performance', 'bar', true, 'componentChartSuggestions');
+                    } else if (targetPaneId === '#outcome-tab-pane') {
                         loadChart('co_attainment', 'coChart', 'co_label', 'co_attainment_percentage', 'CO Attainment', 'bar', true, 'coChartSuggestions');
                         loadChart('po_attainment', 'poChart', 'po_label', 'po_attainment_percentage', 'PO Attainment', 'bar', true, 'poChartSuggestions');
+                    } else if (targetPaneId === '#blooms-tab-pane') {
                         loadChart('blooms_performance', 'bloomsChart', 'blooms_label', 'attainment_percentage', "Bloom's Attainment", 'bar', true, 'bloomsChartSuggestions');
-                        
-                        // Dedicated assessment performance snapshot loader (handles 1 CIA vs multi-CIA comparison)
-                        loadAssessmentSnapshot();
-                        
-                        loadChart('component_performance', 'componentChart', 'component_type', 'attainment_percentage', 'Component Performance', 'bar', true, 'componentChartSuggestions');
-
-                        // Load CO-PO Matrix Table
+                    } else if (targetPaneId === '#copo-matrix-tab-pane') {
                         loadCoPoMatrix('coPoMatrixTableContainer', 'coPoMatrixSuggestions');
-
+                    } else if (targetPaneId === '#comprehensive-tab-pane') {
+                        loadComprehensiveAttainment();
+                    } else if (targetPaneId === '#advanced-tab-pane') {
                         loadCOSpreadChart();
-                        loadQuestionDifficultyTable(); // function below
+                        loadQuestionDifficultyTable();
+                    }
+                }
 
+                // Load active tab when document is ready, and lazy-load remaining tabs on switch
+                $(document).ready(function() {
+                    if (SUB_ID && ASSESSMENT_NUMBER) {
+                        // Immediately load the active initial tab (Overview)
+                        loadTabData('#overview-tab-pane');
 
-                        // Add listener to redraw charts if tab becomes visible (handles Chart.js rendering in hidden tabs)
+                        // Add listener to load tab data on-demand and redraw charts if tab becomes visible
                         $('button[data-bs-toggle="tab"]').on('shown.bs.tab', function(e) {
                             const targetPaneId = $(e.target).attr('data-bs-target');
                             if (targetPaneId) {
+                                loadTabData(targetPaneId);
                                 $(targetPaneId).find('canvas').each(function() {
                                     const canvasId = $(this).attr('id');
                                     if (canvasId && chartInstances[canvasId]) {

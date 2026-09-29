@@ -22,32 +22,47 @@ $selected_sub_id = !empty($_GET['sub_id']) ? (int)$_GET['sub_id'] : (!empty($_PO
 $msg = '';
 $err = '';
 
-// Handle Form Submission (Save Draft or Submit to HOD)
-if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_audit']) && $selected_sub_id) {
-    $isFinal = !empty($_POST['is_final_submission']);
-    $auditData = [
-        'sub_id' => $selected_sub_id,
-        'faculty_id' => $faculty_id,
-        'total_planned_lectures' => (int)($_POST['total_planned_lectures'] ?? 0),
-        'total_actual_conducted' => (int)($_POST['total_actual_conducted'] ?? 0),
-        'total_compensatory_classes' => (int)($_POST['total_compensatory_classes'] ?? 0),
-        'syllabus_completion_pct' => (float)($_POST['syllabus_completion_pct'] ?? 0.0),
-        'unit1_completion_date' => !empty($_POST['unit1_completion_date']) ? $_POST['unit1_completion_date'] : null,
-        'unit2_completion_date' => !empty($_POST['unit2_completion_date']) ? $_POST['unit2_completion_date'] : null,
-        'unit3_completion_date' => !empty($_POST['unit3_completion_date']) ? $_POST['unit3_completion_date'] : null,
-        'unit4_completion_date' => !empty($_POST['unit4_completion_date']) ? $_POST['unit4_completion_date'] : null,
-        'unit5_completion_date' => !empty($_POST['unit5_completion_date']) ? $_POST['unit5_completion_date'] : null,
-        'deviations_reason' => trim($_POST['deviations_reason'] ?? ''),
-        'compensatory_actions' => trim($_POST['compensatory_actions'] ?? ''),
-        'topics_beyond_syllabus' => trim($_POST['topics_beyond_syllabus'] ?? ''),
-        'is_final_submission' => $isFinal
-    ];
+// Handle Form Submissions
+if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selected_sub_id) {
+    // 1. Save Diary Mappings if submitted
+    if (isset($_POST['mapping']) && is_array($_POST['mapping'])) {
+        $mapRes = $lpService->saveDiaryLessonPlanMappings($selected_sub_id, $_POST['mapping']);
+        if (isset($_POST['save_mappings_only'])) {
+            if ($mapRes['status'] == 1) {
+                $msg = "Diary-to-Lesson-Plan mappings saved successfully (" . $mapRes['updated_count'] . " classes updated).";
+            } else {
+                $err = $mapRes['error'] ?? "Failed to save diary mappings.";
+            }
+        }
+    }
 
-    $saveRes = $lpService->saveCourseCompletionAudit($auditData);
-    if ($saveRes['status'] == 1) {
-        $msg = $saveRes['message'];
-    } else {
-        $err = $saveRes['error'] ?? "Failed to save course completion audit.";
+    // 2. Save Course Completion Audit (Draft or Final)
+    if (isset($_POST['save_audit'])) {
+        $isFinal = !empty($_POST['is_final_submission']);
+        $auditData = [
+            'sub_id' => $selected_sub_id,
+            'faculty_id' => $faculty_id,
+            'total_planned_lectures' => (int)($_POST['total_planned_lectures'] ?? 0),
+            'total_actual_conducted' => (int)($_POST['total_actual_conducted'] ?? 0),
+            'total_compensatory_classes' => (int)($_POST['total_compensatory_classes'] ?? 0),
+            'syllabus_completion_pct' => (float)($_POST['syllabus_completion_pct'] ?? 0.0),
+            'unit1_completion_date' => !empty($_POST['unit1_completion_date']) ? $_POST['unit1_completion_date'] : null,
+            'unit2_completion_date' => !empty($_POST['unit2_completion_date']) ? $_POST['unit2_completion_date'] : null,
+            'unit3_completion_date' => !empty($_POST['unit3_completion_date']) ? $_POST['unit3_completion_date'] : null,
+            'unit4_completion_date' => !empty($_POST['unit4_completion_date']) ? $_POST['unit4_completion_date'] : null,
+            'unit5_completion_date' => !empty($_POST['unit5_completion_date']) ? $_POST['unit5_completion_date'] : null,
+            'deviations_reason' => trim($_POST['deviations_reason'] ?? ''),
+            'compensatory_actions' => trim($_POST['compensatory_actions'] ?? ''),
+            'topics_beyond_syllabus' => trim($_POST['topics_beyond_syllabus'] ?? ''),
+            'is_final_submission' => $isFinal
+        ];
+
+        $saveRes = $lpService->saveCourseCompletionAudit($auditData);
+        if ($saveRes['status'] == 1) {
+            $msg = $saveRes['message'];
+        } else {
+            $err = $saveRes['error'] ?? "Failed to save course completion audit.";
+        }
     }
 }
 
@@ -151,111 +166,165 @@ require_once("facheader.php");
             </div>
             <div class="col-md-3">
                 <div class="card border-info text-center p-3 h-100">
-                    <h6 class="text-muted mb-1">Syllabus Completion</h6>
+                    <h6 class="text-muted mb-1">Syllabus Coverage</h6>
                     <h3 class="text-info mb-0"><?= $recon['completion_pct'] ?>%</h3>
                     <small class="text-muted"><?= ($recon['completion_pct'] >= 100) ? 'Full Coverage' : 'Deficit Identified' ?></small>
                 </div>
             </div>
             <div class="col-md-3">
                 <div class="card border-warning text-center p-3 h-100">
-                    <h6 class="text-muted mb-1">Compensatory Classes</h6>
+                    <h6 class="text-muted mb-1">Compensatory / Extra</h6>
                     <h3 class="text-warning mb-0"><?= $recon['compensatory_count'] ?></h3>
-                    <small class="text-muted">Periods conducted beyond plan</small>
+                    <small class="text-muted">Revision / Beyond plan</small>
                 </div>
             </div>
         </div>
 
-        <!-- Side-by-Side Planned vs Actual Reconciliation Table -->
-        <div class="card shadow-sm mb-4">
-            <div class="card-header bg-light d-flex justify-content-between align-items-center">
-                <span class="fw-bold"><i class="bi bi-arrow-left-right me-1"></i>Chronological Delivery Reconciliation (Planned Schedule vs Actual Diary)</span>
-                <span class="badge bg-secondary"><?= count($recon['paired_rows']) ?> Total Entries</span>
-            </div>
-            <div class="table-responsive" style="max-height: 520px; overflow-y: auto;">
-                <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 12.5px;">
-                    <thead class="table-dark sticky-top">
-                        <tr>
-                            <th colspan="4" class="text-center bg-secondary border-end">WHAT WAS PLANNED (Lesson Plan)</th>
-                            <th colspan="4" class="text-center bg-dark">WHAT WAS ACTUALLY DELIVERED (Teaching Diary)</th>
-                        </tr>
-                        <tr class="table-secondary text-dark" style="font-size: 11.5px;">
-                            <th style="width: 45px;" class="text-center">Lec #</th>
-                            <th style="width: 60px;" class="text-center">Unit</th>
-                            <th>Planned Topic</th>
-                            <th style="width: 55px;" class="text-center border-end">CO</th>
-                            <th style="width: 90px;" class="text-center">Date & Hr</th>
-                            <th>Conducted Diary Topic</th>
-                            <th style="width: 55px;" class="text-center">CO</th>
-                            <th style="width: 95px;" class="text-center">Status</th>
-                        </tr>
-                    </thead>
-                    <tbody>
-                        <?php if (empty($recon['paired_rows'])): ?>
-                            <tr>
-                                <td colspan="8" class="text-center text-muted py-4">
-                                    No lesson plan or diary records found for this course offering.
-                                </td>
-                            </tr>
-                        <?php else: ?>
-                            <?php foreach ($recon['paired_rows'] as $row): 
-                                $p = $row['planned'];
-                                $a = $row['actual'];
-                            ?>
+        <!-- Uncovered Planned Lectures Alert -->
+        <?php if (!empty($recon['planned_lectures'])): ?>
+            <?php if (!empty($recon['uncovered_lectures'])): ?>
+                <div class="alert alert-warning py-2 px-3 mb-4 small d-flex align-items-center">
+                    <i class="bi bi-exclamation-triangle-fill fs-5 me-2 text-warning"></i>
+                    <div>
+                        <strong>Uncovered Planned Lectures (<?= count($recon['uncovered_lectures']) ?>):</strong>
+                        <?php 
+                        $uncovLabels = array_map(function($ul) {
+                            return "Lec #" . $ul['lecture_number'] . " (" . htmlspecialchars(mb_substr($ul['planned_topic'], 0, 30)) . "... [CO" . $ul['co_number'] . "])";
+                        }, $recon['uncovered_lectures']);
+                        echo implode(', ', array_slice($uncovLabels, 0, 4));
+                        if (count($uncovLabels) > 4) {
+                            echo " and " . (count($uncovLabels) - 4) . " more";
+                        }
+                        ?>
+                    </div>
+                </div>
+            <?php else: ?>
+                <div class="alert alert-success py-2 px-3 mb-4 small d-flex align-items-center">
+                    <i class="bi bi-check-circle-fill fs-5 me-2 text-success"></i>
+                    <div>
+                        <strong>All <?= $recon['total_planned'] ?> planned lectures have been matched with conducted teaching diary classes!</strong>
+                    </div>
+                </div>
+            <?php endif; ?>
+        <?php endif; ?>
+
+        <!-- Main Form encompassing both Step 1 (Mappings) and Step 2 (Audit Signoff) -->
+        <form action="faclessonplanreconciliation.php" method="post" id="reconForm">
+            <input type="hidden" name="sub_id" value="<?= $selected_sub_id ?>">
+
+            <!-- STEP 1: Diary to Lesson Plan Reconciliation Table -->
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light d-flex flex-wrap justify-content-between align-items-center py-2">
+                    <div>
+                        <span class="fw-bold text-dark"><i class="bi bi-diagram-3-fill text-primary me-2"></i>Step 1: End-of-Course Diary to Lesson Plan Reconciliation</span>
+                        <span class="badge bg-secondary ms-2"><?= $recon['total_conducted'] ?> Conducted Classes</span>
+                    </div>
+                    <div class="d-flex gap-2 mt-2 mt-md-0">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="autoSequenceMappings()" title="Map diary entries in sequential 1-to-1 order">
+                            <i class="bi bi-lightning-charge-fill me-1"></i>1-Click Auto-Sequence
+                        </button>
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllMappings()" title="Reset all mappings to unmapped">
+                            <i class="bi bi-x-circle me-1"></i>Reset
+                        </button>
+                        <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary">
+                            <i class="bi bi-save me-1"></i>Save Mappings
+                        </button>
+                    </div>
+                </div>
+                <div class="card-body p-0">
+                    <div class="table-responsive" style="max-height: 560px; overflow-y: auto;">
+                        <table class="table table-sm table-bordered table-hover align-middle mb-0" style="font-size: 13px;">
+                            <thead class="table-dark sticky-top">
                                 <tr>
-                                    <!-- Planned Side -->
-                                    <?php if ($p): ?>
-                                        <td class="text-center fw-bold"><?= $p['lecture_number'] ?></td>
-                                        <td class="text-center"><span class="badge bg-light text-dark border">U<?= $p['unit_number'] ?></span></td>
-                                        <td><?= htmlspecialchars($p['planned_topic']) ?></td>
-                                        <td class="text-center border-end"><span class="badge bg-primary">CO<?= $p['co_number'] ?></span></td>
-                                    <?php else: ?>
-                                        <td colspan="4" class="text-center text-muted bg-light border-end italic">
-                                            <em>(Additional / Compensatory Period)</em>
-                                        </td>
-                                    <?php endif; ?>
-
-                                    <!-- Actual Diary Side -->
-                                    <?php if ($a): ?>
-                                        <td class="text-center text-nowrap">
-                                            <span class="fw-bold"><?= date('d-m-Y', strtotime($a['date'])) ?></span><br>
-                                            <small class="text-muted"><?= htmlspecialchars($a['hour_desc'] ?? ('Hr ' . $a['hour'])) ?></small>
-                                        </td>
-                                        <td><?= htmlspecialchars($a['diary']) ?></td>
-                                        <td class="text-center">
-                                            <?php if (!empty($a['co_number'])): ?>
-                                                <span class="badge bg-success">CO<?= $a['co_number'] ?></span>
-                                            <?php else: ?>
-                                                <span class="badge bg-secondary">-</span>
-                                            <?php endif; ?>
-                                        </td>
-                                        <td class="text-center">
-                                            <?php if ($row['is_compensatory']): ?>
-                                                <span class="badge bg-warning text-dark">Compensatory</span>
-                                            <?php else: ?>
-                                                <span class="badge bg-success">Completed</span>
-                                            <?php endif; ?>
-                                        </td>
-                                    <?php else: ?>
-                                        <td colspan="4" class="text-center text-danger bg-light">
-                                            <i class="bi bi-clock-history me-1"></i>Pending / Uncovered
-                                        </td>
-                                    <?php endif; ?>
+                                    <th style="width: 40px;" class="text-center">#</th>
+                                    <th style="width: 110px;" class="text-center">Date & Hr</th>
+                                    <th style="min-width: 250px;">Conducted Diary Entry (Actual What Was Taught)</th>
+                                    <th style="min-width: 320px;">Map to Planned Lecture (Course Delivery Plan)</th>
+                                    <th style="width: 65px;" class="text-center">CO</th>
+                                    <th style="width: 100px;" class="text-center">Type</th>
                                 </tr>
-                            <?php endforeach; ?>
-                        <?php endif; ?>
-                    </tbody>
-                </table>
+                            </thead>
+                            <tbody>
+                                <?php if (empty($recon['diary_entries'])): ?>
+                                    <tr>
+                                        <td colspan="6" class="text-center text-muted py-4">
+                                            No attendance or diary records found for this course offering.
+                                        </td>
+                                    </tr>
+                                <?php else: ?>
+                                    <?php 
+                                    $sno = 1;
+                                    foreach ($recon['diary_entries'] as $d): 
+                                        $dId = (int)$d['id'];
+                                        $currLpId = $d['lesson_plan_id'];
+                                        $isCompensatory = ($currLpId !== null && (int)$currLpId === 0);
+                                        $isMapped = (!empty($currLpId) && (int)$currLpId > 0);
+                                    ?>
+                                        <tr id="diary-row-<?= $dId ?>">
+                                            <td class="text-center fw-bold text-muted"><?= $sno++ ?></td>
+                                            <td class="text-center text-nowrap">
+                                                <span class="fw-bold"><?= date('d-m-Y', strtotime($d['date'])) ?></span><br>
+                                                <small class="text-muted"><?= htmlspecialchars($d['hour_desc'] ?? ('Hr ' . $d['hour'])) ?></small>
+                                            </td>
+                                            <td>
+                                                <div class="p-1 rounded bg-light border-start border-3 border-secondary" style="font-family: inherit;">
+                                                    <?= nl2br(htmlspecialchars($d['diary'])) ?>
+                                                </div>
+                                            </td>
+                                            <td>
+                                                <select name="mapping[<?= $dId ?>]" class="form-select form-select-sm diary-mapping-select" onchange="updateRowCoBadge(this, <?= $dId ?>)">
+                                                    <option value="" data-co="" data-type="unmapped">-- Unmapped / Select Lecture --</option>
+                                                    <option value="0" data-co="" data-type="compensatory" <?= $isCompensatory ? 'selected' : '' ?>>
+                                                        -- Extra / Compensatory / Revision Class --
+                                                    </option>
+                                                    <?php foreach ($recon['planned_lectures'] as $p): ?>
+                                                        <option value="<?= $p['id'] ?>" 
+                                                                data-co="<?= $p['co_number'] ?>" 
+                                                                data-unit="<?= $p['unit_number'] ?>"
+                                                                data-type="planned"
+                                                                <?= ($currLpId == $p['id']) ? 'selected' : '' ?>>
+                                                            Lec #<?= $p['lecture_number'] ?>: <?= htmlspecialchars(mb_substr($p['planned_topic'], 0, 52)) ?> (U<?= $p['unit_number'] ?>, CO<?= $p['co_number'] ?>)
+                                                        </option>
+                                                    <?php endforeach; ?>
+                                                </select>
+                                            </td>
+                                            <td class="text-center" id="co-cell-<?= $dId ?>">
+                                                <?php if (!empty($d['co_number'])): ?>
+                                                    <span class="badge bg-success">CO<?= $d['co_number'] ?></span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-secondary">-</span>
+                                                <?php endif; ?>
+                                            </td>
+                                            <td class="text-center" id="type-cell-<?= $dId ?>">
+                                                <?php if ($isCompensatory): ?>
+                                                    <span class="badge bg-warning text-dark">Compensatory</span>
+                                                <?php elseif ($isMapped): ?>
+                                                    <span class="badge bg-primary">Planned</span>
+                                                <?php else: ?>
+                                                    <span class="badge bg-light text-muted border">Unmapped</span>
+                                                <?php endif; ?>
+                                            </td>
+                                        </tr>
+                                    <?php endforeach; ?>
+                                <?php endif; ?>
+                            </tbody>
+                        </table>
+                    </div>
+                </div>
+                <div class="card-footer bg-light d-flex justify-content-between align-items-center py-2">
+                    <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Mapping links each conducted class to the planned topic and automatically updates the target Course Outcome (CO).</small>
+                    <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary">
+                        <i class="bi bi-save me-1"></i>Save Mappings
+                    </button>
+                </div>
             </div>
-        </div>
 
-        <!-- End-of-Course Declaration & Sign-off Form -->
-        <div class="card shadow-sm mb-4 border-primary">
-            <div class="card-header bg-primary text-white fw-bold">
-                <i class="bi bi-file-earmark-check me-1"></i>Course Completion Sign-Off & Compliance Statement (NBA Criterion 2.2)
-            </div>
-            <div class="card-body">
-                <form action="faclessonplanreconciliation.php" method="post">
-                    <input type="hidden" name="sub_id" value="<?= $selected_sub_id ?>">
+            <!-- STEP 2: Course Delivery Compliance Sign-Off & Audit Form -->
+            <div class="card shadow-sm mb-4 border-primary">
+                <div class="card-header bg-primary text-white fw-bold">
+                    <i class="bi bi-file-earmark-check me-2"></i>Step 2: Course Completion Sign-Off & Compliance Statement (NBA Criterion 2.2)
+                </div>
+                <div class="card-body">
                     <input type="hidden" name="save_audit" value="1">
                     <input type="hidden" name="total_planned_lectures" value="<?= $recon['total_planned'] ?>">
                     <input type="hidden" name="total_actual_conducted" value="<?= $recon['total_conducted'] ?>">
@@ -274,22 +343,22 @@ require_once("facheader.php");
                         <?php endfor; ?>
                     </div>
 
-                    <h6 class="fw-bold text-primary mb-3">2. Deviation & Compliance Disclosures:</h6>
+                    <h6 class="fw-bold text-primary mb-3">2. Schedule Deviations & Remedial Disclosures:</h6>
                     <div class="row g-3 mb-4">
                         <div class="col-md-6">
-                            <label class="form-label small fw-bold">Reasons for Schedule Deviations / Curriculum Lag (if any):</label>
-                            <textarea name="deviations_reason" class="form-control form-control-sm" rows="3" placeholder="e.g. Topics in Unit 3 required additional clarification; classes delayed due to Mid Exams or University Youth Fest..."><?= htmlspecialchars($audit['deviations_reason'] ?? '') ?></textarea>
-                            <small class="text-muted">Explains any divergence between scheduled and actual dates.</small>
+                            <label class="form-label small fw-bold">Reasons for Schedule Deviations / Pacing Remarks (if any):</label>
+                            <textarea name="deviations_reason" class="form-control form-control-sm" rows="3" placeholder="e.g. Unit 3 required extra mathematical derivations; timetable rescheduled due to Mid Exams..."><?= htmlspecialchars($audit['deviations_reason'] ?? '') ?></textarea>
+                            <small class="text-muted">Disclose reasons if actual timeline differed from planned schedule.</small>
                         </div>
                         <div class="col-md-6">
                             <label class="form-label small fw-bold">Compensatory / Remedial Measures Taken:</label>
-                            <textarea name="compensatory_actions" class="form-control form-control-sm" rows="3" placeholder="e.g. Conducted 3 compensatory classes on alternate Saturdays; extra problem-solving tutorial conducted for Unit 4..."><?= htmlspecialchars($audit['compensatory_actions'] ?? '') ?></textarea>
-                            <small class="text-muted">Remedial actions taken to ensure 100% syllabus completion.</small>
+                            <textarea name="compensatory_actions" class="form-control form-control-sm" rows="3" placeholder="e.g. Conducted compensatory classes on alternate Saturdays; extra revision tutorial conducted for Unit 4..."><?= htmlspecialchars($audit['compensatory_actions'] ?? '') ?></textarea>
+                            <small class="text-muted">Actions taken to ensure 100% curriculum compliance.</small>
                         </div>
                         <div class="col-md-12">
                             <label class="form-label small fw-bold">Content Beyond Syllabus / Value Added Topics (NBA Criterion 2.1):</label>
-                            <textarea name="topics_beyond_syllabus" class="form-control form-control-sm" rows="2" placeholder="e.g. Demonstrated industry NoSQL database MongoDB and distributed query optimization..."><?= htmlspecialchars($audit['topics_beyond_syllabus'] ?? '') ?></textarea>
-                            <small class="text-muted">Contemporary topics and real-world tools introduced beyond the prescribed syllabus.</small>
+                            <textarea name="topics_beyond_syllabus" class="form-control form-control-sm" rows="2" placeholder="e.g. Introduced industry case studies, demonstration of practical open-source tools..."><?= htmlspecialchars($audit['topics_beyond_syllabus'] ?? '') ?></textarea>
+                            <small class="text-muted">Contemporary topics and real-world tools introduced beyond prescribed syllabus.</small>
                         </div>
                     </div>
 
@@ -310,10 +379,72 @@ require_once("facheader.php");
                             <i class="bi bi-send-check me-1"></i>Submit Course Completion to HOD
                         </button>
                     </div>
-                </form>
+                </div>
             </div>
-        </div>
+        </form>
     <?php endif; ?>
 </div>
+
+<script>
+const plannedLecturesList = <?= json_encode(array_values(array_map(function($p) {
+    return [
+        'id' => (int)$p['id'],
+        'lecture_number' => (int)$p['lecture_number'],
+        'unit_number' => (int)$p['unit_number'],
+        'co_number' => (int)$p['co_number']
+    ];
+}, $recon['planned_lectures'] ?? []))) ?>;
+
+function autoSequenceMappings() {
+    const selects = document.querySelectorAll('.diary-mapping-select');
+    if (!selects.length || !plannedLecturesList.length) return;
+
+    selects.forEach((sel, idx) => {
+        if (idx < plannedLecturesList.length) {
+            sel.value = plannedLecturesList[idx].id;
+        } else {
+            sel.value = "0"; // Compensatory for classes beyond planned count
+        }
+        sel.dispatchEvent(new Event('change'));
+    });
+}
+
+function clearAllMappings() {
+    const selects = document.querySelectorAll('.diary-mapping-select');
+    selects.forEach(sel => {
+        sel.value = "";
+        sel.dispatchEvent(new Event('change'));
+    });
+}
+
+function updateRowCoBadge(selectElem, diaryId) {
+    const selectedOpt = selectElem.options[selectElem.selectedIndex];
+    const coCell = document.getElementById('co-cell-' + diaryId);
+    const typeCell = document.getElementById('type-cell-' + diaryId);
+
+    if (!selectedOpt) return;
+
+    const coNum = selectedOpt.getAttribute('data-co');
+    const optType = selectedOpt.getAttribute('data-type');
+
+    if (coCell) {
+        if (coNum && coNum.trim() !== '') {
+            coCell.innerHTML = '<span class="badge bg-success">CO' + coNum + '</span>';
+        } else {
+            coCell.innerHTML = '<span class="badge bg-secondary">-</span>';
+        }
+    }
+
+    if (typeCell) {
+        if (optType === 'compensatory') {
+            typeCell.innerHTML = '<span class="badge bg-warning text-dark">Compensatory</span>';
+        } else if (optType === 'planned') {
+            typeCell.innerHTML = '<span class="badge bg-primary">Planned</span>';
+        } else {
+            typeCell.innerHTML = '<span class="badge bg-light text-muted border">Unmapped</span>';
+        }
+    }
+}
+</script>
 
 <?php require_once("facfooter.php"); ?>

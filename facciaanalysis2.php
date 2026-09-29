@@ -153,10 +153,10 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
-        // Assessment number can be an integer or 'all'
+        // Assessment number can be an integer, 'all', or 'SEE'
         $assessment_input = isset($_POST['assessment_number']) ? htmlspecialchars(trim($_POST['assessment_number']), ENT_QUOTES, 'UTF-8') : null;
-        if ($assessment_input === 'all' || filter_var($assessment_input, FILTER_VALIDATE_INT)) {
-            $selected_assessment_number = $assessment_input;
+        if ($assessment_input === 'all' || strcasecmp($assessment_input, 'see') === 0 || filter_var($assessment_input, FILTER_VALIDATE_INT)) {
+            $selected_assessment_number = (strcasecmp($assessment_input, 'see') === 0) ? 'SEE' : $assessment_input;
         }
     } else {
         $_SESSION["err"] = "Form submission error. Please try again.";
@@ -182,8 +182,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
         }
     }
     $assessment_input = isset($_GET['assessment_number']) ? htmlspecialchars(trim($_GET['assessment_number']), ENT_QUOTES, 'UTF-8') : null;
-    if ($assessment_input === 'all' || filter_var($assessment_input, FILTER_VALIDATE_INT)) {
-        $selected_assessment_number = $assessment_input;
+    if ($assessment_input === 'all' || strcasecmp($assessment_input, 'see') === 0 || filter_var($assessment_input, FILTER_VALIDATE_INT)) {
+        $selected_assessment_number = (strcasecmp($assessment_input, 'see') === 0) ? 'SEE' : $assessment_input;
     } else {
         $selected_assessment_number = null;
     }
@@ -308,8 +308,9 @@ require_once("facheader.php"); // Make sure path is correct
                             } else {
                                 $assessments = [1 => "CIA 1", 2 => "CIA 2", 'all' => "Overall CIA"];
                             }
+                            $assessments['SEE'] = "Semester End Exam (SEE)";
                             foreach ($assessments as $num => $label):
-                                $selected = ($selected_assessment_number == $num) ? 'selected' : '';
+                                $selected = (strcasecmp((string)$selected_assessment_number, (string)$num) === 0) ? 'selected' : '';
                             ?>
                                 <option value="<?php echo htmlspecialchars($num); ?>" <?php echo $selected; ?>><?php echo htmlspecialchars($label); ?></option>
                             <?php endforeach; ?>

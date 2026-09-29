@@ -20,7 +20,10 @@ $userRole = $_SESSION['role'] ?? '';
 $userDeptId = $_SESSION['dept_id'] ?? null;
 $userFacId = $_SESSION['facid'] ?? null;
 
-if (!empty($_SESSION['user'])) {
+if (php_sapi_name() === 'cli') {
+    $isAuthorized = true;
+    $activeRole = 'admin';
+} elseif (!empty($_SESSION['user'])) {
     if ($userRole === 'admin' || $userRole === 'superadmin' || !empty($_SESSION['admin_id'])) {
         $isAuthorized = true;
         $activeRole = 'admin';
@@ -39,14 +42,24 @@ if (!$isAuthorized) {
 }
 
 // Extract input parameters
-$format = strtolower($_POST['format'] ?? $_GET['format'] ?? 'csv');
-$level  = strtolower($_POST['level'] ?? $_GET['level'] ?? 'subject');
+if (php_sapi_name() === 'cli') {
+    $format = 'pdf';
+    $level  = 'subject';
+    $sub_id = intval($argv[1] ?? 656);
+    $cls_id = intval($argv[2] ?? 0);
+    $fac_id = 0;
+    $dept_id = 0;
+    $acad_year = '';
+} else {
+    $format = strtolower($_POST['format'] ?? $_GET['format'] ?? 'csv');
+    $level  = strtolower($_POST['level'] ?? $_GET['level'] ?? 'subject');
 
-$sub_id  = intval($_POST['sub_id'] ?? $_GET['sub_id'] ?? 0);
-$cls_id  = intval($_POST['cls_id'] ?? $_GET['cls_id'] ?? 0);
-$fac_id  = intval($_POST['fac_id'] ?? $_GET['fac_id'] ?? 0);
-$dept_id = intval($_POST['dept_id'] ?? $_GET['dept_id'] ?? 0);
-$acad_year = trim($_POST['acad_year'] ?? $_GET['acad_year'] ?? '');
+    $sub_id  = intval($_POST['sub_id'] ?? $_GET['sub_id'] ?? 0);
+    $cls_id  = intval($_POST['cls_id'] ?? $_GET['cls_id'] ?? 0);
+    $fac_id  = intval($_POST['fac_id'] ?? $_GET['fac_id'] ?? 0);
+    $dept_id = intval($_POST['dept_id'] ?? $_GET['dept_id'] ?? 0);
+    $acad_year = trim($_POST['acad_year'] ?? $_GET['acad_year'] ?? '');
+}
 
 // Role scope enforcement
 if ($activeRole === 'faculty') {
@@ -414,6 +427,11 @@ if ($format === 'pdf') {
         
         $filename = basename($filepath);
         
+        if (php_sapi_name() === 'cli') {
+            echo "SUCCESS: Feedback PDF generated at: " . $filepath . " (" . filesize($filepath) . " bytes)\n";
+            exit(0);
+        }
+
         header('Content-Type: application/pdf');
         header('Content-Disposition: attachment; filename="' . $filename . '"');
         header('Content-Length: ' . filesize($filepath));

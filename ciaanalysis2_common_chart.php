@@ -1,13 +1,15 @@
         <div class="card">
             <div class="card-header bg-secondary text-white">
-                <h4>Analysis for: <?php echo htmlspecialchars($subject_details_header); ?></h4>
-                <h6>Assessment Scope:
+                <h4 class="mb-1">Analysis for: <?php echo htmlspecialchars($subject_details_header); ?></h4>
+                <h6 class="mb-0">Assessment Scope:
                     <?php
                     $is_lab_scope = (isset($selected_sub_type) && ($selected_sub_type === 'lab' || $selected_sub_type === 'dti'));
                     if ($is_lab_scope) {
                         echo "Lab CIA";
                     } elseif ($selected_assessment_number === 'all') {
                         echo "Overall CIA";
+                    } elseif (strcasecmp((string)$selected_assessment_number, 'see') === 0) {
+                        echo "Semester End Examination (SEE)";
                     } elseif (is_numeric($selected_assessment_number)) {
                         echo "CIA - " . htmlspecialchars($selected_assessment_number);
                     } else {
@@ -17,6 +19,16 @@
                 </h6>
             </div>
             <div class="card-body">
+                <?php
+                // Check if SEE marks exist for the current course
+                require_once __DIR__ . '/seeassessment.class.php';
+                $seeCheckObj = new SEEAssessment();
+                $hasSeeMarks = false;
+                if (!empty($selected_sub_id)) {
+                    $firstSubId = is_numeric($selected_sub_id) ? (int)$selected_sub_id : (int)explode(',', (string)$selected_sub_id)[0];
+                    $hasSeeMarks = $seeCheckObj->isSEEMarksSubmitted($firstSubId);
+                }
+                ?>
 
                 <ul class="nav nav-tabs mb-3" id="analysisTab" role="tablist">
                     <li class="nav-item" role="presentation">
@@ -31,6 +43,11 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="copo-matrix-tab" data-bs-toggle="tab" data-bs-target="#copo-matrix-tab-pane" type="button" role="tab" aria-controls="copo-matrix-tab-pane" aria-selected="false">CO-PO Matrix</button>
                     </li>
+                    <?php if ($hasSeeMarks): ?>
+                    <li class="nav-item" role="presentation">
+                        <button class="nav-link" id="comprehensive-tab" data-bs-toggle="tab" data-bs-target="#comprehensive-tab-pane" type="button" role="tab" aria-controls="comprehensive-tab-pane" aria-selected="false"><i class="bi bi-award me-1"></i>Direct & Overall Attainment (NBA/NAAC)</button>
+                    </li>
+                    <?php endif; ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced-tab-pane" type="button" role="tab" aria-controls="advanced-tab-pane" aria-selected="false">Other Insights</button>
                     </li>
@@ -139,6 +156,66 @@
                         </div>
                     </div>
 
+                    <?php if ($hasSeeMarks): ?>
+                    <div class="tab-pane fade" id="comprehensive-tab-pane" role="tabpanel" aria-labelledby="comprehensive-tab" tabindex="0">
+                        <div class="card mb-4 border-0 shadow-sm">
+                            <div class="card-body bg-light rounded">
+                                <h5 class="fw-bold mb-1"><i class="bi bi-award-fill text-primary me-2"></i>Comprehensive OBE Outcome Attainment (NBA / NAAC Compliance)</h5>
+                                <p class="text-muted small mb-2">
+                                    Calculates finalized Course Outcome (CO) and Program Outcome (PO/PSO) attainment by weighting Continuous Internal Assessment (CIA), Semester End Examination (SEE), and Indirect Student Course-End Feedback.
+                                </p>
+                                <div id="comprehensiveWeightsBanner" class="d-flex flex-wrap gap-2 pt-1">
+                                    <span class="badge bg-secondary p-2">Loading regulation parameters...</span>
+                                </div>
+                            </div>
+                        </div>
+
+                        <!-- CO Attainment Table Card -->
+                        <div class="card shadow-sm mb-4">
+                            <div class="card-header bg-white py-3 d-flex justify-content-between align-items-center">
+                                <h6 class="mb-0 fw-bold"><i class="bi bi-table me-2 text-primary"></i>Course Outcomes (CO) Direct, Indirect & Overall Attainment Matrix</h6>
+                                <span id="seeSubmissionBadge" class="badge bg-secondary fs-6"><i class="bi bi-hourglass-split me-1"></i>Checking SEE...</span>
+                            </div>
+                            <div class="card-body p-0">
+                                <div id="comprehensiveCoTableContainer" class="table-responsive">
+                                    <p class="p-3 text-muted mb-0">Loading Comprehensive Attainment matrix...</p>
+                                </div>
+                            </div>
+                            <div class="card-footer bg-white border-top-0 pt-0">
+                                <div id="comprehensiveSuggestions" class="suggestions alert alert-info small mt-3">Loading suggestions...</div>
+                            </div>
+                        </div>
+
+                        <!-- Chart: Side-by-Side Comparison -->
+                        <div class="row">
+                            <div class="col-lg-7 mb-4">
+                                <div class="card shadow-sm h-100">
+                                    <div class="card-header bg-white py-3">
+                                        <h6 class="mb-0 fw-bold"><i class="bi bi-bar-chart-fill me-2 text-success"></i>CO Attainment Levels Comparison (0.0 to 3.0 Scale)</h6>
+                                    </div>
+                                    <div class="card-body">
+                                        <div class="chart-container" style="min-height: 350px;">
+                                            <canvas id="comprehensiveChart"></canvas>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-lg-5 mb-4">
+                                <div class="card shadow-sm h-100">
+                                    <div class="card-header bg-white py-3">
+                                        <h6 class="mb-0 fw-bold"><i class="bi bi-diagram-3-fill me-2 text-info"></i>Program Outcome (PO / PSO) Attainment</h6>
+                                    </div>
+                                    <div class="card-body p-0">
+                                        <div id="comprehensivePoTableContainer" class="table-responsive" style="max-height: 380px;">
+                                            <p class="p-3 text-muted mb-0">Loading PO Attainment matrix...</p>
+                                        </div>
+                                    </div>
+                                </div>
+                            </div>
+                        </div>
+                    </div>
+                    <?php endif; ?>
+
                     <div class="tab-pane fade" id="advanced-tab-pane" role="tabpanel" aria-labelledby="advanced-tab" tabindex="0">
                         <div class="row">
                             <!-- Student-wise CO Spread -->
@@ -196,10 +273,6 @@
             </div>
             <div class="card-footer">
                 <p class="text-muted">Click on each section to view the formula and chart description.</p>
-                <!-- Include MathJax -->
-                 <script defer src="https://cdn.jsdelivr.net/npm/mathjax@4/tex-mml-chtml.js"></script>
-                <!--<script id="MathJax-script" async src="https://cdn.jsdelivr.net/npm/mathjax@3/es5/tex-mml-chtml.js"></script>-->
-
                 <div class="mb-3">
                     <button class="btn btn-sm btn-primary me-2" onclick="expandAll()">&#x25BC;</button>
                     <button class="btn btn-sm btn-secondary" onclick="collapseAll()">&#x25B2;</button>
@@ -210,5 +283,24 @@
                 echo renderAccordion();
                 echo renderExpandCollapseScripts();
                 ?>
+            </div>
+            <div class="card-footer bg-light py-3 border-top d-flex flex-wrap justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-file-earmark-arrow-down me-1"></i>Official Course Documents & Reports</h6>
+                    <span class="text-muted small">Generate and download official PDF dossiers for departmental audits and NBA/NAAC accreditations.</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                    <a href="download_feedback_enhanced.php?format=pdf&level=subject&sub_id=<?php echo htmlspecialchars($selected_sub_id); ?>" target="_blank" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-chat-square-quote me-1"></i> Feedback Report
+                    </a>
+                    <?php if ($hasSeeMarks): ?>
+                    <a href="download_obe_analysis.php?sub_id=<?php echo htmlspecialchars($selected_sub_id); ?>" target="_blank" class="btn btn-danger btn-sm shadow-sm">
+                        <i class="bi bi-file-earmark-bar-graph me-1"></i> OBE Analytics Dossier
+                    </a>
+                    <?php endif; ?>
+                    <a href="download_bluebook.php?sub_id=<?php echo htmlspecialchars($selected_sub_id); ?>" target="_blank" class="btn btn-success btn-sm shadow-sm">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> e-Bluebook Course File
+                    </a>
+                </div>
             </div>
         </div>

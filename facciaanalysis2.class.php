@@ -32,47 +32,63 @@ if (isset($_GET['action']) && !empty($_GET['sub_id'])) {
     }
     $sub_id = (strpos($raw_sub_id, ',') !== false) ? $raw_sub_id : (int)$raw_sub_id;
 
-    // Handle 'all' assessment case explicitly
-    $assessment_number_raw = $_GET['assessment_number'] ?? null;
-    $assessment_number = ($assessment_number_raw === 'all' || $assessment_number_raw === null)
-        ? null
-        : filter_var($assessment_number_raw, FILTER_VALIDATE_INT);
-
-    if ($assessment_number_raw !== null && $assessment_number_raw !== 'all' && ($assessment_number === false || $assessment_number <= 0)) {
-        echo json_encode(["error" => "Invalid Assessment Number"]);
-        exit;
+    // Handle 'all' and 'SEE' assessment cases explicitly
+    $assessment_number_raw = isset($_GET['assessment_number']) ? trim((string)$_GET['assessment_number']) : null;
+    if ($assessment_number_raw === null || $assessment_number_raw === '' || strtolower($assessment_number_raw) === 'all') {
+        $assessment_number = null;
+    } elseif (strcasecmp($assessment_number_raw, 'see') === 0) {
+        $assessment_number = 'SEE';
+    } else {
+        $assessment_number = filter_var($assessment_number_raw, FILTER_VALIDATE_INT);
+        if ($assessment_number === false || $assessment_number <= 0) {
+            echo json_encode(["error" => "Invalid Assessment Number"]);
+            exit;
+        }
     }
 
     header('Content-Type: application/json');
 
-    switch ($_GET['action']) {
-        case 'co_attainment':
-            echo $analysisObj->getCOAttainment($sub_id, $assessment_number);
-            break;
-        case 'po_attainment':
-            echo $analysisObj->getPOAttainment($sub_id, $assessment_number);
-            break;
-        case 'blooms_performance':
-            echo $analysisObj->getBloomsPerformance($sub_id, $assessment_number);
-            break;
-        case 'assessment_performance':
-            echo $analysisObj->getAssessmentPerformance($sub_id, $assessment_number);
-            break;
-        case 'component_performance':
-            echo $analysisObj->getComponentPerformance($sub_id, $assessment_number);
-            break;
-        case 'co_po_matrix':
-            echo $analysisObj->getCoPoMatrixData($sub_id, $assessment_number);
-            break;
-        case 'co_spread':
-            echo $analysisObj->getCOVisualSummary($sub_id, $assessment_number);
-            break;
-        case 'question_difficulty':
-            echo $analysisObj->getQuestionDifficultyDiscrimination($sub_id, $assessment_number);
-            break;
-        default:
-            echo json_encode(["error" => "Invalid action specified"]);
-            break;
+    try {
+        switch ($_GET['action']) {
+            case 'co_attainment':
+                echo $analysisObj->getCOAttainment($sub_id, $assessment_number);
+                break;
+            case 'po_attainment':
+                echo $analysisObj->getPOAttainment($sub_id, $assessment_number);
+                break;
+            case 'blooms_performance':
+                echo $analysisObj->getBloomsPerformance($sub_id, $assessment_number);
+                break;
+            case 'assessment_performance':
+                echo $analysisObj->getAssessmentPerformance($sub_id, $assessment_number);
+                break;
+            case 'component_performance':
+                echo $analysisObj->getComponentPerformance($sub_id, $assessment_number);
+                break;
+            case 'co_po_matrix':
+                echo $analysisObj->getCoPoMatrixData($sub_id, $assessment_number);
+                break;
+            case 'co_spread':
+                echo $analysisObj->getCOVisualSummary($sub_id, $assessment_number);
+                break;
+            case 'question_difficulty':
+                echo $analysisObj->getQuestionDifficultyDiscrimination($sub_id, $assessment_number);
+                break;
+            case 'comprehensive_attainment':
+                echo $analysisObj->getComprehensiveAttainment($sub_id);
+                break;
+            default:
+                echo json_encode(["error" => "Invalid action specified"]);
+                break;
+        }
+    } catch (\Throwable $e) {
+        $logs = new Logs();
+        $logs->errLog("facciaanalysis2 action {$_GET['action']} error: " . $e->getMessage() . " at " . $e->getFile() . ":" . $e->getLine());
+        echo json_encode([
+            "data" => [],
+            "suggestions" => ["Unable to load " . htmlspecialchars($_GET['action']) . " data at this moment. Please retry."],
+            "error" => $e->getMessage()
+        ]);
     }
     exit;
 }

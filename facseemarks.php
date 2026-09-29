@@ -138,7 +138,28 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                         </div>
                     </div>
                 </div>
+            <?php if ($isSubmitted): ?>
+            <div class="alert alert-light border mt-4 mb-0 d-flex flex-wrap justify-content-between align-items-center">
+                <div>
+                    <h6 class="mb-1 text-success fw-bold"><i class="bi bi-graph-up-arrow me-2"></i>Analysis & Outcomes Ready</h6>
+                    <span class="text-muted small">SEE performance analytics, direct attainment, and comprehensive Bluebook dossier are generated.</span>
+                </div>
+                <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
+                    <a href="facciaanalysis2.php?sub_id=<?= $selected_sub_id; ?>&assessment_number=SEE" class="btn btn-outline-primary btn-sm">
+                        <i class="bi bi-speedometer2 me-1"></i> View SEE Analysis
+                    </a>
+                    <a href="facciaanalysis2.php?sub_id=<?= $selected_sub_id; ?>&assessment_number=all" class="btn btn-outline-info btn-sm">
+                        <i class="bi bi-diagram-3 me-1"></i> Direct & Overall Attainment
+                    </a>
+                    <a href="download_obe_analysis.php?sub_id=<?= $selected_sub_id; ?>" target="_blank" class="btn btn-outline-danger btn-sm">
+                        <i class="bi bi-file-earmark-bar-graph me-1"></i> OBE Analytics (PDF)
+                    </a>
+                    <a href="download_bluebook.php?sub_id=<?= $selected_sub_id; ?>" target="_blank" class="btn btn-success btn-sm">
+                        <i class="bi bi-file-earmark-pdf me-1"></i> e-Bluebook PDF
+                    </a>
+                </div>
             </div>
+            <?php endif; ?>
         </div>
     </div>
     <?php endif; ?>

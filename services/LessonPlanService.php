@@ -192,13 +192,23 @@ class LessonPlanService extends \DBCredentials {
      */
     public function getReconciliationData(int $sub_id): array {
         $planned = $this->getPlanBySubject($sub_id);
+        $plannedById = [];
+        foreach ($planned as $p) {
+            $plannedById[(int)$p['id']] = $p;
+        }
 
         $diaryEntries = [];
         $stmtDiary = $this->conn->prepare("
-            SELECT d.id, d.date, d.hour, ct.hour_desc, d.diary, d.co_addressed, co.co_number 
+            SELECT d.id, d.date, d.hour, ct.hour_desc, d.diary, d.co_addressed, d.lesson_plan_id,
+                   COALESCE(co.co_number, lp_co.co_number) as co_number,
+                   lp.lecture_number as mapped_lecture_num,
+                   lp.planned_topic as mapped_topic,
+                   lp.unit_number as mapped_unit_number
             FROM diary d 
             LEFT JOIN class_timings ct ON d.hour = ct.id 
             LEFT JOIN course_outcomes co ON d.co_addressed = co.id 
+            LEFT JOIN lesson_plans lp ON d.lesson_plan_id = lp.id
+            LEFT JOIN course_outcomes lp_co ON lp.co_id = lp_co.id
             WHERE d.sub_id = ? 
             ORDER BY d.date ASC, d.hour ASC
         ");
@@ -212,41 +222,74 @@ class LessonPlanService extends \DBCredentials {
             $stmtDiary->close();
         }
 
-        $paired = [];
-        $maxCount = max(count($planned), count($diaryEntries));
-        for ($i = 0; $i < $maxCount; $i++) {
-            $p = $planned[$i] ?? null;
-            $d = $diaryEntries[$i] ?? null;
-            $paired[] = [
-                'index' => $i + 1,
-                'planned' => $p,
-                'actual' => $d,
-                'is_compensatory' => ($p === null && $d !== null),
-                'is_uncovered' => ($p !== null && $d === null)
-            ];
+        $totalPlanned = count($planned);
+        $totalConducted = count($diaryEntries);
+
+        // Track covered planned lectures and mappings
+        $coveredPlanIds = [];
+        $hasAnyMapping = false;
+        $explicitCompCount = 0;
+
+        foreach ($diaryEntries as $d) {
+            $lpId = (int)($d['lesson_plan_id'] ?? 0);
+            if ($lpId > 0 && isset($plannedById[$lpId])) {
+                $coveredPlanIds[$lpId] = true;
+                $hasAnyMapping = true;
+            } elseif ($d['lesson_plan_id'] !== null && $lpId === 0) {
+                $explicitCompCount++;
+                $hasAnyMapping = true;
+            }
         }
 
+        if ($hasAnyMapping) {
+            $coveredPlannedCount = count($coveredPlanIds);
+            $completionPct = ($totalPlanned > 0) ? round(($coveredPlannedCount / $totalPlanned) * 100, 1) : 0.0;
+            $compensatoryCount = $explicitCompCount + max(0, $totalConducted - ($coveredPlannedCount + $explicitCompCount));
+        } else {
+            // Before mapping is completed by faculty, provide sequence-based estimation
+            $completionPct = ($totalPlanned > 0) ? min(100.0, round(($totalConducted / $totalPlanned) * 100, 1)) : 0.0;
+            $compensatoryCount = max(0, $totalConducted - $totalPlanned);
+        }
+
+        // Identify uncovered planned lectures
+        $uncoveredLectures = [];
+        foreach ($planned as $p) {
+            if (!isset($coveredPlanIds[$p['id']])) {
+                $uncoveredLectures[] = $p;
+            }
+        }
+
+        // Unit completion dates
         $unitCompletionDates = [
             1 => null, 2 => null, 3 => null, 4 => null, 5 => null
         ];
+
+        // 1. From mapped diary entries
+        foreach ($diaryEntries as $d) {
+            $u = (int)($d['mapped_unit_number'] ?? 0);
+            if ($u >= 1 && $u <= 5 && !empty($d['date'])) {
+                if ($unitCompletionDates[$u] === null || $d['date'] > $unitCompletionDates[$u]) {
+                    $unitCompletionDates[$u] = $d['date'];
+                }
+            }
+        }
+
+        // 2. Fallback to sequence position if unmapped
         $lastLecOfUnit = [];
         foreach ($planned as $p) {
             $u = (int)($p['unit_number'] ?? 1);
             $lastLecOfUnit[$u] = (int)$p['lecture_number'];
         }
         foreach ($lastLecOfUnit as $u => $lastLec) {
-            $diaryIdx = $lastLec - 1;
-            if (isset($diaryEntries[$diaryIdx]['date'])) {
-                $unitCompletionDates[$u] = $diaryEntries[$diaryIdx]['date'];
+            if ($unitCompletionDates[$u] === null) {
+                $diaryIdx = $lastLec - 1;
+                if (isset($diaryEntries[$diaryIdx]['date'])) {
+                    $unitCompletionDates[$u] = $diaryEntries[$diaryIdx]['date'];
+                }
             }
         }
 
         $audit = $this->getCourseCompletionAudit($sub_id);
-
-        $totalPlanned = count($planned);
-        $totalConducted = count($diaryEntries);
-        $compensatoryCount = max(0, $totalConducted - $totalPlanned);
-        $completionPct = ($totalPlanned > 0) ? round(($totalConducted / $totalPlanned) * 100, 1) : 0.0;
 
         return [
             'total_planned' => $totalPlanned,
@@ -254,11 +297,81 @@ class LessonPlanService extends \DBCredentials {
             'compensatory_count' => $compensatoryCount,
             'completion_pct' => $completionPct,
             'planned_lectures' => $planned,
+            'planned_by_id' => $plannedById,
             'diary_entries' => $diaryEntries,
-            'paired_rows' => $paired,
+            'uncovered_lectures' => $uncoveredLectures,
+            'has_mappings' => $hasAnyMapping,
             'suggested_unit_dates' => $unitCompletionDates,
             'audit' => $audit
         ];
+    }
+
+    /**
+     * Save/update diary-to-lesson-plan mappings.
+     * Maps each diary entry to a planned lecture (or marks it as compensatory/unmapped).
+     * Automatically syncs diary.co_addressed from the mapped lecture plan's co_id.
+     *
+     * @param int $sub_id
+     * @param array $mappings Associative array of [diary_id => lesson_plan_id]
+     * @return array
+     */
+    public function saveDiaryLessonPlanMappings(int $sub_id, array $mappings): array {
+        $res = ['status' => 0, 'updated_count' => 0];
+        try {
+            // Cache lesson_plan co_id map for this subject
+            $lpStmt = $this->conn->prepare("SELECT id, co_id FROM lesson_plans WHERE sub_id = ?");
+            $lpStmt->bind_param("i", $sub_id);
+            $lpStmt->execute();
+            $lpRes = $lpStmt->get_result();
+            $lpMap = [];
+            while ($row = $lpRes->fetch_assoc()) {
+                $lpMap[(int)$row['id']] = (int)$row['co_id'];
+            }
+            $lpStmt->close();
+
+            $updateStmt = $this->conn->prepare("
+                UPDATE diary 
+                SET lesson_plan_id = ?, co_addressed = ? 
+                WHERE id = ? AND sub_id = ?
+            ");
+
+            $updated = 0;
+            foreach ($mappings as $diaryId => $lpId) {
+                $diaryId = (int)$diaryId;
+                if ($diaryId <= 0) {
+                    continue;
+                }
+
+                $lpIdInt = (!empty($lpId) && is_numeric($lpId)) ? (int)$lpId : null;
+
+                if ($lpIdInt && isset($lpMap[$lpIdInt])) {
+                    $coId = $lpMap[$lpIdInt];
+                    $updateStmt->bind_param("iiii", $lpIdInt, $coId, $diaryId, $sub_id);
+                } elseif ($lpId === "0" || $lpId === 0) {
+                    // Explicitly marked as compensatory (no lecture plan)
+                    $zeroLp = 0;
+                    $nullCo = null;
+                    $updateStmt->bind_param("iiii", $zeroLp, $nullCo, $diaryId, $sub_id);
+                } else {
+                    // Unmapped
+                    $nullLp = null;
+                    $nullCo = null;
+                    $updateStmt->bind_param("iiii", $nullLp, $nullCo, $diaryId, $sub_id);
+                }
+                if ($updateStmt->execute()) {
+                    $updated++;
+                }
+            }
+            $updateStmt->close();
+
+            $res['status'] = 1;
+            $res['updated_count'] = $updated;
+            $res['message'] = "Diary mappings saved successfully ({$updated} classes updated).";
+        } catch (\Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("LessonPlanService::saveDiaryLessonPlanMappings error: " . $e->getMessage());
+        }
+        return $res;
     }
 
     /**

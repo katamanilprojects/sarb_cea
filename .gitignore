@@ -58,6 +58,7 @@ Thumbs.db
 
 # Archives, Dumps & Temp Files
 *.sql
+!migrations/*.sql
 *.sql.gz
 *.dump
 *.tar
@@ -68,6 +69,7 @@ Thumbs.db
 *.bak
 *.old
 *.orig
+/services/old/
 
 # User Manuals & PII Documents
 *_manual_*.pdf

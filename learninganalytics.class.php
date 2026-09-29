@@ -326,7 +326,33 @@ trait LearningAnalyticsTrait
             $where_clauses = ["i.sub_id IN ({$in['sql']})"];
             $params = $in['params'];
 
-            if ($assessment_id !== null && $assessment_id !== 'all' && filter_var($assessment_id, FILTER_VALIDATE_INT) !== false) {
+            $isSEE = (strcasecmp((string)$assessment_id, 'SEE') === 0);
+            if ($isSEE) {
+                // If consolidated SEE marks exist in external_assessment_marks, use official totals
+                $extSql = "SELECT AVG(external_marks) as avg_obt, AVG(max_marks) as avg_max, COUNT(*) as cnt 
+                           FROM external_assessment_marks WHERE subject_id IN ({$in['sql']})";
+                $extRows = $this->fetchAssoc($extSql, $in['params']);
+                if (!empty($extRows) && $extRows[0]['cnt'] > 0 && $extRows[0]['avg_max'] > 0) {
+                    $seePct = round(($extRows[0]['avg_obt'] / $extRows[0]['avg_max']) * 100, 2);
+                    $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
+                    $suggestions = [];
+                    if ($seePct >= $targetThreshold) {
+                        $suggestions[] = "Semester End Examination (SEE) average score meets or exceeds the target benchmark ({$targetThreshold}%).";
+                    } else {
+                        $suggestions[] = "Semester End Examination (SEE) average score ({$seePct}%) is below the target benchmark ({$targetThreshold}%). Remedial action recommended.";
+                    }
+                    return json_encode([
+                        'data' => [[
+                            'assessment_number' => 'SEE',
+                            'assessment_label' => 'Semester End Exam (SEE)',
+                            'attainment_percentage' => $seePct
+                        ]],
+                        'suggestions' => $suggestions,
+                        'sub_type' => $sub_type
+                    ]);
+                }
+                $where_clauses[] = "i.assessment_number = 'SEE'";
+            } elseif ($assessment_id !== null && $assessment_id !== 'all' && filter_var($assessment_id, FILTER_VALIDATE_INT) !== false) {
                 $where_clauses[] = "i.assessment_number = ?";
                 $params[] = (int)$assessment_id;
             } else {
@@ -555,6 +581,50 @@ trait LearningAnalyticsTrait
         $in = $this->buildInClause($sub_ids);
 
         if ($sub_type === 'theory') {
+            $isSEE = (strcasecmp((string)$assessment_id, 'SEE') === 0);
+            if ($isSEE) {
+                $extSql = "SELECT AVG(q1_marks) as avg_q1, AVG(choice_marks) as avg_ch, AVG(external_marks) as avg_ext, 
+                                  MAX(max_marks) as max_ext, COUNT(*) as cnt 
+                           FROM external_assessment_marks WHERE subject_id IN ({$in['sql']})";
+                $extRows = $this->fetchAssoc($extSql, $in['params']);
+                if (!empty($extRows) && $extRows[0]['cnt'] > 0 && $extRows[0]['max_ext'] > 0) {
+                    $maxSee = floatval($extRows[0]['max_ext']);
+                    $q1Max = ($maxSee == 35.0) ? 5.0 : 20.0;
+                    $choiceMax = ($maxSee == 35.0) ? 30.0 : 50.0;
+
+                    $q1Pct = ($q1Max > 0 && $extRows[0]['avg_q1'] !== null) ? round((floatval($extRows[0]['avg_q1']) / $q1Max) * 100, 2) : null;
+                    $choicePct = ($choiceMax > 0 && $extRows[0]['avg_ch'] !== null) ? round((floatval($extRows[0]['avg_ch']) / $choiceMax) * 100, 2) : null;
+                    $totalPct = round((floatval($extRows[0]['avg_ext']) / $maxSee) * 100, 2);
+
+                    $results = [];
+                    if ($q1Pct !== null) {
+                        $results[] = [
+                            'component_type' => 'Q1 Compulsory (Short Answers)',
+                            'attainment_percentage' => $q1Pct
+                        ];
+                    }
+                    if ($choicePct !== null) {
+                        $results[] = [
+                            'component_type' => 'Either/Or Choices (Descriptive)',
+                            'attainment_percentage' => $choicePct
+                        ];
+                    }
+                    $results[] = [
+                        'component_type' => 'Total SEE External',
+                        'attainment_percentage' => $totalPct
+                    ];
+
+                    $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
+                    $suggestions = [];
+                    if ($totalPct >= $targetThreshold) {
+                        $suggestions[] = "Overall external component performance meets or exceeds the target benchmark ({$targetThreshold}%).";
+                    } else {
+                        $suggestions[] = "Overall external component performance ({$totalPct}%) is below the target benchmark ({$targetThreshold}%).";
+                    }
+                    return json_encode(['data' => $results, 'suggestions' => $suggestions]);
+                }
+            }
+
             $where_clauses = ["i.sub_id IN ({$in['sql']})"];
             $params = $in['params'];
 
