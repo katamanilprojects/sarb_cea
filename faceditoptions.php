@@ -24,8 +24,11 @@ require_once("facheader.php"); // Ensure this includes Bootstrap CSS and potenti
                                 <a href="facarticulationmatrix.php" class="btn btn-outline-primary d-block mb-2">
                                     <i class="bi bi-table me-1"></i> Add / View CO-PO/PSO Articulation Matrix
                                 </a>
-                                <a href="facaddlessonplan.php" class="btn btn-outline-primary d-block">
+                                <a href="facaddlessonplan.php" class="btn btn-outline-primary d-block mb-2">
                                     <i class="bi bi-calendar3 me-1"></i> Add / View Lesson Plan (Course Delivery Plan)
+                                </a>
+                                <a href="faclessonplanreconciliation.php" class="btn btn-outline-primary d-block">
+                                    <i class="bi bi-clipboard-check me-1"></i> Course Delivery Audit & Reconciliation (NBA Crit 2.2)
                                 </a>
                             </div>
                         </div>

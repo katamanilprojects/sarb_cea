@@ -186,5 +186,172 @@ class LessonPlanService extends \DBCredentials {
         }
         return $res;
     }
+
+    /**
+     * Get end-of-semester reconciliation data between lesson_plans and diary
+     */
+    public function getReconciliationData(int $sub_id): array {
+        $planned = $this->getPlanBySubject($sub_id);
+
+        $diaryEntries = [];
+        $stmtDiary = $this->conn->prepare("
+            SELECT d.id, d.date, d.hour, ct.hour_desc, d.diary, d.co_addressed, co.co_number 
+            FROM diary d 
+            LEFT JOIN class_timings ct ON d.hour = ct.id 
+            LEFT JOIN course_outcomes co ON d.co_addressed = co.id 
+            WHERE d.sub_id = ? 
+            ORDER BY d.date ASC, d.hour ASC
+        ");
+        if ($stmtDiary) {
+            $stmtDiary->bind_param("i", $sub_id);
+            $stmtDiary->execute();
+            $res = $stmtDiary->get_result();
+            while ($row = $res->fetch_assoc()) {
+                $diaryEntries[] = $row;
+            }
+            $stmtDiary->close();
+        }
+
+        $paired = [];
+        $maxCount = max(count($planned), count($diaryEntries));
+        for ($i = 0; $i < $maxCount; $i++) {
+            $p = $planned[$i] ?? null;
+            $d = $diaryEntries[$i] ?? null;
+            $paired[] = [
+                'index' => $i + 1,
+                'planned' => $p,
+                'actual' => $d,
+                'is_compensatory' => ($p === null && $d !== null),
+                'is_uncovered' => ($p !== null && $d === null)
+            ];
+        }
+
+        $unitCompletionDates = [
+            1 => null, 2 => null, 3 => null, 4 => null, 5 => null
+        ];
+        $lastLecOfUnit = [];
+        foreach ($planned as $p) {
+            $u = (int)($p['unit_number'] ?? 1);
+            $lastLecOfUnit[$u] = (int)$p['lecture_number'];
+        }
+        foreach ($lastLecOfUnit as $u => $lastLec) {
+            $diaryIdx = $lastLec - 1;
+            if (isset($diaryEntries[$diaryIdx]['date'])) {
+                $unitCompletionDates[$u] = $diaryEntries[$diaryIdx]['date'];
+            }
+        }
+
+        $audit = $this->getCourseCompletionAudit($sub_id);
+
+        $totalPlanned = count($planned);
+        $totalConducted = count($diaryEntries);
+        $compensatoryCount = max(0, $totalConducted - $totalPlanned);
+        $completionPct = ($totalPlanned > 0) ? round(($totalConducted / $totalPlanned) * 100, 1) : 0.0;
+
+        return [
+            'total_planned' => $totalPlanned,
+            'total_conducted' => $totalConducted,
+            'compensatory_count' => $compensatoryCount,
+            'completion_pct' => $completionPct,
+            'planned_lectures' => $planned,
+            'diary_entries' => $diaryEntries,
+            'paired_rows' => $paired,
+            'suggested_unit_dates' => $unitCompletionDates,
+            'audit' => $audit
+        ];
+    }
+
+    /**
+     * Get Course Completion Audit Record for a subject
+     */
+    public function getCourseCompletionAudit(int $sub_id): ?array {
+        try {
+            $stmt = $this->conn->prepare("SELECT * FROM course_completion_audits WHERE sub_id = ? LIMIT 1");
+            $stmt->bind_param("i", $sub_id);
+            $stmt->execute();
+            $row = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            return $row ?: null;
+        } catch (\Exception $e) {
+            $this->logs->errLog("LessonPlanService::getCourseCompletionAudit error: " . $e->getMessage());
+            return null;
+        }
+    }
+
+    /**
+     * Save Course Completion Audit Record
+     */
+    public function saveCourseCompletionAudit(array $data): array {
+        $res = ['status' => 0];
+        try {
+            $sub_id = (int)$data['sub_id'];
+            $faculty_id = (int)$data['faculty_id'];
+            $total_planned = (int)($data['total_planned_lectures'] ?? 0);
+            $total_actual = (int)($data['total_actual_conducted'] ?? 0);
+            $compensatory = (int)($data['total_compensatory_classes'] ?? 0);
+            $pct = (float)($data['syllabus_completion_pct'] ?? 0.0);
+            $u1 = !empty($data['unit1_completion_date']) ? $data['unit1_completion_date'] : null;
+            $u2 = !empty($data['unit2_completion_date']) ? $data['unit2_completion_date'] : null;
+            $u3 = !empty($data['unit3_completion_date']) ? $data['unit3_completion_date'] : null;
+            $u4 = !empty($data['unit4_completion_date']) ? $data['unit4_completion_date'] : null;
+            $u5 = !empty($data['unit5_completion_date']) ? $data['unit5_completion_date'] : null;
+            $deviations = trim($data['deviations_reason'] ?? '');
+            $actions = trim($data['compensatory_actions'] ?? '');
+            $beyond = trim($data['topics_beyond_syllabus'] ?? '');
+            $signoff_status = !empty($data['is_final_submission']) ? 'SUBMITTED' : 'DRAFT';
+            $signoff_at = ($signoff_status === 'SUBMITTED') ? date('Y-m-d H:i:s') : null;
+            $mapping_json = !empty($data['reconciliation_mapping']) ? json_encode($data['reconciliation_mapping']) : null;
+
+            $stmt = $this->conn->prepare("
+                INSERT INTO course_completion_audits (
+                    sub_id, faculty_id, total_planned_lectures, total_actual_conducted,
+                    total_compensatory_classes, syllabus_completion_pct,
+                    unit1_completion_date, unit2_completion_date, unit3_completion_date, unit4_completion_date, unit5_completion_date,
+                    deviations_reason, compensatory_actions, topics_beyond_syllabus,
+                    faculty_signoff_status, faculty_signoff_at, reconciliation_mapping
+                ) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE
+                    total_planned_lectures = VALUES(total_planned_lectures),
+                    total_actual_conducted = VALUES(total_actual_conducted),
+                    total_compensatory_classes = VALUES(total_compensatory_classes),
+                    syllabus_completion_pct = VALUES(syllabus_completion_pct),
+                    unit1_completion_date = VALUES(unit1_completion_date),
+                    unit2_completion_date = VALUES(unit2_completion_date),
+                    unit3_completion_date = VALUES(unit3_completion_date),
+                    unit4_completion_date = VALUES(unit4_completion_date),
+                    unit5_completion_date = VALUES(unit5_completion_date),
+                    deviations_reason = VALUES(deviations_reason),
+                    compensatory_actions = VALUES(compensatory_actions),
+                    topics_beyond_syllabus = VALUES(topics_beyond_syllabus),
+                    faculty_signoff_status = VALUES(faculty_signoff_status),
+                    faculty_signoff_at = COALESCE(VALUES(faculty_signoff_at), faculty_signoff_at),
+                    reconciliation_mapping = VALUES(reconciliation_mapping)
+            ");
+
+            $stmt->bind_param(
+                "iiiidssssssssssss",
+                $sub_id, $faculty_id, $total_planned, $total_actual,
+                $compensatory, $pct,
+                $u1, $u2, $u3, $u4, $u5,
+                $deviations, $actions, $beyond,
+                $signoff_status, $signoff_at, $mapping_json
+            );
+
+            if ($stmt->execute()) {
+                $res['status'] = 1;
+                $res['message'] = ($signoff_status === 'SUBMITTED') 
+                    ? "Course delivery compliance submitted successfully to HOD." 
+                    : "Course reconciliation audit draft saved successfully.";
+            } else {
+                throw new \Exception($stmt->error);
+            }
+            $stmt->close();
+        } catch (\Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("LessonPlanService::saveCourseCompletionAudit error: " . $e->getMessage());
+        }
+        return $res;
+    }
 }
+
 

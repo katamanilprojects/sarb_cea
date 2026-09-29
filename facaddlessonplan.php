@@ -246,9 +246,14 @@ require_once("facheader.php");
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Course Delivery Plan / Lesson Plan (Estimated Diary)</h5>
             <?php if ($selected_sub_id): ?>
-                <a href="facaddattendance.php?sub_id=<?= $selected_sub_id ?>" class="btn btn-sm btn-light text-primary">
-                    <i class="bi bi-clipboard-check me-1"></i>Mark Attendance
-                </a>
+                <div>
+                    <a href="faclessonplanreconciliation.php?sub_id=<?= $selected_sub_id ?>" class="btn btn-sm btn-light text-primary me-1">
+                        <i class="bi bi-clipboard-data me-1"></i>Delivery Audit & Reconciliation
+                    </a>
+                    <a href="facaddattendance.php?sub_id=<?= $selected_sub_id ?>" class="btn btn-sm btn-light text-primary">
+                        <i class="bi bi-clipboard-check me-1"></i>Mark Attendance
+                    </a>
+                </div>
             <?php endif; ?>
         </div>
         <div class="card-body">

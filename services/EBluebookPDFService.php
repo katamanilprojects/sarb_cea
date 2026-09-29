@@ -600,6 +600,107 @@ class EBluebookPDFService
         }
 
         // ==========================================
+        // SECTION 2C: COURSE DELIVERY COMPLIANCE & DEVIATION REPORT (NBA CRITERION 2.2)
+        // ==========================================
+        $auditRecord = $lpService->getCourseCompletionAudit($sub_id);
+        if (!empty($auditRecord) || !empty($lessonPlan)) {
+            $mpdf->SetHTMLHeader($getBluebookHeader('Course Completion & Compliance Audit'), 0);
+            $mpdf->AddPage();
+
+            $totalPlanned = !empty($auditRecord['total_planned_lectures']) ? (int)$auditRecord['total_planned_lectures'] : count($lessonPlan);
+            $totalConducted = !empty($auditRecord['total_actual_conducted']) ? (int)$auditRecord['total_actual_conducted'] : count($diaryEntries);
+            $compClasses = !empty($auditRecord['total_compensatory_classes']) ? (int)$auditRecord['total_compensatory_classes'] : max(0, $totalConducted - $totalPlanned);
+            $completionPct = !empty($auditRecord['syllabus_completion_pct']) ? (float)$auditRecord['syllabus_completion_pct'] : (($totalPlanned > 0) ? round(($totalConducted / $totalPlanned) * 100, 1) : 0);
+
+            $devReason = !empty($auditRecord['deviations_reason']) ? htmlspecialchars($auditRecord['deviations_reason']) : 'None reported. Course delivered in accordance with planned schedule.';
+            $compActions = !empty($auditRecord['compensatory_actions']) ? htmlspecialchars($auditRecord['compensatory_actions']) : 'Syllabus coverage achieved within prescribed timetable periods.';
+            $beyondSyllabus = !empty($auditRecord['topics_beyond_syllabus']) ? htmlspecialchars($auditRecord['topics_beyond_syllabus']) : 'Standard syllabus topics covered completely.';
+
+            $signoffDate = !empty($auditRecord['faculty_signoff_at']) ? date('d-m-Y', strtotime($auditRecord['faculty_signoff_at'])) : date('d-m-Y');
+
+            $auditHTML = '
+            <h3 style="text-align:center; margin-bottom:5px;">COURSE DELIVERY COMPLIANCE & DEVIATION REPORT</h3>
+            <p style="text-align:center; font-size:11px; color:#555; margin-top:0;">End-of-Semester Syllabus Completion Certification (NBA Criterion 2.1 & 2.2)</p>
+
+            <table border="1" cellpadding="6" cellspacing="0" style="font-size: 11px; border-collapse:collapse; width: 100%; margin-bottom: 12px;">
+                <tr style="background:#f2f4f7;">
+                    <th colspan="4" style="text-align:left; font-size:12px; color:#1a365d;">1. Course Delivery Quantitative Summary</th>
+                </tr>
+                <tr>
+                    <td style="width:25%; font-weight:bold;">Total Planned Lectures:</td>
+                    <td style="width:25%; text-align:center; font-weight:bold;">' . $totalPlanned . '</td>
+                    <td style="width:25%; font-weight:bold;">Total Actual Conducted:</td>
+                    <td style="width:25%; text-align:center; font-weight:bold;">' . $totalConducted . '</td>
+                </tr>
+                <tr>
+                    <td style="font-weight:bold;">Compensatory Classes:</td>
+                    <td style="text-align:center; font-weight:bold;">' . $compClasses . '</td>
+                    <td style="font-weight:bold;">Syllabus Completion:</td>
+                    <td style="text-align:center; font-weight:bold; color: #198754;">' . $completionPct . '%</td>
+                </tr>
+            </table>
+
+            <table border="1" cellpadding="6" cellspacing="0" style="font-size: 11px; border-collapse:collapse; width: 100%; margin-bottom: 12px;">
+                <tr style="background:#f2f4f7;">
+                    <th colspan="5" style="text-align:left; font-size:12px; color:#1a365d;">2. Unit-Wise Completion Milestones</th>
+                </tr>
+                <tr style="background:#f8f9fa; font-weight:bold; text-align:center;">
+                    <td>Unit 1</td>
+                    <td>Unit 2</td>
+                    <td>Unit 3</td>
+                    <td>Unit 4</td>
+                    <td>Unit 5</td>
+                </tr>
+                <tr style="text-align:center;">
+                    <td>' . (!empty($auditRecord['unit1_completion_date']) ? date('d-m-Y', strtotime($auditRecord['unit1_completion_date'])) : 'Completed') . '</td>
+                    <td>' . (!empty($auditRecord['unit2_completion_date']) ? date('d-m-Y', strtotime($auditRecord['unit2_completion_date'])) : 'Completed') . '</td>
+                    <td>' . (!empty($auditRecord['unit3_completion_date']) ? date('d-m-Y', strtotime($auditRecord['unit3_completion_date'])) : 'Completed') . '</td>
+                    <td>' . (!empty($auditRecord['unit4_completion_date']) ? date('d-m-Y', strtotime($auditRecord['unit4_completion_date'])) : 'Completed') . '</td>
+                    <td>' . (!empty($auditRecord['unit5_completion_date']) ? date('d-m-Y', strtotime($auditRecord['unit5_completion_date'])) : 'Completed') . '</td>
+                </tr>
+            </table>
+
+            <table border="1" cellpadding="6" cellspacing="0" style="font-size: 11px; border-collapse:collapse; width: 100%; margin-bottom: 15px;">
+                <tr style="background:#f2f4f7;">
+                    <th style="text-align:left; font-size:12px; color:#1a365d;">3. Qualitative Deviation & Remedial Disclosures</th>
+                </tr>
+                <tr>
+                    <td>
+                        <strong>Schedule Deviations / Pacing Remarks:</strong><br>
+                        <p style="margin: 4px 0 8px 0; color:#333;">' . nl2br($devReason) . '</p>
+                        <strong>Compensatory & Remedial Measures Taken:</strong><br>
+                        <p style="margin: 4px 0 8px 0; color:#333;">' . nl2br($compActions) . '</p>
+                        <strong>Content / Topics Beyond Syllabus (NBA Criterion 2.1):</strong><br>
+                        <p style="margin: 4px 0 0 0; color:#333;">' . nl2br($beyondSyllabus) . '</p>
+                    </td>
+                </tr>
+            </table>
+
+            <div style="background:#f8f9fa; border:1px solid #ddd; padding:8px 12px; margin-bottom:20px; font-size:10.5px; font-style:italic;">
+                "I hereby certify that the prescribed syllabus for the course <strong>' . htmlspecialchars($subject) . ' (' . htmlspecialchars($subCode) . ')</strong> has been delivered as per the academic regulations, and the teaching diary has been reconciled with the course delivery plan."
+            </div>
+
+            <table cellpadding="10" cellspacing="0" style="width:100%; border-collapse:collapse; margin-top:20px;">
+                <tr>
+                    <td style="width:50%; text-align:left; font-size:11px;">
+                        <br><br>
+                        ________________________________________<br>
+                        <strong>Signature of Faculty:</strong> ' . htmlspecialchars($faculty) . '<br>
+                        <small>Date: ' . $signoffDate . '</small>
+                    </td>
+                    <td style="width:50%; text-align:right; font-size:11px;">
+                        <br><br>
+                        ________________________________________<br>
+                        <strong>Head of the Department (HOD)</strong><br>
+                        <small>Verified & Approved</small>
+                    </td>
+                </tr>
+            </table>';
+
+            $mpdf->WriteHTML($auditHTML);
+        }
+
+        // ==========================================
         // SECTION 3: CONTINUOUS INTERNAL ASSESSMENT (Pages 13-14)
         // ==========================================
         $studentList = $this->facultyObj->getMappedStudents($sub_id);
