@@ -164,4 +164,27 @@ class LessonPlanService extends \DBCredentials {
             'status' => ($actualConducted >= $totalPlanned && $totalPlanned > 0) ? 'COMPLETED' : 'IN_PROGRESS'
         ];
     }
+
+    /**
+     * Clear all lecture plans for a subject offering
+     */
+    public function clearPlanBySubject(int $sub_id): array {
+        $res = ['status' => 0];
+        try {
+            $stmt = $this->conn->prepare("DELETE FROM lesson_plans WHERE sub_id = ?");
+            $stmt->bind_param("i", $sub_id);
+            if ($stmt->execute()) {
+                $res['status'] = 1;
+                $res['message'] = "All lecture plans cleared.";
+            } else {
+                throw new \Exception($stmt->error);
+            }
+            $stmt->close();
+        } catch (\Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("LessonPlanService::clearPlanBySubject error: " . $e->getMessage());
+        }
+        return $res;
+    }
 }
+
