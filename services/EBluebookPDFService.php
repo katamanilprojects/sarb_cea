@@ -568,30 +568,26 @@ class EBluebookPDFService
             $mpdf->AddPage();
 
             $diaryHTML = '
-            <h3 style="text-align:center; margin-bottom:5px;">DIARY OF LECTURER CLASSES</h3>
-            <p style="text-align:center; font-size:11px; color:#555; margin-top:0;">Actual Lecture Delivery Log with Course Outcome (CO) Alignment</p>
+            <h3 style="text-align:center;">DIARY OF LECTURER CLASSES</h3>
             <table border="1" cellpadding="8" cellspacing="0" style="font-size: 11px; border-collapse:collapse; width: 100%;">
                 <thead>
             <tr style="background:#333; color:#fff;">
-                <th style="width:30px; text-align:center; vertical-align:middle;">S.No</th>
-                <th style="width:80px; text-align:center; vertical-align:middle;">Date</th>
-                <th style="width:110px; text-align:center; vertical-align:middle;">Time</th>
+                <th style="width:35px; text-align:center; vertical-align:middle;">S.No</th>
+                <th style="width:90px; text-align:center; vertical-align:middle;">Date</th>
+                <th style="width:120px; text-align:center; vertical-align:middle;">Time</th>
                 <th style="text-align:left; vertical-align:middle;">Topics Covered</th>
-                <th style="width:45px; text-align:center; vertical-align:middle;">CO</th>
             </tr>
                 </thead>
                 <tbody>';
 
             $dSno = 1;
             foreach ($diaryEntries as $entry) {
-                $coTag = (!empty($entry['co_number'])) ? 'CO' . $entry['co_number'] : '-';
                 $diaryHTML .= '
                 <tr>
                     <td style="text-align:center;">' . $dSno++ . '</td>
                     <td style="text-align:center;">' . date('d-m-Y', strtotime($entry['date'])) . '</td>
                     <td style="text-align:center;">' . date("g:i A", strtotime($entry['start_time'])) . " - " . date("g:i A", strtotime($entry['end_time'])) . '</td>
                     <td style="text-align:left; word-break: break-word; word-wrap: break-word;">' . htmlspecialchars($entry['diary']) . '</td>
-                    <td style="text-align:center; font-weight:bold;">' . $coTag . '</td>
                 </tr>';
             }
 

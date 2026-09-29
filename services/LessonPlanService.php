@@ -143,10 +143,11 @@ class LessonPlanService extends \DBCredentials {
         $totalPlanned = count($plan);
 
         $stmtActual = $this->conn->prepare("
-            SELECT COUNT(DISTINCT date, hour) as actual_conducted,
-                   COUNT(DISTINCT co_addressed) as cos_covered
-            FROM diary
-            WHERE sub_id = ?
+            SELECT COUNT(DISTINCT d.date, d.hour) as actual_conducted,
+                   COUNT(DISTINCT lp.co_id) as cos_covered
+            FROM diary d
+            LEFT JOIN lesson_plans lp ON d.lesson_plan_id = lp.id
+            WHERE d.sub_id = ?
         ");
         $stmtActual->bind_param("i", $sub_id);
         $stmtActual->execute();
@@ -199,16 +200,15 @@ class LessonPlanService extends \DBCredentials {
 
         $diaryEntries = [];
         $stmtDiary = $this->conn->prepare("
-            SELECT d.id, d.date, d.hour, ct.hour_desc, d.diary, d.co_addressed, d.lesson_plan_id,
-                   COALESCE(co.co_number, lp_co.co_number) as co_number,
+            SELECT d.id, d.date, d.hour, ct.hour_desc, d.diary, d.lesson_plan_id,
                    lp.lecture_number as mapped_lecture_num,
                    lp.planned_topic as mapped_topic,
-                   lp.unit_number as mapped_unit_number
+                   lp.unit_number as mapped_unit_number,
+                   co.co_number
             FROM diary d 
             LEFT JOIN class_timings ct ON d.hour = ct.id 
-            LEFT JOIN course_outcomes co ON d.co_addressed = co.id 
             LEFT JOIN lesson_plans lp ON d.lesson_plan_id = lp.id
-            LEFT JOIN course_outcomes lp_co ON lp.co_id = lp_co.id
+            LEFT JOIN course_outcomes co ON lp.co_id = co.id
             WHERE d.sub_id = ? 
             ORDER BY d.date ASC, d.hour ASC
         ");
@@ -318,20 +318,9 @@ class LessonPlanService extends \DBCredentials {
     public function saveDiaryLessonPlanMappings(int $sub_id, array $mappings): array {
         $res = ['status' => 0, 'updated_count' => 0];
         try {
-            // Cache lesson_plan co_id map for this subject
-            $lpStmt = $this->conn->prepare("SELECT id, co_id FROM lesson_plans WHERE sub_id = ?");
-            $lpStmt->bind_param("i", $sub_id);
-            $lpStmt->execute();
-            $lpRes = $lpStmt->get_result();
-            $lpMap = [];
-            while ($row = $lpRes->fetch_assoc()) {
-                $lpMap[(int)$row['id']] = (int)$row['co_id'];
-            }
-            $lpStmt->close();
-
             $updateStmt = $this->conn->prepare("
                 UPDATE diary 
-                SET lesson_plan_id = ?, co_addressed = ? 
+                SET lesson_plan_id = ? 
                 WHERE id = ? AND sub_id = ?
             ");
 
@@ -344,19 +333,16 @@ class LessonPlanService extends \DBCredentials {
 
                 $lpIdInt = (!empty($lpId) && is_numeric($lpId)) ? (int)$lpId : null;
 
-                if ($lpIdInt && isset($lpMap[$lpIdInt])) {
-                    $coId = $lpMap[$lpIdInt];
-                    $updateStmt->bind_param("iiii", $lpIdInt, $coId, $diaryId, $sub_id);
+                if ($lpIdInt && $lpIdInt > 0) {
+                    $updateStmt->bind_param("iii", $lpIdInt, $diaryId, $sub_id);
                 } elseif ($lpId === "0" || $lpId === 0) {
                     // Explicitly marked as compensatory (no lecture plan)
                     $zeroLp = 0;
-                    $nullCo = null;
-                    $updateStmt->bind_param("iiii", $zeroLp, $nullCo, $diaryId, $sub_id);
+                    $updateStmt->bind_param("iii", $zeroLp, $diaryId, $sub_id);
                 } else {
                     // Unmapped
                     $nullLp = null;
-                    $nullCo = null;
-                    $updateStmt->bind_param("iiii", $nullLp, $nullCo, $diaryId, $sub_id);
+                    $updateStmt->bind_param("iii", $nullLp, $diaryId, $sub_id);
                 }
                 if ($updateStmt->execute()) {
                     $updated++;
