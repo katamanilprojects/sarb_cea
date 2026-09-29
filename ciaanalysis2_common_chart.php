@@ -43,11 +43,13 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="copo-matrix-tab" data-bs-toggle="tab" data-bs-target="#copo-matrix-tab-pane" type="button" role="tab" aria-controls="copo-matrix-tab-pane" aria-selected="false">CO-PO Matrix</button>
                     </li>
+                    <?php /*
                     <?php if ($hasSeeMarks): ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="comprehensive-tab" data-bs-toggle="tab" data-bs-target="#comprehensive-tab-pane" type="button" role="tab" aria-controls="comprehensive-tab-pane" aria-selected="false"><i class="bi bi-award me-1"></i>Direct & Overall Attainment (NBA/NAAC)</button>
                     </li>
                     <?php endif; ?>
+                    */ ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced-tab-pane" type="button" role="tab" aria-controls="advanced-tab-pane" aria-selected="false">Other Insights</button>
                     </li>
@@ -156,6 +158,7 @@
                         </div>
                     </div>
 
+                    <?php /*
                     <?php if ($hasSeeMarks): ?>
                     <div class="tab-pane fade" id="comprehensive-tab-pane" role="tabpanel" aria-labelledby="comprehensive-tab" tabindex="0">
                         <div class="card mb-4 border-0 shadow-sm">
@@ -215,6 +218,7 @@
                         </div>
                     </div>
                     <?php endif; ?>
+                    */ ?>
 
                     <div class="tab-pane fade" id="advanced-tab-pane" role="tabpanel" aria-labelledby="advanced-tab" tabindex="0">
                         <div class="row">
@@ -286,8 +290,8 @@
             </div>
             <div class="card-footer bg-light py-3 border-top d-flex flex-wrap justify-content-between align-items-center">
                 <div>
-                    <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-file-earmark-arrow-down me-1"></i>Official Course Documents & Reports</h6>
-                    <span class="text-muted small">Generate and download official PDF dossiers for departmental audits and NBA/NAAC accreditations.</span>
+                    <h6 class="mb-1 fw-bold text-dark"><i class="bi bi-file-earmark-arrow-down me-1"></i>Course Documents & Reports</h6>
+                    <span class="text-muted small">Generate and download official PDF dossiers for departmental audits<!-- and NBA/NAAC accreditations-->.</span>
                 </div>
                 <div class="d-flex flex-wrap gap-2 mt-2 mt-md-0">
                     <a href="download_feedback_enhanced.php?format=pdf&level=subject&sub_id=<?php echo htmlspecialchars($selected_sub_id); ?>" target="_blank" class="btn btn-outline-primary btn-sm">

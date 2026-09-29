@@ -36,6 +36,7 @@ function renderAccordion() {
                 <li><strong>\( N \)</strong> = Total number of students</li>
             </ul>
         HTML],
+        /*
         [8, "Comprehensive Direct & Overall Attainment (NBA/NAAC Compliance)", <<<HTML
             <p><strong>1. Direct Course Outcome Attainment:</strong></p>
             <p>$$ \\text{Direct Level} = (w_{\\text{cia}} \\times \\text{CIA Level}) + (w_{\\text{see}} \\times \\text{SEE Level}) $$</p>
@@ -45,6 +46,7 @@ function renderAccordion() {
             <p>$$ \\text{PO Level} = \\frac{\\sum (\\text{Overall CO Level} \\times \\text{Weightage})}{\\sum \\text{Weightage}} $$</p>
             <p class='small text-muted'>* Default institutional weights under autonomous regulations: 30% CIA + 70% SEE for Direct Attainment; 80% Direct + 20% Indirect Student Feedback for Overall Attainment.</p>
         HTML]
+        */
     ];
 
     $output = "<div class=\"accordion\" id=\"formulaAccordion\">";

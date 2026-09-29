@@ -308,7 +308,7 @@ require_once("facheader.php"); // Make sure path is correct
                             } else {
                                 $assessments = [1 => "CIA 1", 2 => "CIA 2", 'all' => "Overall CIA"];
                             }
-                            $assessments['SEE'] = "Semester End Exam (SEE)";
+                            // $assessments['SEE'] = "Semester End Exam (SEE)"; // Hidden as requested
                             foreach ($assessments as $num => $label):
                                 $selected = (strcasecmp((string)$selected_assessment_number, (string)$num) === 0) ? 'selected' : '';
                             ?>

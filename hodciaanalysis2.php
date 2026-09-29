@@ -267,7 +267,7 @@ require_once("hodheader.php");
                         } else {
                             $assessments = [1 => "CIA 1", 2 => "CIA 2", 'all' => "Overall CIA"];
                         }
-                        $assessments['SEE'] = "Semester End Exam (SEE)";
+                        // $assessments['SEE'] = "Semester End Exam (SEE)"; // Hidden as requested
                         foreach ($assessments as $num => $label):
                             $selected = (!empty($selected_assessment_number) && strcasecmp((string)$selected_assessment_number, (string)$num) === 0) ? 'selected' : '';
                         ?>
