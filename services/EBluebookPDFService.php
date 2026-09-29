@@ -434,12 +434,16 @@ class EBluebookPDFService
             }
         }
 
-        // Dedicated Standalone Page: ATTENDANCE ELIGIBILITY & COHORT DISTRIBUTION SUMMARY
+        // Dedicated Standalone Page: ATTENDANCE DISTRIBUTION & COHORT SUMMARY
+        $totSafe = max($totalStudents, 1);
         $betweenStr = !empty($betweenFloorAndAgg)
             ? implode(', ', array_map(fn($c) => $c['roll'] . ' (' . $c['pct'] . '%)', $betweenFloorAndAgg))
             : 'Nil';
         $ltFloorStr = !empty($ltFloor)
             ? implode(', ', array_map(fn($d) => $d['roll'] . ' (' . $d['pct'] . '%)', $ltFloor))
+            : 'Nil';
+        $ltMinSubStr = !empty($ltMinSub)
+            ? implode(', ', array_map(fn($s) => $s['roll'] . ' (' . $s['pct'] . '%)', $ltMinSub))
             : 'Nil';
 
         $mpdf->SetHTMLHeader($getBluebookHeader('Attendance Summary'), 0);
@@ -448,13 +452,13 @@ class EBluebookPDFService
         $summaryHtml = '
         <div style="font-family: Arial, sans-serif; padding-top: 10px;">
             <h3 style="text-align: center; color: #1a365d; margin-bottom: 15px; font-size: 13px;">
-                ATTENDANCE ELIGIBILITY & COHORT DISTRIBUTION SUMMARY
+                COURSE ATTENDANCE DISTRIBUTION & SUMMARY
             </h3>
-            <table border="1" cellpadding="6" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; margin-bottom: 12px;">
+            <table border="1" cellpadding="6" cellspacing="0" style="width: 100%; border-collapse: collapse; font-size: 10px; table-layout: fixed; margin-bottom: 10px;">
                 <thead>
                     <tr style="background-color: #e2e3e5;">
                         <th colspan="4" style="text-align: left; font-size: 11px; font-weight: bold; color: #1a365d; padding: 6px 8px;">
-                            Cohort Attendance Categorisation (Regulation ' . htmlspecialchars($regulation) . ')
+                            Course Attendance Distribution (Regulation ' . htmlspecialchars($regulation) . ')
                         </th>
                     </tr>
                 </thead>
@@ -462,23 +466,41 @@ class EBluebookPDFService
                     <tr>
                         <td style="width: 25%; font-weight: bold; background-color: #fafafa; padding: 6px 8px;">Total Students Enrolled:</td>
                         <td style="width: 25%; font-weight: bold; text-align: center; padding: 6px 8px;">' . $totalStudents . '</td>
-                        <td style="width: 25%; font-weight: bold; background-color: #e8f5e9; color: #1b5e20; padding: 6px 8px;">&ge; ' . $minAggregatePct . '% (Eligible):</td>
-                        <td style="width: 25%; font-weight: bold; text-align: center; background-color: #e8f5e9; color: #1b5e20; padding: 6px 8px;">' . count($geMinAgg) . ' (' . round(count($geMinAgg)/$totalStudents*100, 2) . '%)</td>
+                        <td style="width: 25%; font-weight: bold; background-color: #e8f5e9; color: #1b5e20; padding: 6px 8px;">&ge; ' . $minAggregatePct . '%:</td>
+                        <td style="width: 25%; font-weight: bold; text-align: center; background-color: #e8f5e9; color: #1b5e20; padding: 6px 8px;">' . count($geMinAgg) . ' (' . round(count($geMinAgg)/$totSafe*100, 2) . '%)</td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold; background-color: #fff8e1; color: #e65100; padding: 6px 8px;">' . $condoneFloor . '% &ndash; ' . $minAggregatePct . '% (Condonation):</td>
+                        <td style="font-weight: bold; background-color: #fff8e1; color: #e65100; padding: 6px 8px;">' . $condoneFloor . '% &ndash; &lt; ' . $minAggregatePct . '%:</td>
                         <td colspan="3" style="background-color: #fff8e1; color: #e65100; font-size: 9.5px; padding: 6px 8px;">
-                            <strong>' . count($betweenFloorAndAgg) . ' Student(s) (' . round(count($betweenFloorAndAgg)/$totalStudents*100, 2) . '%):</strong> ' . htmlspecialchars($betweenStr) . '
+                            <strong>' . count($betweenFloorAndAgg) . ' Student(s) (' . round(count($betweenFloorAndAgg)/$totSafe*100, 2) . '%):</strong> ' . htmlspecialchars($betweenStr) . '
                         </td>
                     </tr>
                     <tr>
-                        <td style="font-weight: bold; background-color: #ffebee; color: #c62828; padding: 6px 8px;">&lt; ' . $condoneFloor . '% (Detained):</td>
+                        <td style="font-weight: bold; background-color: #ffebee; color: #c62828; padding: 6px 8px;">&lt; ' . $condoneFloor . '%:</td>
                         <td colspan="3" style="background-color: #ffebee; color: #c62828; font-size: 9.5px; padding: 6px 8px;">
-                            <strong>' . count($ltFloor) . ' Student(s) (' . round(count($ltFloor)/$totalStudents*100, 2) . '%):</strong> ' . htmlspecialchars($ltFloorStr) . '
+                            <strong>' . count($ltFloor) . ' Student(s) (' . round(count($ltFloor)/$totSafe*100, 2) . '%):</strong> ' . htmlspecialchars($ltFloorStr) . '
                         </td>
-                    </tr>
+                    </tr>';
+
+        if ($minSubjectPct > 0) {
+            $summaryHtml .= '
+                    <tr>
+                        <td style="font-weight: bold; background-color: #fce4ec; color: #880e4f; padding: 6px 8px;">&lt; ' . $minSubjectPct . '% (Subject Shortage):</td>
+                        <td colspan="3" style="background-color: #fce4ec; color: #880e4f; font-size: 9.5px; padding: 6px 8px;">
+                            <strong>' . count($ltMinSub) . ' Student(s) (' . round(count($ltMinSub)/$totSafe*100, 2) . '%):</strong> ' . htmlspecialchars($ltMinSubStr) . '
+                            <div style="font-size: 8.5px; color: #ad1457; margin-top: 3px; font-style: italic;">
+                                * Individual course attendance requirement as per Section 17(i) of Academic Regulations (minimum ' . $minSubjectPct . '% per course).
+                            </div>
+                        </td>
+                    </tr>';
+        }
+
+        $summaryHtml .= '
                 </tbody>
             </table>
+            <div style="font-size: 8px; color: #666; line-height: 1.4; margin-top: 4px; font-style: italic;">
+                * Note: Official semester condonation (' . $condoneFloor . '% &ndash; ' . $minAggregatePct . '%) and detention (&lt; ' . $condoneFloor . '%) are institutional decisions finalized class-wise based on aggregate attendance across all courses. At the individual course level, this summary presents the cohort attendance distribution and highlights course-level minimum compliance (&lt; ' . $minSubjectPct . '%).
+            </div>
         </div>';
 
         $mpdf->WriteHTML($summaryHtml);
