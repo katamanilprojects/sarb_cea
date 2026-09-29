@@ -349,6 +349,11 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                                 <i class="bi bi-pencil"></i> Edit
                                             </a>
 
+                                            <!-- BOS Master Course Outcomes button -->
+                                            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="openMasterCOModal(<?= $sub['id'] ?>, '<?= htmlspecialchars(addslashes($sub['subcode'])) ?>', '<?= htmlspecialchars(addslashes($sub['sub_fullname'])) ?>')" title="Manage BOS Master Course Outcomes">
+                                                <i class="bi bi-award"></i> BOS COs
+                                            </button>
+
                                             <!-- Inactivate / Activate toggle form -->
                                             <form method="POST" action="academicsectioncurriculumsubjects.php" class="d-inline" onsubmit="return confirm('<?= $isActive ? "Are you sure you want to inactivate this subject?" : "Are you sure you want to activate this subject?" ?>');">
                                                 <input type="hidden" name="action" value="toggle_status">
@@ -377,6 +382,95 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
             </div>
         </div>
     <?php endif; ?>
+</div>
+
+<!-- Master BOS Course Outcomes Modal -->
+<div class="modal fade" id="masterCOModal" tabindex="-1" aria-labelledby="masterCOModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-lg">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-primary text-white">
+                <h5 class="modal-title" id="masterCOModalLabel"><i class="bi bi-award me-2"></i>Board of Studies (BOS) Master Course Outcomes</h5>
+                <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-secondary py-2 mb-3">
+                    <strong id="modalSubjectInfo">Subject Code & Name</strong>
+                    <div class="text-muted small">These master catalog outcomes are inherited by default across faculty offerings under this syllabus.</div>
+                </div>
+
+                <div id="modalCOAlert"></div>
+
+                <!-- Existing Master COs Table -->
+                <h6 class="fw-bold mb-2"><i class="bi bi-list-check me-1"></i>Approved Catalog COs</h6>
+                <div class="table-responsive mb-4">
+                    <table class="table table-bordered table-sm align-middle text-center mb-0" id="masterCOTable">
+                        <thead class="table-light">
+                            <tr>
+                                <th style="width: 70px;">CO No.</th>
+                                <th class="text-start">Course Outcome Description</th>
+                                <th style="width: 140px;">Bloom's Level</th>
+                                <th style="width: 100px;">Target %</th>
+                                <th style="width: 90px;">Actions</th>
+                            </tr>
+                        </thead>
+                        <tbody id="masterCOTableBody">
+                            <tr>
+                                <td colspan="5" class="text-muted py-3">Loading master outcomes...</td>
+                            </tr>
+                        </tbody>
+                    </table>
+                </div>
+
+                <!-- Add / Edit Master CO Form -->
+                <div class="card border-primary">
+                    <div class="card-header bg-light fw-bold py-2">
+                        <span id="formCardTitle"><i class="bi bi-plus-circle me-1"></i>Add / Update Master CO</span>
+                    </div>
+                    <div class="card-body py-2">
+                        <form id="masterCOForm" onsubmit="submitMasterCO(event)">
+                            <input type="hidden" id="modal_curr_sub_id" name="curr_sub_id" value="">
+                            <input type="hidden" name="action" value="save_master_co">
+                            <div class="row g-2 mb-2">
+                                <div class="col-md-3">
+                                    <label class="form-label small fw-bold">CO Number <span class="text-danger">*</span></label>
+                                    <input type="number" id="modal_co_number" name="co_number" class="form-control form-control-sm" min="1" max="10" placeholder="e.g. 1" required>
+                                </div>
+                                <div class="col-md-5">
+                                    <label class="form-label small fw-bold">Bloom's Taxonomy Level</label>
+                                    <select id="modal_bloom_level" name="bloom_level" class="form-select form-select-sm">
+                                        <option value="L1-Remember">L1 - Remember</option>
+                                        <option value="L2-Understand">L2 - Understand</option>
+                                        <option value="L3-Apply" selected>L3 - Apply</option>
+                                        <option value="L4-Analyze">L4 - Analyze</option>
+                                        <option value="L5-Evaluate">L5 - Evaluate</option>
+                                        <option value="L6-Create">L6 - Create</option>
+                                    </select>
+                                </div>
+                                <div class="col-md-4">
+                                    <label class="form-label small fw-bold">Target Threshold (%)</label>
+                                    <div class="input-group input-group-sm">
+                                        <input type="number" step="0.1" id="modal_target_threshold" name="target_threshold_percent" class="form-control" value="60.0" min="1" max="100" required>
+                                        <span class="input-group-text">%</span>
+                                    </div>
+                                </div>
+                                <div class="col-12">
+                                    <label class="form-label small fw-bold">CO Statement / Description <span class="text-danger">*</span></label>
+                                    <textarea id="modal_co_description" name="co_description" class="form-control form-control-sm" rows="2" placeholder="Upon completion of this course, students will be able to..." required></textarea>
+                                </div>
+                            </div>
+                            <div class="text-end">
+                                <button type="button" class="btn btn-outline-secondary btn-sm me-1" onclick="resetMasterCOForm()">Clear</button>
+                                <button type="submit" class="btn btn-primary btn-sm" id="modalSubmitBtn"><i class="bi bi-save me-1"></i>Save Master CO</button>
+                            </div>
+                        </form>
+                    </div>
+                </div>
+            </div>
+            <div class="modal-footer py-2">
+                <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
 </div>
 
 <script>
@@ -482,6 +576,162 @@ function lookupSubjectCode() {
                 statusEl.textContent = 'Lookup error';
             }
         });
+}
+
+// Master BOS Course Outcomes Modal & AJAX Management
+let currentMasterCOModalInstance = null;
+let activeCurrSubId = null;
+
+function openMasterCOModal(currSubId, subCode, subName) {
+    activeCurrSubId = currSubId;
+    document.getElementById('modal_curr_sub_id').value = currSubId;
+    document.getElementById('modalSubjectInfo').textContent = subCode + ' - ' + subName;
+    document.getElementById('modalCOAlert').innerHTML = '';
+    resetMasterCOForm();
+
+    loadMasterCOs(currSubId);
+
+    const modalEl = document.getElementById('masterCOModal');
+    if (!currentMasterCOModalInstance) {
+        currentMasterCOModalInstance = new bootstrap.Modal(modalEl);
+    }
+    currentMasterCOModalInstance.show();
+}
+
+function loadMasterCOs(currSubId) {
+    const tbody = document.getElementById('masterCOTableBody');
+    tbody.innerHTML = '<tr><td colspan="5" class="text-muted py-3"><div class="spinner-border spinner-border-sm me-2"></div>Loading master outcomes...</td></tr>';
+
+    fetch('curriculum_subject_ajax.php?action=get_master_cos&curr_sub_id=' + currSubId)
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 1 && res.data && res.data.length > 0) {
+                let html = '';
+                res.data.forEach(co => {
+                    const descSafe = (co.co_description || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                    const bloomSafe = co.bloom_level || 'L3-Apply';
+                    const thresh = co.target_threshold_percent || '60.0';
+                    html += `<tr>
+                        <td><span class="badge bg-secondary">CO${co.co_number}</span></td>
+                        <td class="text-start">${co.co_description || ''}</td>
+                        <td><span class="badge bg-info text-dark">${bloomSafe}</span></td>
+                        <td><span class="badge bg-light text-dark border">${thresh}%</span></td>
+                        <td>
+                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1 me-1" onclick="editMasterCO(${co.co_number}, '${descSafe}', '${bloomSafe}', ${thresh})" title="Edit CO">
+                                <i class="bi bi-pencil"></i>
+                            </button>
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="deleteMasterCO(${co.id}, ${co.co_number})" title="Delete CO">
+                                <i class="bi bi-trash"></i>
+                            </button>
+                        </td>
+                    </tr>`;
+                });
+                tbody.innerHTML = html;
+                const nextNum = res.data.length + 1;
+                document.getElementById('modal_co_number').value = nextNum;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-muted py-3">No master course outcomes defined yet. Use the form below to add CO1, CO2, etc.</td></tr>';
+                document.getElementById('modal_co_number').value = 1;
+            }
+        })
+        .catch(err => {
+            console.error('Error loading master COs:', err);
+            tbody.innerHTML = '<tr><td colspan="5" class="text-danger py-3">Failed to load outcomes. Please check console.</td></tr>';
+        });
+}
+
+function submitMasterCO(e) {
+    e.preventDefault();
+    const btn = document.getElementById('modalSubmitBtn');
+    const alertBox = document.getElementById('modalCOAlert');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving...';
+
+    const formData = new FormData(document.getElementById('masterCOForm'));
+
+    fetch('curriculum_subject_ajax.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i>Save Master CO';
+
+        if (res.status === 1) {
+            alertBox.innerHTML = '<div class="alert alert-success alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-check-circle me-1"></i>' + (res.message || 'Master CO saved successfully.') +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+            resetMasterCOForm();
+            loadMasterCOs(activeCurrSubId);
+        } else {
+            alertBox.innerHTML = '<div class="alert alert-danger alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i>' + (res.error || 'Failed to save master CO.') +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i>Save Master CO';
+        alertBox.innerHTML = '<div class="alert alert-danger py-2 mb-2">Network error while saving.</div>';
+    });
+}
+
+function editMasterCO(coNum, coDesc, bloomLevel, thresh) {
+    document.getElementById('modal_co_number').value = coNum;
+    document.getElementById('modal_co_description').value = coDesc;
+    if (bloomLevel) document.getElementById('modal_bloom_level').value = bloomLevel;
+    if (thresh) document.getElementById('modal_target_threshold').value = thresh;
+    document.getElementById('formCardTitle').innerHTML = '<i class="bi bi-pencil-square me-1 text-warning"></i>Editing Master CO' + coNum;
+    document.getElementById('modal_co_description').focus();
+}
+
+function deleteMasterCO(coId, coNum) {
+    if (!confirm('Are you sure you want to delete Master CO' + coNum + '?')) return;
+
+    const alertBox = document.getElementById('modalCOAlert');
+    const formData = new FormData();
+    formData.append('action', 'delete_master_co');
+    formData.append('curr_sub_id', activeCurrSubId);
+    formData.append('co_id', coId);
+
+    fetch('curriculum_subject_ajax.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        if (res.status === 1) {
+            alertBox.innerHTML = '<div class="alert alert-success alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-check-circle me-1"></i>Master CO' + coNum + ' deleted.' +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+            loadMasterCOs(activeCurrSubId);
+        } else {
+            alertBox.innerHTML = '<div class="alert alert-danger alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i>' + (res.error || 'Failed to delete CO.') +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+        }
+    })
+    .catch(err => {
+        console.error('Error deleting master CO:', err);
+        alertBox.innerHTML = '<div class="alert alert-danger py-2 mb-2">Network error while deleting CO.</div>';
+    });
+}
+
+function resetMasterCOForm() {
+    document.getElementById('modal_co_description').value = '';
+    document.getElementById('modal_bloom_level').value = 'L3-Apply';
+    document.getElementById('modal_target_threshold').value = '60.0';
+    document.getElementById('formCardTitle').innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add / Update Master CO';
+    // Auto-calculate next CO number from current visible table rows
+    const tbody = document.getElementById('masterCOTableBody');
+    const rows = tbody ? tbody.querySelectorAll('tr[class!="text-muted"]') : [];
+    let maxCoNum = 0;
+    tbody && tbody.querySelectorAll('td:first-child .badge').forEach(badge => {
+        const num = parseInt((badge.textContent || '').replace('CO', ''), 10);
+        if (!isNaN(num) && num > maxCoNum) maxCoNum = num;
+    });
+    document.getElementById('modal_co_number').value = maxCoNum + 1;
 }
 
 // Attach live input debounce for instant auto-population

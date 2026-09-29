@@ -51,7 +51,8 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $unmarkedHours = $facultyObj->getUnmarkedHours($selected_sub_id, $selected_date);
             } elseif (!empty($_POST['hours']) && !empty($_POST['diary'])) {
                 $stu_ids = isset($_POST['stu_ids']) ? $_POST['stu_ids'] : [];
-                $result = $facultyObj->markAttendance($_POST['hours'], $stu_ids, $selected_sub_id, $selected_date, $_POST['diary'], $faculty_id);
+                $co_addressed = !empty($_POST['co_addressed']) ? (int)$_POST['co_addressed'] : null;
+                $result = $facultyObj->markAttendance($_POST['hours'], $stu_ids, $selected_sub_id, $selected_date, $_POST['diary'], $faculty_id, $co_addressed);
 
                 if ($result['status'] == 1) {
                     $msg = "Attendance marked successfully.";
@@ -175,8 +176,45 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                             <input type="hidden" name="date" value="<?php echo $selected_date; ?>">
                             <div class="row">
                                 <div class="col-sm-6">
-                                    <h5>Diary</h5>
-                                    <textarea name="diary" class="form-control" rows="8" required="required"></textarea>
+                                    <?php
+                                    require_once("courseoutcome.class.php");
+                                    require_once("services/LessonPlanService.php");
+                                    $coObj = new CourseOutcome();
+                                    $cosRes = $coObj->getCOsBySubjectId($selected_sub_id);
+                                    $availCOs = $cosRes['data'] ?? [];
+                                    $nextLec = \Services\LessonPlanService::getInstance()->getNextSuggestedLecture($selected_sub_id);
+                                    ?>
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <h5 class="mb-0">Teaching Diary</h5>
+                                        <a href="facaddlessonplan.php?sub_id=<?= $selected_sub_id ?>" target="_blank" class="small text-decoration-none">
+                                            <i class="bi bi-calendar3 me-1"></i>Lesson Plan
+                                        </a>
+                                    </div>
+
+                                    <?php if ($nextLec): ?>
+                                        <div class="alert alert-info py-2 px-3 mb-2 small d-flex justify-content-between align-items-center">
+                                            <div>
+                                                <strong>Next Planned (Lec #<?= $nextLec['lecture_number'] ?>):</strong> 
+                                                <?= htmlspecialchars($nextLec['planned_topic']) ?> 
+                                                <span class="badge bg-primary">CO<?= $nextLec['co_number'] ?></span>
+                                            </div>
+                                            <button type="button" class="btn btn-sm btn-outline-primary py-0 px-2" onclick="usePlannedTopic(<?= htmlspecialchars(json_encode($nextLec['planned_topic']), ENT_QUOTES, 'UTF-8') ?>, <?= (int)$nextLec['co_id'] ?>)">Use Plan</button>
+                                        </div>
+                                    <?php endif; ?>
+
+                                    <textarea name="diary" id="diaryTextarea" class="form-control mb-2" rows="5" required="required" placeholder="Topics covered in this lecture period..."></textarea>
+                                    
+                                    <div class="form-group">
+                                        <label for="co_addressed" class="form-label small fw-bold text-muted">Target Course Outcome (CO) Addressed:</label>
+                                        <select name="co_addressed" id="co_addressed" class="form-select form-select-sm">
+                                            <option value="">-- Select Course Outcome (Optional) --</option>
+                                            <?php foreach ($availCOs as $co): ?>
+                                                <option value="<?= $co['id'] ?>" <?= ($nextLec && $nextLec['co_id'] == $co['id']) ? 'selected' : '' ?>>
+                                                    CO<?= $co['co_number'] ?> - <?= htmlspecialchars(substr($co['co_description'], 0, 60)) ?>...
+                                                </option>
+                                            <?php endforeach; ?>
+                                        </select>
+                                    </div>
                                 </div>
 
                                 <div class="col-sm-6">
@@ -340,6 +378,17 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
         }
 
     });
+
+    function usePlannedTopic(topic, coId) {
+        const diaryBox = document.getElementById('diaryTextarea');
+        if (diaryBox) {
+            diaryBox.value = topic;
+        }
+        const coSelect = document.getElementById('co_addressed');
+        if (coSelect && coId) {
+            coSelect.value = coId;
+        }
+    }
 </script>
 <?php
 require_once("facfooter.php");

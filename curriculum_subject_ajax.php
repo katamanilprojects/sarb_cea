@@ -50,5 +50,43 @@ if ($action === 'get_subjects_for_class') {
     exit();
 }
 
+if ($action === 'get_master_cos') {
+    $currSubId = (int)($_GET['curr_sub_id'] ?? ($_POST['curr_sub_id'] ?? 0));
+    $res = $obj->getMasterCOs($currSubId);
+    echo json_encode($res);
+    exit();
+}
+
+if ($action === 'save_master_co') {
+    $currSubId = (int)($_POST['curr_sub_id'] ?? 0);
+    $coNumber = (int)($_POST['co_number'] ?? 0);
+    $coDescription = trim($_POST['co_description'] ?? '');
+    $bloomLevel = trim($_POST['bloom_level'] ?? 'L3-Apply');
+    $targetThreshold = (float)($_POST['target_threshold_percent'] ?? 60.0);
+
+    if ($currSubId <= 0 || $coNumber <= 0 || empty($coDescription)) {
+        echo json_encode(['status' => 0, 'error' => 'Subject ID, CO number, and description are required.']);
+        exit();
+    }
+
+    $res = $obj->addOrUpdateMasterCO($currSubId, $coNumber, $coDescription, $bloomLevel, $targetThreshold);
+    echo json_encode($res);
+    exit();
+}
+
+if ($action === 'delete_master_co') {
+    $currSubId = (int)($_POST['curr_sub_id'] ?? 0);
+    $coId = (int)($_POST['co_id'] ?? 0);
+
+    if ($currSubId <= 0 || $coId <= 0) {
+        echo json_encode(['status' => 0, 'error' => 'Invalid parameters for deletion.']);
+        exit();
+    }
+
+    $res = $obj->deleteMasterCO($currSubId, $coId);
+    echo json_encode($res);
+    exit();
+}
+
 echo json_encode(['status' => 0, 'error' => 'Invalid action.']);
 exit();

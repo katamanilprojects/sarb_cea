@@ -17,7 +17,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'id' => $_POST['id'] ?? null,
             'program_code' => $_POST['program_code'],
             'prog_shortname' => $_POST['prog_shortname'],
-            'prog_fullname' => $_POST['prog_fullname']
+            'prog_fullname' => $_POST['prog_fullname'],
+            'program_level' => $_POST['program_level'] ?? 'UG'
         ];
 
         $result = $superadmin->addOrUpdateProgram($data);
@@ -66,6 +67,14 @@ if ($showEditForm) {
                         <input type="text" name="prog_fullname" id="prog_fullname" class="form-control" required value="<?= $editProgram ? $editProgram['prog_fullname'] : ''; ?>">
                     </div>
                     <div class="form-group">
+                        <label for="program_level">Program Level (AICTE / NBA):</label>
+                        <select name="program_level" id="program_level" class="form-select">
+                            <option value="UG" <?= ($editProgram && ($editProgram['program_level'] ?? 'UG') == 'UG') ? 'selected' : ''; ?>>UG - Under Graduate (12 POs)</option>
+                            <option value="PG" <?= ($editProgram && ($editProgram['program_level'] ?? '') == 'PG') ? 'selected' : ''; ?>>PG - Post Graduate (11 POs)</option>
+                            <option value="PHD" <?= ($editProgram && ($editProgram['program_level'] ?? '') == 'PHD') ? 'selected' : ''; ?>>PHD - Doctoral</option>
+                        </select>
+                    </div>
+                    <div class="form-group">
                         <input type="hidden" name="id" id="id" value="<?= $editProgram ? $editProgram['id'] : ''; ?>">
                         <button type="button" class="btn btn-outline-danger mt-3 float-start" id="cancelProgramBtn">Cancel</button> &nbsp; 
                         <button type="submit" class="btn btn-primary mt-3">Save Program</button>
@@ -83,6 +92,7 @@ if ($showEditForm) {
                         <th>Program Code</th>
                         <th>Program Short Name</th>
                         <th>Program Full Name</th>
+                        <th>Level</th>
                         <th>Actions</th>
                     </tr>
                 </thead>
@@ -92,6 +102,11 @@ if ($showEditForm) {
                         <td><?= $prog['program_code']; ?></td>
                         <td><?= htmlspecialchars($prog['prog_shortname']); ?></td>
                         <td><?= htmlspecialchars($prog['prog_fullname']); ?></td>
+                        <td><?php
+                                $lvl = $prog['program_level'] ?? 'UG';
+                                $badgeColor = match($lvl) { 'PG' => 'info', 'PHD' => 'dark', default => 'primary' };
+                            ?><span class="badge bg-<?= $badgeColor ?>"><?= htmlspecialchars($lvl) ?></span>
+                            <small class="text-muted ms-1"><?= htmlspecialchars(Programs::getLevelLabel($lvl)) ?></small></td>
                         <td>
                             <a href="superadminprograms.php?edit=<?= $prog['id']; ?>" class="btn btn-primary">Edit</a>
                             <form action="superadminprograms.php" method="post" class="d-inline" onsubmit="return confirm('Are you sure you want to delete <?= htmlspecialchars($prog['prog_shortname']); ?> ?');">
@@ -114,6 +129,7 @@ document.getElementById('addProgramBtn').addEventListener('click', function() {
     document.getElementById('prog_shortname').value = '';
     document.getElementById('prog_fullname').value = '';
     document.getElementById('id').value = '';
+    document.getElementById('program_level').value = 'UG';
 });
 document.getElementById('cancelProgramBtn').addEventListener('click', function() {
     document.getElementById('addProgramBtn').style.display = 'block';
@@ -122,6 +138,7 @@ document.getElementById('cancelProgramBtn').addEventListener('click', function()
     document.getElementById('prog_shortname').value = '';
     document.getElementById('prog_fullname').value = '';
     document.getElementById('id').value = '';
+    document.getElementById('program_level').value = 'UG';
 });
 
 </script>

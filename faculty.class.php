@@ -217,7 +217,7 @@ class Faculty extends User
 	}
 
 	// Function to mark attendance
-	public function markAttendance($hours, $studentIds, $sub_id, $date, $diary, $faculty_id)
+	public function markAttendance($hours, $studentIds, $sub_id, $date, $diary, $faculty_id, $co_addressed = null)
 	{
 		$res = ['status' => 0];
 		$myname = $this->classname . " - markAttendance - ";
@@ -225,14 +225,15 @@ class Faculty extends User
 		try {
 			$this->conn->begin_transaction(); // Start transaction for data consistency
 
-			// Add diary entry
-			$stmt = $this->conn->prepare("INSERT INTO `diary` (`sub_id`, `faculty_id`, `date`, `hour`, `diary`) VALUES (?, ?, ?, ?, ?)");
+			// Add diary entry with optional co_addressed
+			$co_addressed_val = !empty($co_addressed) ? (int)$co_addressed : null;
+			$stmt = $this->conn->prepare("INSERT INTO `diary` (`sub_id`, `faculty_id`, `date`, `hour`, `diary`, `co_addressed`) VALUES (?, ?, ?, ?, ?, ?)");
 			if (!$stmt) {
 				throw new Exception("Failed to prepare diary insert statement: " . $this->conn->error);
 			}
 
 			foreach ($hours as $hour) {
-				$stmt->bind_param("iisss", $sub_id, $faculty_id, $date, $hour, $diary);
+				$stmt->bind_param("iisssi", $sub_id, $faculty_id, $date, $hour, $diary, $co_addressed_val);
 				if (!$stmt->execute()) {
 					$this->conn->rollback();
 					$this->logs->errLog($myname . "Diary insert failed: " . $this->conn->error);
@@ -570,10 +571,14 @@ class Faculty extends User
 		try {
 			$dateFilter = "";
 			if ($start_date && $end_date) {
-				$dateFilter = "AND date BETWEEN ? AND ?";
+				$dateFilter = "AND d.date BETWEEN ? AND ?";
 			}
 
-			$query = "SELECT date, ct.hour_desc, ct.start_time, ct.end_time, diary FROM diary d LEFT JOIN class_timings ct ON d.hour=ct.id WHERE sub_id = ? " . $dateFilter . " ORDER BY date, ct.id";
+			$query = "SELECT d.date, ct.hour_desc, ct.start_time, ct.end_time, d.diary, d.co_addressed, co.co_number 
+			          FROM diary d 
+			          LEFT JOIN class_timings ct ON d.hour=ct.id 
+			          LEFT JOIN course_outcomes co ON d.co_addressed = co.id 
+			          WHERE d.sub_id = ? " . $dateFilter . " ORDER BY d.date, ct.id";
 			$stmt = $this->conn->prepare($query);
 			if (!$stmt) {
 				throw new Exception("Failed to prepare diary entries query: " . $this->conn->error);
@@ -587,14 +592,16 @@ class Faculty extends User
 			}
 
 			if ($stmt->execute()) {
-				$stmt->bind_result($date, $hour, $start_time, $end_time, $diary);
+				$stmt->bind_result($date, $hour, $start_time, $end_time, $diary, $co_addressed, $co_number);
 				while ($stmt->fetch()) {
 					$diaryEntries[] = [
 						'date' => $date,
 						'hour' => $hour,
 						'start_time' => $start_time,
 						'end_time' => $end_time,
-						'diary' => $diary
+						'diary' => $diary,
+						'co_addressed' => $co_addressed,
+						'co_number' => $co_number
 					];
 				}
 			} else {
@@ -707,7 +714,7 @@ class Faculty extends User
 	}
 
 	// Function to add a diary entry without attendance
-	public function addDairy($hours, $sub_id, $date, $diary, $faculty_id)
+	public function addDairy($hours, $sub_id, $date, $diary, $faculty_id, $co_addressed = null)
 	{
 		$res = ['status' => 0];
 		$myname = $this->classname . " - addDairy - ";
@@ -715,14 +722,15 @@ class Faculty extends User
 		try {
 			$this->conn->begin_transaction(); // Start transaction for data consistency
 
-			// Add diary entry
-			$stmt = $this->conn->prepare("INSERT INTO `diary` (`sub_id`, `faculty_id`, `date`, `hour`, `diary`) VALUES (?, ?, ?, ?, ?)");
+			// Add diary entry with optional co_addressed
+			$co_addressed_val = !empty($co_addressed) ? (int)$co_addressed : null;
+			$stmt = $this->conn->prepare("INSERT INTO `diary` (`sub_id`, `faculty_id`, `date`, `hour`, `diary`, `co_addressed`) VALUES (?, ?, ?, ?, ?, ?)");
 			if (!$stmt) {
 				throw new Exception("Failed to prepare diary insert statement: " . $this->conn->error);
 			}
 
 			foreach ($hours as $hour) {
-				$stmt->bind_param("iisss", $sub_id, $faculty_id, $date, $hour, $diary);
+				$stmt->bind_param("iisssi", $sub_id, $faculty_id, $date, $hour, $diary, $co_addressed_val);
 				if (!$stmt->execute()) {
 					$this->conn->rollback();
 					$this->logs->errLog($myname . "Diary insert failed: " . $this->conn->error);

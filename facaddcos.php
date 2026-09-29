@@ -28,13 +28,32 @@ if (isset($_POST['submit_cos'])) {
     }
 }
 
+// Handle BOS Master CO Import
+if (!empty($_POST['import_bos_cos']) && !empty($selected_sub_id)) {
+    if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
+        unset($_SESSION['secretcode']);
+        $importRes = $coObj->importMasterCOsToSubject((int)$selected_sub_id);
+        if ($importRes['status'] == 1 && $importRes['copied'] > 0) {
+            $_SESSION['succ'] = "Successfully imported {$importRes['copied']} BOS Master Course Outcome(s) for this subject.";
+        } elseif ($importRes['status'] == 1 && $importRes['copied'] == 0) {
+            $_SESSION['succ'] = "BOS Master Course Outcomes are already imported or up-to-date.";
+        } else {
+            $_SESSION['err'] = "Failed to import BOS COs: " . ($importRes['error'] ?? 'No master COs defined for this syllabus.');
+        }
+    } else {
+        $_SESSION['err'] = "Invalid request. Please try again.";
+    }
+}
+
 // Handle CO insertion
 if (!empty($_POST['add_co']) && !empty($_POST['co_number']) && !empty($_POST['co_description']) && !empty($selected_sub_id)) {
     if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
         unset($_SESSION['secretcode']);
         $co_description = trim($_POST['co_description']);
         $co_number = trim($_POST['co_number']);
-        $coObj->addCO($selected_sub_id, $co_number, $co_description);
+        $bloom_level = !empty($_POST['bloom_level']) ? trim($_POST['bloom_level']) : 'L3-Apply';
+        $target_threshold = !empty($_POST['target_threshold_percent']) ? (float)$_POST['target_threshold_percent'] : 60.0;
+        $coObj->addCO($selected_sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
         $_SESSION['succ'] = "CO added successfully.";
     } else {
         $_SESSION['err'] = "Invalid request. Please try again.";
@@ -125,23 +144,60 @@ require_once("facheader.php");
     <?php if (!empty($selected_sub_id)) : ?>
         <?php if (!empty($courseOutcomes['data'])) { ?>
             <br>
+            <?php if (!empty($courseOutcomes['is_inherited'])) : ?>
+                <div class="alert alert-info d-flex flex-wrap justify-content-between align-items-center mb-3">
+                    <div>
+                        <strong><i class="bi bi-info-circle-fill"></i> Inherited from BOS Curriculum Master Catalog:</strong>
+                        <span>These COs are currently synchronized from the official Board of Studies syllabus template.</span>
+                    </div>
+                    <form method="post" action="facaddcos.php" class="my-1">
+                        <input type="hidden" name="sub_id" value="<?php echo htmlspecialchars($selected_sub_id); ?>">
+                        <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
+                        <button type="submit" name="import_bos_cos" value="1" class="btn btn-warning btn-sm">
+                            <i class="bi bi-download"></i> Import as Editable Subject COs
+                        </button>
+                    </form>
+                </div>
+            <?php else : ?>
+                <div class="d-flex justify-content-between align-items-center mb-2">
+                    <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subject-Specific Course Outcomes</span>
+                    <form method="post" action="facaddcos.php" onsubmit="return confirm('Re-importing will sync your COs with the master catalog template. Continue?');" class="mb-0">
+                        <input type="hidden" name="sub_id" value="<?php echo htmlspecialchars($selected_sub_id); ?>">
+                        <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
+                        <button type="submit" name="import_bos_cos" value="1" class="btn btn-outline-secondary btn-sm">
+                            <i class="bi bi-arrow-repeat"></i> Re-sync from BOS Master Catalog
+                        </button>
+                    </form>
+                </div>
+            <?php endif; ?>
+
             <div class="card">
-                <div class="card-header">Added Course Outcomes (COs)</div>
+                <div class="card-header bg-light fw-bold">Added Course Outcomes (COs)</div>
                 <div class="card-body">
-                    <table class="table table-bordered">
-                        <thead>
+                    <table class="table table-bordered table-hover align-middle">
+                        <thead class="table-light">
                             <tr>
-                                <th>CO No.</th>
+                                <th style="width: 80px;">CO No.</th>
                                 <th>Course Outcome</th>
+                                <th style="width: 150px;">Bloom's Taxonomy</th>
+                                <th style="width: 140px;">Target Threshold</th>
                             </tr>
                         </thead>
                         <tbody>
                             <?php
-                            $co_num = 1;
+                            $max_co = 0;
                             foreach ($courseOutcomes['data'] as $index => $co) {
-                                $co_num++;
-                                echo "<tr><td>CO" . htmlspecialchars($co['co_number']) . "</td><td>" . htmlspecialchars($co['co_description']) . "</td></tr>";
+                                $max_co = max($max_co, (int)$co['co_number']);
+                                $bloom = htmlspecialchars($co['bloom_level'] ?? 'L3-Apply');
+                                $thresh = htmlspecialchars($co['target_threshold_percent'] ?? 60.0);
+                                echo "<tr>";
+                                echo "<td><span class='badge bg-secondary'>CO" . htmlspecialchars($co['co_number']) . "</span></td>";
+                                echo "<td>" . htmlspecialchars($co['co_description']) . "</td>";
+                                echo "<td><span class='badge bg-info text-dark'>" . $bloom . "</span></td>";
+                                echo "<td><span class='badge bg-light text-dark border'>" . $thresh . "%</span></td>";
+                                echo "</tr>";
                             }
+                            $co_num = $max_co + 1;
                             ?>
                         </tbody>
                     </table>
@@ -151,27 +207,49 @@ require_once("facheader.php");
 
             <div class="card" id="addnewBtnblock">
                 <div class="card-body">
-                    <button id="addnewBtn" class="btn btn-link">Click here to Add New/Missing CO</button>
+                    <button id="addnewBtn" class="btn btn-primary btn-sm"><i class="bi bi-plus-circle"></i> Click here to Add New/Missing CO</button>
                 </div>
             </div>
             <div class="card" id="addnewblock" style="display: none;">
-                <div class="card-header">Add New CO</div>
+                <div class="card-header bg-light fw-bold">Add New Course Outcome (CO)</div>
                 <div class="card-body">
                     <form action="facaddcos.php" method="post">
-                        <div class="form-group">
-                            <label for="co_num">CO Number:</label>
-                            <input type="text" name="co_num" id="co_num" class="form-control" readonly value="CO<?php echo $co_num; ?>" />
+                        <div class="row">
+                            <div class="col-md-3 form-group mb-3">
+                                <label for="co_num" class="form-label fw-bold">CO Number:</label>
+                                <input type="text" name="co_num" id="co_num" class="form-control" readonly value="CO<?php echo $co_num; ?>" />
+                            </div>
+
+                            <div class="col-md-5 form-group mb-3">
+                                <label for="bloom_level" class="form-label fw-bold">Bloom's Taxonomy Level:</label>
+                                <select name="bloom_level" id="bloom_level" class="form-select">
+                                    <option value="L1-Remember">L1 - Remember</option>
+                                    <option value="L2-Understand">L2 - Understand</option>
+                                    <option value="L3-Apply" selected>L3 - Apply</option>
+                                    <option value="L4-Analyze">L4 - Analyze</option>
+                                    <option value="L5-Evaluate">L5 - Evaluate</option>
+                                    <option value="L6-Create">L6 - Create</option>
+                                </select>
+                            </div>
+
+                            <div class="col-md-4 form-group mb-3">
+                                <label for="target_threshold_percent" class="form-label fw-bold">Target Threshold (%):</label>
+                                <div class="input-group">
+                                    <input type="number" step="0.1" name="target_threshold_percent" id="target_threshold_percent" class="form-control" value="60.0" min="1" max="100" required>
+                                    <span class="input-group-text">%</span>
+                                </div>
+                            </div>
+
+                            <div class="col-12 form-group mb-3">
+                                <label for="co_description" class="form-label fw-bold">CO Description / Statement:</label>
+                                <textarea name="co_description" id="co_description" class="form-control" rows="3" placeholder="At the end of the course, student will be able to..." required></textarea>
+                            </div>
                         </div>
 
-                        <div class="form-group">
-                            <label for="co_description">CO Description:</label>
-                            <input type="text" name="co_description" id="co_description" class="form-control" required>
-                        </div>
-                        <br>
                         <input type="hidden" name="sub_id" value="<?php echo $selected_sub_id; ?>">
                         <input type="hidden" name="co_number" value="<?php echo $co_num; ?>">
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <input type="submit" name="add_co" class="btn btn-success" value="Add CO" />
+                        <button type="submit" name="add_co" value="1" class="btn btn-success"><i class="bi bi-check-lg"></i> Add CO</button>
                     </form>
                 </div>
             </div>
@@ -241,12 +319,25 @@ require_once("facheader.php");
 
         <?php
         } else {
-            echo '<br><div class="card">';
-            echo '<div class="card-header">No COs Found for this Course..!</div>';
-            echo '<div class="card-header">Lets Add Now</div>';
+            echo '<br>';
+            echo '<div class="card mb-3 border-primary shadow-sm">';
+            echo '  <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-magic"></i> Option 1: Fast-Track Import from BOS Catalog</div>';
+            echo '  <div class="card-body">';
+            echo '    <p class="text-muted mb-3">If your Board of Studies (BOS) has already defined Course Outcomes in the curriculum syllabus catalog, you can import them into your subject offering instantly with one click.</p>';
+            echo '    <form method="post" action="facaddcos.php">';
+            echo '      <input type="hidden" name="sub_id" value="' . htmlspecialchars($selected_sub_id) . '">';
+            echo '      <input type="hidden" name="secretcode" value="' . $_SESSION['secretcode'] . '">';
+            echo '      <button type="submit" name="import_bos_cos" value="1" class="btn btn-primary"><i class="bi bi-box-arrow-in-down"></i> Import BOS Approved Course Outcomes</button>';
+            echo '    </form>';
+            echo '  </div>';
+            echo '</div>';
 
-            echo '<div class="card-header" id="divnoofcos">How many COs are defined for this Course ? <input type="number" name="noofcos" id="noofcos" value="" required /><button type="button" name="getfields" id="getfields" class="btn btn-outline-primary">Ok</button></div>';
-            echo '<div class="card-body"><form id="addcosform" method="post"></form></div>';
+            echo '<div class="card shadow-sm">';
+            echo '<div class="card-header bg-light fw-bold">Option 2: Manually Define Course Outcomes</div>';
+            echo '<div class="card-body">';
+            echo '<div class="form-group mb-3" id="divnoofcos"><label class="form-label fw-bold">How many COs are defined for this Course?</label><div class="input-group" style="max-width: 320px;"><input type="number" class="form-control" name="noofcos" id="noofcos" min="1" max="10" placeholder="e.g. 5" required /><button type="button" name="getfields" id="getfields" class="btn btn-outline-primary">Generate Fields</button></div></div>';
+            echo '<form id="addcosform" method="post"></form>';
+            echo '</div>';
             echo "</div>";
 
             echo '<script>
@@ -290,6 +381,17 @@ require_once("facheader.php");
         ?>
     <?php endif; ?>
     <script>
+        // Fix for addnewBtn - show "Add New CO" form
+        const addnewBtn = document.getElementById("addnewBtn");
+        const addnewBtnblock = document.getElementById("addnewBtnblock");
+        const addnewblock = document.getElementById("addnewblock");
+        if (addnewBtn) {
+            addnewBtn.addEventListener("click", function() {
+                addnewBtnblock.style.display = "none";
+                addnewblock.style.display = "block";
+            });
+        }
+
         const addnewQNBtn = document.getElementById("addnewQNBtn");
         const addnewQNBtnblock = document.getElementById("addnewQNBtnblock");
         const addnewQNblock = document.getElementById("addnewQNblock");

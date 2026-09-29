@@ -768,7 +768,7 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0, 'data' => []];
         try {
-            $stmt = $this->conn->prepare("SELECT id, po_pso, orderid, code, description FROM po_pso WHERE acad_year = ? AND regulation = ? AND specid = ? ORDER BY po_pso, orderid");
+            $stmt = $this->conn->prepare("SELECT id, po_pso, orderid, code, description, reg_id, target_score, effective_from_year FROM po_pso WHERE acad_year = ? AND regulation = ? AND specid = ? ORDER BY po_pso, orderid");
             $stmt->bind_param("ssi", $acad_year, $regulation, $spec_id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -781,29 +781,80 @@ class SuperAdmin extends User
         return $res;
     }
 
+    public function getPoPsoByCohort(int $reg_id, int $spec_id, int $admission_year, ?string $po_pso_type = null)
+    {
+        $res = ['status' => 0, 'data' => []];
+        try {
+            $sql = "SELECT p.id, p.po_pso, p.orderid, p.code, p.description, p.reg_id, p.target_score, p.effective_from_year 
+                    FROM po_pso p
+                    WHERE p.reg_id = ? AND p.specid = ?
+                      AND p.effective_from_year = (
+                          SELECT MAX(sub.effective_from_year) 
+                          FROM po_pso sub 
+                          WHERE sub.reg_id = p.reg_id AND sub.specid = p.specid 
+                            AND sub.code = p.code AND sub.effective_from_year <= ?
+                      )";
+            $params = [$reg_id, $spec_id, $admission_year];
+            $types = "iii";
+            if ($po_pso_type !== null) {
+                $sql .= " AND p.po_pso = ?";
+                $params[] = $po_pso_type;
+                $types .= "s";
+            }
+            $sql .= " ORDER BY p.po_pso, p.orderid";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param($types, ...$params);
+            $stmt->execute();
+            $res['data'] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $this->logs->errLog("Exception in getPoPsoByCohort: " . $e->getMessage());
+            $res['error'] = "Failed to fetch POs/PSOs by cohort.";
+        }
+        return $res;
+    }
+
     public function addOrUpdatePoPso(array $data)
     {
         $res = ['status' => 0];
         try {
+            $target_score = isset($data['target_score']) ? (float)$data['target_score'] : 2.00;
+            $effective_from_year = !empty($data['effective_from_year']) 
+                ? (int)$data['effective_from_year'] 
+                : (!empty($data['acad_year']) ? (int)substr($data['acad_year'], 0, 4) : 2020);
+
+            // Resolve reg_id if missing
+            $reg_id = $data['reg_id'] ?? null;
+            if (!$reg_id && !empty($data['regulation'])) {
+                $regStmt = $this->conn->prepare("SELECT id FROM regulations WHERE regulation = ? LIMIT 1");
+                $regClean = trim($data['regulation']);
+                $regStmt->bind_param("s", $regClean);
+                $regStmt->execute();
+                $reg_id = $regStmt->get_result()->fetch_assoc()['id'] ?? null;
+            }
+
             if (!empty($data['id'])) {
                 // Update existing record
-                $stmt = $this->conn->prepare("UPDATE po_pso SET po_pso = ?, orderid = ?, code = ?, description = ? WHERE id = ?");
-                $stmt->bind_param("sissi", $data['po_pso'], $data['orderid'], $data['code'], $data['description'], $data['id']);
+                $stmt = $this->conn->prepare("UPDATE po_pso SET po_pso = ?, orderid = ?, code = ?, description = ?, target_score = ?, effective_from_year = ?, reg_id = COALESCE(?, reg_id) WHERE id = ?");
+                $stmt->bind_param("sissdiii", $data['po_pso'], $data['orderid'], $data['code'], $data['description'], $target_score, $effective_from_year, $reg_id, $data['id']);
             } else {
                 // Insert new record
                 $stmt = $this->conn->prepare("
-                    INSERT INTO po_pso (acad_year, regulation, specid, po_pso, orderid, code, description)
-                    VALUES (?, ?, ?, ?, ?, ?, ?)
+                    INSERT INTO po_pso (acad_year, regulation, specid, po_pso, orderid, code, description, reg_id, target_score, effective_from_year)
+                    VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)
                 ");
                 $stmt->bind_param(
-                    "ssisiss",
+                    "ssisissidi",
                     $data['acad_year'],
                     $data['regulation'],
                     $data['specid'],
                     $data['po_pso'],
                     $data['orderid'],
                     $data['code'],
-                    $data['description']
+                    $data['description'],
+                    $reg_id,
+                    $target_score,
+                    $effective_from_year
                 );
             }
 

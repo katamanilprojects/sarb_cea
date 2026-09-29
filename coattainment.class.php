@@ -148,7 +148,11 @@ trait COAttainmentTrait
             };
 
             // Choice-aware calculation for Theory: either/or choice questions (1-2, 3-4, 5-6)
-            $where_clauses = ["c.sub_id IN ({$in['sql']})"];
+            $chkLocal = $this->fetchAssoc("SELECT id FROM course_outcomes WHERE sub_id IN ({$in['sql']}) LIMIT 1", $in['params']);
+            $coFilterSql = !empty($chkLocal)
+                ? "c.sub_id IN ({$in['sql']})"
+                : "(c.curr_sub_id IN (SELECT curr_sub_id FROM subjects WHERE id IN ({$in['sql']})) AND c.sub_id IS NULL)";
+            $where_clauses = [$coFilterSql];
             $params = $in['params'];
 
             if ($assessment_id && $assessment_id !== 'all') {
@@ -193,6 +197,16 @@ trait COAttainmentTrait
             // Query CO details for consistent response
             $coInfoQuery = "SELECT id, co_number, co_description FROM course_outcomes WHERE sub_id IN ({$in['sql']}) ORDER BY co_number";
             $coInfoRows = $this->fetchAssoc($coInfoQuery, $in['params']);
+            if (empty($coInfoRows)) {
+                $masterCOQuery = "
+                    SELECT co.id, co.co_number, co.co_description 
+                    FROM course_outcomes co
+                    JOIN subjects s ON s.curr_sub_id = co.curr_sub_id
+                    WHERE s.id IN ({$in['sql']}) AND co.sub_id IS NULL
+                    ORDER BY co.co_number
+                ";
+                $coInfoRows = $this->fetchAssoc($masterCOQuery, $in['params']);
+            }
             foreach ($coInfoRows as $cr) {
                 $coLabels[$cr['id']] = 'CO' . $cr['co_number'];
                 $coDesc[$cr['id']] = $cr['co_description'] ?? '';
@@ -316,6 +330,11 @@ trait COAttainmentTrait
         } else {
             // Standard proportional calculation for Lab, DTI, etc.
             $threshold = $this->getTargetAttainmentThreshold($subject_id);
+            $chkLocalNonTheory = $this->fetchAssoc("SELECT id FROM course_outcomes WHERE sub_id IN ({$in['sql']}) LIMIT 1", $in['params']);
+            $coFilterNonTheory = !empty($chkLocalNonTheory)
+                ? "c.sub_id IN ({$in['sql']})"
+                : "(c.curr_sub_id IN (SELECT curr_sub_id FROM subjects WHERE id IN ({$in['sql']})) AND c.sub_id IS NULL)";
+
             $query = "
                 SELECT
                     c.id as co_id,
@@ -332,7 +351,7 @@ trait COAttainmentTrait
                 LEFT JOIN student_marks m ON q.id = m.question_id
                 LEFT JOIN assessment_components ac ON q.component_id = ac.id
                 LEFT JOIN internal_assessments i ON ac.assessment_id = i.id
-                WHERE c.sub_id IN ({$in['sql']})
+                WHERE {$coFilterNonTheory}
             ";
 
             $params = array_merge($in['params'], $in['params'], $in['params']);
@@ -415,9 +434,9 @@ trait COAttainmentTrait
             FROM co_po_mapping cpm
             JOIN course_outcomes co ON cpm.co_id = co.id
             JOIN po_pso p ON cpm.po_id = p.id
-            JOIN subjects s ON co.sub_id = s.id
+            JOIN subjects s ON (co.sub_id = s.id OR (co.curr_sub_id = s.curr_sub_id AND co.sub_id IS NULL))
             JOIN classes cl ON s.class_id = cl.id
-            WHERE co.sub_id IN ({$in['sql']})
+            WHERE s.id IN ({$in['sql']})
             GROUP BY p.id, co.co_number
             ORDER BY p.orderid, p.code, co.co_number
         ";
@@ -433,26 +452,33 @@ trait COAttainmentTrait
         $po_details = [];
 
         foreach ($mappings as $map) {
-            $po_id = $map['po_id'];
+            $po_code = $map['po_label'];
             $co_id = $map['co_id'];
             $co_num = $map['co_number'];
             $weightage = (float)($map['weightage'] ?? 1.0);
 
-            if (!isset($po_details[$po_id])) {
-                $po_details[$po_id] = ['label' => $map['po_label'], 'description' => $map['po_description']];
-                $po_attainment[$po_id] = ['total_weighted_attainment' => 0, 'total_weightage' => 0, 'contributing_co_count' => 0];
+            if (!isset($po_details[$po_code])) {
+                $po_details[$po_code] = ['label' => $po_code, 'description' => $map['po_description']];
+                $po_attainment[$po_code] = [
+                    'total_weighted_attainment' => 0,
+                    'total_weightage' => 0,
+                    'cos_seen' => []
+                ];
             }
+
+            if (isset($po_attainment[$po_code]['cos_seen'][$co_id])) {
+                continue; // Avoid duplicating CO contribution across multiple po_id entries with same code
+            }
+            $po_attainment[$po_code]['cos_seen'][$co_id] = true;
 
             if (isset($co_attainment_map[$co_id])) {
                 $co_attainment_percentage = $co_attainment_map[$co_id];
-                $po_attainment[$po_id]['total_weighted_attainment'] += ($co_attainment_percentage * $weightage);
-                $po_attainment[$po_id]['total_weightage'] += $weightage;
-                $po_attainment[$po_id]['contributing_co_count']++;
+                $po_attainment[$po_code]['total_weighted_attainment'] += ($co_attainment_percentage * $weightage);
+                $po_attainment[$po_code]['total_weightage'] += $weightage;
             } elseif (isset($co_num_attainment_map[$co_num])) {
                 $co_attainment_percentage = $co_num_attainment_map[$co_num];
-                $po_attainment[$po_id]['total_weighted_attainment'] += ($co_attainment_percentage * $weightage);
-                $po_attainment[$po_id]['total_weightage'] += $weightage;
-                $po_attainment[$po_id]['contributing_co_count']++;
+                $po_attainment[$po_code]['total_weighted_attainment'] += ($co_attainment_percentage * $weightage);
+                $po_attainment[$po_code]['total_weightage'] += $weightage;
             }
         }
 
@@ -460,22 +486,23 @@ trait COAttainmentTrait
         $suggestions = [];
         $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
 
-        foreach ($po_attainment as $po_id => $data) {
-            $isAssessed = ($data['total_weightage'] > 0 && $data['contributing_co_count'] > 0);
+        foreach ($po_attainment as $po_code => $data) {
+            $coCount = count($data['cos_seen']);
+            $isAssessed = ($data['total_weightage'] > 0 && $coCount > 0);
             $final_attainment = $isAssessed
                 ? round($data['total_weighted_attainment'] / $data['total_weightage'], 2)
                 : null;
 
             $po_results[] = [
-                'po_label' => $po_details[$po_id]['label'],
-                'po_description' => $po_details[$po_id]['description'],
+                'po_label' => $po_details[$po_code]['label'],
+                'po_description' => $po_details[$po_code]['description'],
                 'po_attainment_percentage' => $final_attainment,
-                'contributing_co_count' => $data['contributing_co_count'],
+                'contributing_co_count' => $coCount,
                 'is_assessed' => $isAssessed
             ];
 
             if ($isAssessed && $final_attainment !== null && $final_attainment < $targetThreshold) {
-                $suggestions[] = "Attainment for {$po_details[$po_id]['label']} ({$final_attainment}%) is below the target ({$targetThreshold}%). Review the attainment of contributing COs for insights. PO Description: '{$po_details[$po_id]['description']}'.";
+                $suggestions[] = "Attainment for {$po_details[$po_code]['label']} ({$final_attainment}%) is below the target ({$targetThreshold}%). Review the attainment of contributing COs for insights. PO Description: '{$po_details[$po_code]['description']}'.";
             }
         }
 
@@ -515,9 +542,9 @@ trait COAttainmentTrait
             FROM course_outcomes co
             LEFT JOIN co_po_mapping cpm ON co.id = cpm.co_id
             LEFT JOIN po_pso p ON cpm.po_id = p.id
-            JOIN subjects s ON co.sub_id = s.id
+            JOIN subjects s ON (co.sub_id = s.id OR (co.curr_sub_id = s.curr_sub_id AND co.sub_id IS NULL))
             JOIN classes cl ON s.class_id = cl.id
-            WHERE co.sub_id IN ({$in['sql']})
+            WHERE s.id IN ({$in['sql']})
             GROUP BY co.co_number, p.id
             ORDER BY co.co_number, p.orderid, p.code
         ";
@@ -590,6 +617,11 @@ trait COAttainmentTrait
                 }
             }
         } else {
+            $chkLocalVisual = $this->fetchAssoc("SELECT id FROM course_outcomes WHERE sub_id IN ({$in['sql']}) LIMIT 1", $in['params']);
+            $coFilterVisual = !empty($chkLocalVisual)
+                ? "c.sub_id IN ({$in['sql']})"
+                : "(c.curr_sub_id IN (SELECT curr_sub_id FROM subjects WHERE id IN ({$in['sql']})) AND c.sub_id IS NULL)";
+
             $query = "
                 SELECT
                     CONCAT('CO', c.co_number) AS co_label,
@@ -601,7 +633,7 @@ trait COAttainmentTrait
                 JOIN student_marks m ON q.id = m.question_id
                 JOIN assessment_components ac ON q.component_id = ac.id
                 JOIN internal_assessments i ON ac.assessment_id = i.id
-                WHERE c.sub_id IN ({$in['sql']})
+                WHERE {$coFilterVisual}
             ";
             $params = $in['params'];
 
@@ -637,37 +669,305 @@ trait COAttainmentTrait
     }
 
     /**
+     * Compute Comprehensive Course Outcome & Program Outcome Attainment
+     * Combines Continuous Internal Assessment (CIA), Semester End Examination (SEE),
+     * and Indirect Student Feedback into final OBE/NBA direct and overall attainment.
+     */
+    public function getComprehensiveAttainment($subject_id)
+    {
+        $sub_ids = $this->normalizeSubjectIds($subject_id);
+        $primarySubId = $sub_ids[0];
+        $in = $this->buildInClause($sub_ids);
+
+        require_once __DIR__ . '/services/SettingsService.php';
+        require_once __DIR__ . '/seeassessment.class.php';
+        require_once __DIR__ . '/feedbackservice.class.php';
+        require_once __DIR__ . '/courseoutcome.class.php';
+
+        $reg = $this->getRegulationForSubject($primarySubId);
+        $ss = \Services\SettingsService::getInstance();
+
+        $w_cia = (float)$ss->get('attainment_direct_cia_weight', $reg, 0.30);
+        $w_see = (float)$ss->get('attainment_direct_see_weight', $reg, 0.70);
+        $w_direct = (float)$ss->get('overall_direct_weight', $reg, 0.80);
+        $w_indirect = (float)$ss->get('overall_indirect_weight', $reg, 0.20);
+        $targetThreshold = $this->getTargetAttainmentThreshold($primarySubId);
+
+        $seeObj = new SEEAssessment();
+        $coObj = new CourseOutcome();
+        $fs = new FeedbackService();
+
+        // 1. Fetch CIA Attainment
+        $ciaAtt = $seeObj->calculateCIACOAttainment($primarySubId);
+
+        // 2. Fetch SEE Attainment
+        $seeAtt = $seeObj->calculateSEECOAttainment($primarySubId);
+        $isSeeSubmitted = (!empty($seeAtt['status']) && empty($seeAtt['pending']));
+
+        // 3. Fetch Indirect Feedback
+        $fbRes = $fs->getSubjectFeedback($primarySubId);
+        $fbMap = [];
+        if (!empty($fbRes['co_feedback'])) {
+            foreach ($fbRes['co_feedback'] as $fb) {
+                if (!empty($fb['total_responses']) && $fb['total_responses'] > 0) {
+                    $fbMap[$fb['co_number']] = $fb;
+                }
+            }
+        }
+
+        // 4. Fetch Course Outcomes
+        $cosRes = $coObj->getCOsBySubjectId($primarySubId);
+        $cos = !empty($cosRes['data']) ? $cosRes['data'] : [];
+
+        if (empty($cos)) {
+            return json_encode([
+                'meta' => [
+                    'regulation' => $reg,
+                    'target_threshold' => $targetThreshold,
+                    'w_cia' => $w_cia,
+                    'w_see' => $w_see,
+                    'w_direct' => $w_direct,
+                    'w_indirect' => $w_indirect,
+                    'is_see_submitted' => $isSeeSubmitted
+                ],
+                'cos' => [],
+                'pos' => [],
+                'suggestions' => ["No Course Outcomes (COs) configured for this course. Please configure Course Outcomes to calculate direct and indirect attainment."]
+            ]);
+        }
+
+        $coResults = [];
+        $coDirectMap = [];
+        $coIndirectMap = [];
+        $coOverallMap = [];
+        $suggestions = [];
+
+        $hasAnyCia = false;
+        $hasAnySee = $isSeeSubmitted;
+        $hasAnyFeedback = !empty($fbMap);
+
+        foreach ($cos as $co) {
+            $n = $co['co_number'];
+            $cRow = $ciaAtt['data'][$n] ?? [];
+            $sRow = $seeAtt['data'][$n] ?? [];
+            $fRow = $fbMap[$n] ?? [];
+
+            $cPct = isset($cRow['cohort_percentage']) ? floatval($cRow['cohort_percentage']) : null;
+            $cLvl = isset($cRow['attainment_level']) ? intval($cRow['attainment_level']) : null;
+            if ($cPct !== null && empty($cRow['unmapped'])) {
+                $hasAnyCia = true;
+            }
+
+            $sPct = ($isSeeSubmitted && isset($sRow['cohort_percentage'])) ? floatval($sRow['cohort_percentage']) : null;
+            $sLvl = ($isSeeSubmitted && isset($sRow['attainment_level'])) ? intval($sRow['attainment_level']) : null;
+
+            // Direct Attainment: CIA + SEE
+            if ($cLvl !== null && $sLvl !== null) {
+                $directLvl = round(($w_cia * $cLvl) + ($w_see * $sLvl), 2);
+            } elseif ($cLvl !== null) {
+                // If SEE is pending or missing, direct attainment uses CIA
+                $directLvl = round($cLvl, 2);
+            } elseif ($sLvl !== null) {
+                // If only SEE is present
+                $directLvl = round($sLvl, 2);
+            } else {
+                $directLvl = 0.0;
+            }
+
+            $fAvg = isset($fRow['average_rating']) ? round(floatval($fRow['average_rating']), 2) : null;
+            $fPct = isset($fRow['target_pct']) ? floatval($fRow['target_pct']) : null;
+            $fLvl = isset($fRow['attainment_level']) ? intval($fRow['attainment_level']) : null;
+
+            // Overall Attainment: Direct + Indirect
+            if ($fLvl !== null && ($cLvl !== null || $sLvl !== null)) {
+                $overallLvl = round(($w_direct * $directLvl) + ($w_indirect * $fLvl), 2);
+            } elseif ($fLvl !== null) {
+                // Only feedback available
+                $overallLvl = round($fLvl, 2);
+            } else {
+                // No feedback available, direct represents overall
+                $overallLvl = $directLvl;
+            }
+
+            $statusText = 'Needs Improvement';
+            $statusBadge = 'bg-danger';
+            if ($overallLvl >= 2.5) {
+                $statusText = 'High Attainment (Level 3)';
+                $statusBadge = 'bg-success';
+            } elseif ($overallLvl >= 1.75) {
+                $statusText = 'Moderate Attainment (Level 2)';
+                $statusBadge = 'bg-primary';
+            } elseif ($overallLvl >= 1.0) {
+                $statusText = 'Marginal Attainment (Level 1)';
+                $statusBadge = 'bg-warning text-dark';
+            }
+
+            if ($overallLvl < 1.75 && ($cLvl !== null || $sLvl !== null || $fLvl !== null)) {
+                $suggestions[] = "CO$n overall attainment ($overallLvl) is below Level 2. Pedagogical interventions or remedial sessions are recommended.";
+            }
+
+            $coItem = [
+                'co_id' => $co['id'],
+                'co_number' => $n,
+                'co_label' => 'CO' . $n,
+                'co_description' => $co['co_description'] ?? '',
+                'cia_pct' => $cPct,
+                'cia_level' => ($cLvl !== null) ? $cLvl : 0,
+                'see_pct' => $sPct,
+                'see_level' => $sLvl,
+                'is_see_submitted' => $isSeeSubmitted,
+                'direct_attainment' => $directLvl,
+                'indirect_avg_rating' => $fAvg,
+                'indirect_pct' => $fPct,
+                'indirect_level' => $fLvl,
+                'overall_attainment' => $overallLvl,
+                'status_text' => $statusText,
+                'status_badge' => $statusBadge
+            ];
+
+            $coResults[] = $coItem;
+            $coDirectMap[$co['id']] = $directLvl;
+            $coIndirectMap[$co['id']] = ($fLvl !== null) ? $fLvl : 0;
+            $coOverallMap[$co['id']] = $overallLvl;
+        }
+
+        // Contextual suggestions based on data availability
+        if (!$hasAnyCia && !$hasAnySee && !$hasAnyFeedback) {
+            $suggestions[] = "No assessment or feedback data recorded yet for this course. Please enter CIA marks, SEE results, or collect student feedback.";
+        } elseif (!$hasAnySee) {
+            $suggestions[] = "Semester End Examination (SEE) results are pending. Direct and overall attainment are temporarily based on Internal Assessment and available feedback.";
+        }
+        if (!$hasAnyFeedback) {
+            $suggestions[] = "Indirect student feedback has not been recorded yet. Overall attainment is currently derived solely from direct evaluations.";
+        }
+
+        // 5. Fetch PO / PSO mappings and compute weighted PO/PSO Attainment
+        // Deduplicate mappings per (co_id, po_code) across regulations/specializations
+        $co_ids = array_column($cos, 'id');
+        $poResults = [];
+        if (!empty($co_ids)) {
+            $inCo = $this->buildInClause($co_ids);
+            $poRows = $this->fetchAssoc("
+                SELECT m.co_id, p.code, MAX(p.description) as description, AVG(m.weightage) as weightage 
+                FROM co_po_mapping m 
+                JOIN po_pso p ON m.po_id = p.id 
+                WHERE m.co_id IN ({$inCo['sql']}) 
+                GROUP BY m.co_id, p.code
+                ORDER BY p.code ASC
+            ", $inCo['params']);
+
+            $poMap = [];
+            foreach ($poRows as $pr) {
+                $code = strtoupper(trim($pr['code']));
+                if (!isset($poMap[$code])) {
+                    $poMap[$code] = [
+                        'code' => $code,
+                        'description' => $pr['description'] ?? '',
+                        'total_weightage' => 0.0,
+                        'sum_direct' => 0.0,
+                        'sum_indirect' => 0.0,
+                        'sum_overall' => 0.0,
+                        'contributing_cos' => []
+                    ];
+                }
+                $coId = (int)$pr['co_id'];
+                $wt = floatval($pr['weightage']);
+                $poMap[$code]['total_weightage'] += $wt;
+                $poMap[$code]['sum_direct'] += (($coDirectMap[$coId] ?? 0) * $wt);
+                $poMap[$code]['sum_indirect'] += (($coIndirectMap[$coId] ?? 0) * $wt);
+                $poMap[$code]['sum_overall'] += (($coOverallMap[$coId] ?? 0) * $wt);
+                $poMap[$code]['contributing_cos'][] = $coId;
+            }
+
+            foreach ($poMap as $code => $pd) {
+                $dirLvl = ($pd['total_weightage'] > 0) ? round($pd['sum_direct'] / $pd['total_weightage'], 2) : 0.0;
+                $indLvl = ($pd['total_weightage'] > 0) ? round($pd['sum_indirect'] / $pd['total_weightage'], 2) : 0.0;
+                $ovrLvl = ($pd['total_weightage'] > 0) ? round($pd['sum_overall'] / $pd['total_weightage'], 2) : 0.0;
+
+                $poResults[] = [
+                    'po_label' => $code,
+                    'po_description' => $pd['description'],
+                    'total_weightage' => round($pd['total_weightage'], 2),
+                    'direct_attainment' => $dirLvl,
+                    'indirect_attainment' => $indLvl,
+                    'overall_attainment' => $ovrLvl,
+                    'contributing_co_count' => count(array_unique($pd['contributing_cos']))
+                ];
+            }
+        }
+
+        if (empty($poResults)) {
+            $suggestions[] = "No CO-PO / PSO mapping found for this course. Please configure the CO-PO matrix to evaluate program outcomes.";
+        }
+
+        if (empty($suggestions)) {
+            $suggestions[] = "Comprehensive attainment calculation complete. All assessed course outcomes meet or exceed target benchmarks.";
+        }
+
+        return json_encode([
+            'meta' => [
+                'regulation' => $reg,
+                'target_threshold' => $targetThreshold,
+                'w_cia' => $w_cia,
+                'w_see' => $w_see,
+                'w_direct' => $w_direct,
+                'w_indirect' => $w_indirect,
+                'is_see_submitted' => $isSeeSubmitted
+            ],
+            'cos' => $coResults,
+            'pos' => $poResults,
+            'suggestions' => $suggestions
+        ]);
+    }
+
+    /**
      * Helper function to execute query and fetch associative array
      */
-    public function fetchAssoc($query, $params)
+    public function fetchAssoc($query, $params = [])
     {
-        $conn = $this->getConnection();
-        $stmt = $conn->prepare($query);
+        try {
+            $conn = $this->getConnection();
+            $stmt = $conn->prepare($query);
 
-        if ($stmt === false) {
-            return [];
-        }
+            if ($stmt === false) {
+                return [];
+            }
 
-        if (!empty($params)) {
-            $types = str_repeat('i', count($params));
-            $stmt->bind_param($types, ...$params);
-        }
+            if (!empty($params)) {
+                $types = '';
+                foreach ($params as $param) {
+                    if (is_int($param)) {
+                        $types .= 'i';
+                    } elseif (is_float($param)) {
+                        $types .= 'd';
+                    } else {
+                        $types .= 's';
+                    }
+                }
+                $stmt->bind_param($types, ...$params);
+            }
 
-        $stmt->execute();
-        $result = $stmt->get_result();
+            $stmt->execute();
+            $result = $stmt->get_result();
 
-        if (!$result) {
+            if (!$result) {
+                $stmt->close();
+                return [];
+            }
+
+            $data = [];
+            while ($row = $result->fetch_assoc()) {
+                $data[] = $row;
+            }
+
             $stmt->close();
+            return $data;
+        } catch (\Throwable $e) {
+            if ($this->logs) {
+                $this->logs->errLog("fetchAssoc Exception: " . $e->getMessage() . " in query: " . substr($query, 0, 150));
+            }
             return [];
         }
-
-        $data = [];
-        while ($row = $result->fetch_assoc()) {
-            $data[] = $row;
-        }
-
-        $stmt->close();
-        return $data;
     }
 }
 

@@ -481,4 +481,86 @@ class CurriculumSubject extends User
         // Redirect legacy delete calls to inactivate (soft-delete)
         return $this->toggleStatusSubject($id, 0);
     }
+
+    public function getMasterCOs(int $curr_sub_id): array
+    {
+        $res = ['status' => 0, 'data' => [], 'error' => ''];
+        try {
+            $stmt = $this->conn->prepare("
+                SELECT id, curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent
+                FROM course_outcomes 
+                WHERE curr_sub_id = ? AND sub_id IS NULL 
+                ORDER BY co_number ASC
+            ");
+            $stmt->bind_param("i", $curr_sub_id);
+            $stmt->execute();
+            $res['data'] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::getMasterCOs Error: " . $e->getMessage());
+        }
+        return $res;
+    }
+
+    public function addOrUpdateMasterCO(int $curr_sub_id, int $co_number, string $co_description, string $bloom_level = 'L3-Apply', float $target_threshold = 60.0): array
+    {
+        $res = ['status' => 0, 'error' => ''];
+        try {
+            // Check if a master CO (sub_id IS NULL) already exists for this curriculum subject + co_number
+            $checkStmt = $this->conn->prepare(
+                "SELECT id FROM course_outcomes WHERE curr_sub_id = ? AND co_number = ? AND sub_id IS NULL LIMIT 1"
+            );
+            $checkStmt->bind_param("ii", $curr_sub_id, $co_number);
+            $checkStmt->execute();
+            $existingId = $checkStmt->get_result()->fetch_assoc()['id'] ?? null;
+            $checkStmt->close();
+
+            if ($existingId) {
+                // UPDATE existing master CO
+                $stmt = $this->conn->prepare(
+                    "UPDATE course_outcomes SET co_description = ?, bloom_level = ?, target_threshold_percent = ? WHERE id = ?"
+                );
+                $stmt->bind_param("ssdi", $co_description, $bloom_level, $target_threshold, $existingId);
+            } else {
+                // INSERT new master CO
+                $stmt = $this->conn->prepare(
+                    "INSERT INTO course_outcomes (curr_sub_id, sub_id, co_number, co_description, bloom_level, target_threshold_percent)
+                     VALUES (?, NULL, ?, ?, ?, ?)"
+                );
+                $stmt->bind_param("iissd", $curr_sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
+            }
+
+            if ($stmt->execute()) {
+                $res['status'] = 1;
+                $res['message'] = "Master Course Outcome saved successfully.";
+            } else {
+                throw new Exception($stmt->error);
+            }
+            $stmt->close();
+        } catch (Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::addOrUpdateMasterCO Error: " . $e->getMessage());
+        }
+        return $res;
+    }
+
+    public function deleteMasterCO(int $curr_sub_id, int $co_id): array
+    {
+        $res = ['status' => 0, 'error' => ''];
+        try {
+            $stmt = $this->conn->prepare("DELETE FROM course_outcomes WHERE id = ? AND curr_sub_id = ? AND sub_id IS NULL");
+            $stmt->bind_param("ii", $co_id, $curr_sub_id);
+            if ($stmt->execute()) {
+                $res['status'] = 1;
+                $res['message'] = "Master Course Outcome deleted successfully.";
+            } else {
+                throw new Exception($stmt->error);
+            }
+        } catch (Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::deleteMasterCO Error: " . $e->getMessage());
+        }
+        return $res;
+    }
 }
