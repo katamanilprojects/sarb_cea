@@ -67,13 +67,6 @@ SET @sql = IF(@col_exists = 0,
               "SELECT 1;");
 PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
--- 6. Diary: Safely append co_addressed at END of table
-SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
-                   WHERE TABLE_SCHEMA = DATABASE() AND TABLE_NAME = 'diary' AND COLUMN_NAME = 'co_addressed');
-SET @sql = IF(@col_exists = 0, 
-              "ALTER TABLE `diary` ADD COLUMN `co_addressed` INT(11) NULL DEFAULT NULL, ADD KEY `idx_diary_co` (`co_addressed`), ADD CONSTRAINT `fk_diary_co` FOREIGN KEY (`co_addressed`) REFERENCES `course_outcomes` (`id`) ON DELETE SET NULL ON UPDATE CASCADE;", 
-              "SELECT 1;");
-PREPARE stmt FROM @sql; EXECUTE stmt; DEALLOCATE PREPARE stmt;
 
 -- 7. PO/PSO: Add reg_id, target_score, and effective_from_year versioning
 SET @col_exists = (SELECT COUNT(*) FROM INFORMATION_SCHEMA.COLUMNS 
