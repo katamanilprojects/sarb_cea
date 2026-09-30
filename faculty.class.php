@@ -1,6 +1,7 @@
 <?php
 require_once("user.class.php");
 require_once("logs.class.php");
+require_once("subject.class.php");
 
 class Faculty extends User
 {
@@ -106,48 +107,9 @@ class Faculty extends User
 	// Function to get subjects by faculty ID
 	public function getSubjectsByFacultyId($faculty_id)
 	{
-		$res = ['status' => 0, 'data' => []];
-		$myname = $this->classname . " - getSubjectsByFacultyId - ";
-
-		try {
-			$stmt = $this->conn->prepare("
-					SELECT s.id, s.subject_sno, s.sub_shortname, s.sub_fullname, s.subcode, s.sub_type, s.class_id, c.acad_year, c.classname, c.start_date, c.end_date
-					FROM faculty_sub fs
-					JOIN subjects s ON fs.sub_id = s.id
-					JOIN classes c ON s.class_id = c.id
-					WHERE fs.faculty_id = ? order by c.start_date desc, s.subject_sno + 0, s.subcode
-				");
-			if (!$stmt) {
-				throw new Exception("Failed to prepare subjects query: " . $this->conn->error);
-			}
-
-			$stmt->bind_param("i", $faculty_id);
-			if ($stmt->execute()) {
-				$stmt->bind_result($id, $subject_sno, $sub_shortname, $sub_fullname, $subcode, $sub_type, $class_id, $acad_year, $classname, $start_date, $end_date);
-				while ($stmt->fetch()) {
-					$res['data'][] = [
-						'id' => $id,
-						'subject_sno' => $subject_sno,
-						'sub_shortname' => $sub_shortname,
-						'sub_fullname' => $sub_fullname,
-						'subcode' => $subcode,
-						'sub_type' => strtolower($sub_type ?? 'theory'),
-						'class_id' => $class_id,
-						'acad_year' => $acad_year,
-						'class_name' => $classname,
-						'start_date' => $start_date,
-						'end_date' => $end_date
-					];
-				}
-				$res['status'] = 1; // Subjects retrieved successfully
-			} else {
-				$this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
-			}
-			$stmt->close();
-		} catch (Exception $e) {
-			$this->logs->errLog($myname . "Error fetching subjects for faculty ID $faculty_id: " . $e->getMessage());
-		}
-		return $res;
+		$subjectObj = new Subject();
+		$data = $subjectObj->getSubjectsByFaculty($faculty_id);
+		return ['status' => !empty($data) ? 1 : 0, 'data' => $data];
 	}
 
 	// Function to get unmarked hours for a subject on a specific date

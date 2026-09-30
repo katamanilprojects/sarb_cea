@@ -1,5 +1,6 @@
 <?php
 require_once("user.class.php");
+require_once("subject.class.php");
 
 class HOD extends User
 {
@@ -664,43 +665,9 @@ class HOD extends User
 
     public function getSubjectsByClassID($class_id)
     {
-        $myname = $this->classname . " - getSubjectsByClassID - ";
-        $res = array();
-        $res['status'] = 0;
-        $res['data'] = array();
-
-        try {
-            if (!empty($this->conn)) {
-                $stmt = $this->conn->prepare("
-                    SELECT s.id, s.subject_sno, s.subcode, s.sub_shortname, s.sub_fullname, s.sub_type 
-                    FROM subjects s
-                    WHERE s.class_id = ? ORDER BY s.subject_sno + 0, s.subcode;
-                ");
-                $stmt->bind_param("i", $class_id);
-                if ($stmt->execute()) {
-                    $stmt->bind_result($id, $subject_sno, $subcode, $sub_shortname, $sub_fullname, $sub_type);
-                    while ($stmt->fetch()) {
-                        $res['data'][] = array(
-                            'id' => $id,
-                            'subject_sno' => $subject_sno,
-                            'subcode' => $subcode,
-                            'sub_shortname' => $sub_shortname,
-                            'sub_fullname' => $sub_fullname,
-                            'sub_type' => $sub_type
-                        );
-                        $res['status'] = 1;
-                    }
-                } else {
-                    $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
-                }
-            } else {
-                $this->logs->errLog($myname . "Mysqli Error or else");
-            }
-        } catch (Exception $e) {
-            $this->logs->errLog($myname . "Exception: " . $e->getMessage());
-        }
-
-        return $res;
+        $subjectObj = new Subject();
+        $data = $subjectObj->getSubjectsByClass($class_id);
+        return ['status' => !empty($data) ? 1 : 0, 'data' => $data];
     }
 
     public function addSubject($data)

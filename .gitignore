@@ -75,3 +75,7 @@ Thumbs.db
 *_manual_*.pdf
 fac_user_manual*.pdf
 hod_manual*.pdf
+
+# Task tracking and test data
+tasks_to_do/
+*.csv

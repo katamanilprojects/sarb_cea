@@ -2,6 +2,7 @@
 session_start();
 $page_title = "Classes";
 require_once("hod.class.php");
+require_once("subject.class.php");
 require_once("hodheader.php");
 
 // Redirect if class_id is not provided
@@ -11,6 +12,7 @@ if (empty($_POST['class_id'])) {
 }
 
 $obj = new HOD();
+$subObj = new Subject();
 $class_id = $_POST['class_id'];
 
 // Handle form submission
@@ -30,7 +32,17 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
 
         if ($numBatches <= 1) {
             // Single batch subject
-            $res_arr = $obj->addSubject($_POST);
+            $res = $subObj->createOffering(
+                $class_id,
+                !empty($_POST['curr_sub_id']) ? $_POST['curr_sub_id'] : null,
+                $_POST['subject_sno'],
+                $_POST['subcode'],
+                $_POST['sub_shortname'],
+                $_POST['sub_fullname'],
+                $_POST['sub_type'],
+                $_POST['group_name'] ?? ''
+            );
+            $res_arr = ['status' => $res ? 1 : 0, 'err' => $res ? '' : 'A subject with this code and group may already exist.'];
             if (!empty($res_arr['status']) && $res_arr['status'] == 1) {
                 $msg = "Subject added successfully.";
             } else {
@@ -54,7 +66,17 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
                 $baseShort = trim($_POST['sub_shortname']);
                 $batchData['sub_shortname'] = substr($baseShort . "-" . strtoupper($suffix), 0, 20);
 
-                $bRes = $obj->addSubject($batchData);
+                $bOk = $subObj->createOffering(
+                    $class_id,
+                    !empty($batchData['curr_sub_id']) ? $batchData['curr_sub_id'] : null,
+                    $batchData['subject_sno'],
+                    $batchData['subcode'],
+                    $batchData['sub_shortname'],
+                    $batchData['sub_fullname'],
+                    $batchData['sub_type'],
+                    '' // batch distinction is via subcode suffix
+                );
+                $bRes = ['status' => $bOk ? 1 : 0, 'err' => $bOk ? '' : 'Failed for ' . $batchData['subcode']];
                 if (!empty($bRes['status']) && $bRes['status'] == 1) {
                     $successCount++;
                 } else {
@@ -73,9 +95,8 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
     }
 
     if (!empty($_POST['whattodo']) && $_POST['whattodo'] == "deletesubject" && !empty($_POST['subject_id'])) {
-
-        $res_arr = $obj->deleteSubjectByID($_POST['subject_id']);
-
+        $ok = $subObj->deleteOffering((int)$_POST['subject_id']);
+        $res_arr = ['status' => $ok ? 1 : 0, 'err' => $ok ? '' : 'Cannot delete: attendance may exist for this subject.'];
         if (!empty($res_arr['status']) && $res_arr['status'] == 1) {
             $msg = "Subject Deleted successfully.";
         } else {
@@ -87,8 +108,8 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
 // Generate new secret code
 $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 
-// Fetch students for the selected class
-$subjectList = $obj->getSubjectsByClassID($class_id);
+// Fetch subjects for the selected class
+$subjectList = $subObj->getSubjectsByClass($class_id);
 
 // Fetch class info to load central curriculum subjects
 $classInfo = $obj->getClassById($class_id);
@@ -199,6 +220,12 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
                             </select>
                             <div id="batchPreviewBox" class="small mt-1 text-muted" style="display: none;"></div>
                         </div>
+                        <div class="form-group mt-2">
+                            <label for="group_name">Group / Batch Identifier <small class="text-muted">(Optional)</small></label>
+                            <input type="text" name="group_name" id="group_name" class="form-control" maxlength="10"
+                                   placeholder="e.g. A, B, 1, 2 (Leave empty if not divided)" style="text-transform: uppercase;">
+                            <small class="form-text text-muted">Leave empty for courses taken by the whole class.</small>
+                        </div>
                         <br />
                         <input type="hidden" name="class_id" value="<?php echo $_POST["class_id"]; ?>" />
                         <input type="hidden" name="class_fullname" value="<?php echo $_POST["class_fullname"]; ?>" />
@@ -247,9 +274,9 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
                 </thead>
                 <tbody>
                     <?php
-                    if (!empty($subjectList['status']) && $subjectList['status'] == 1) {
+                    if (!empty($subjectList)) {
                         $sno = "";
-                        foreach ($subjectList['data'] as $subject) {
+                        foreach ($subjectList as $subject) {
                             echo '<tr>';
                             if ($sno == $subject['subject_sno']) {
                                 $style = '';
@@ -257,11 +284,15 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
                                 $style = " style= 'border-top: 1px solid #000;'";
                                 $sno = $subject['subject_sno'];
                             }
-                            echo "<td {$style}>{$subject['subject_sno']}</td>";
-                            echo "<td {$style}>{$subject['subcode']}</td>";                            
-                            echo "<td {$style}>{$subject['sub_shortname']}</td>";
-                            echo "<td {$style}>{$subject['sub_fullname']}</td>";
-                            echo "<td {$style}>{$subject['sub_type']}</td>";
+                            echo "<td {$style}>" . htmlspecialchars($subject['subject_sno']) . "</td>";
+                            echo "<td {$style}>" . htmlspecialchars($subject['subcode']) . "</td>";
+                            echo "<td {$style}>" . htmlspecialchars($subject['sub_shortname']) . "</td>";
+                            echo "<td {$style}>" . htmlspecialchars($subject['raw_sub_fullname'] ?? $subject['sub_fullname']);
+                            if (!empty($subject['group_name'])) {
+                                echo " <span class='badge bg-info text-dark ms-1'>Group " . htmlspecialchars($subject['group_name']) . "</span>";
+                            }
+                            echo "</td>";
+                            echo "<td {$style}>" . htmlspecialchars($subject['sub_type']) . "</td>";
                             echo "<td {$style}>";
                     ?>
                             <form action="hodviewsubjects.php" method="post" onsubmit="return confirm('Are you sure you want to Delete Subject:  <?= htmlspecialchars($subject['subcode'] ?? ''); ?> ?');">

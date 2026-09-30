@@ -13,7 +13,7 @@ if (!empty($_POST['date'])) {
 }
 
 $facultySubjects = $facultyObj->getSubjectsByFacultyId($faculty_id);
-$subjectsDataJson = json_encode($facultySubjects);
+$subjectsDataJson = json_encode($facultySubjects['data']);
 
 // Initialize variables
 $studentsList = [];
@@ -308,7 +308,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
         let foundStartDate = null;
         let foundEndDate = null;
 
-        for (const subject of subjectData.data) {
+        for (const subject of subjectData) {
             if (subject.id == selectedSubId) {
                 foundStartDate = subject.start_date;
                 foundEndDate = subject.end_date;
