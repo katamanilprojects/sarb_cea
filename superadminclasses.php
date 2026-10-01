@@ -131,11 +131,13 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             }
         }
 
+        $section = strtoupper(trim($_POST['section'] ?? ''));
         $data = [
             'id' => $_POST['id'] ?? null,
             'acad_year' => $_POST['acad_year'],
             'classname' => trim($_POST['classname']),
             'yearsem' => $_POST['yearsem'],
+            'section' => $section,
             'spec_id' => (int)$_POST['spec_id'],
             'start_date' => $_POST['start_date'],
             'end_date' => $_POST['end_date'],
@@ -233,7 +235,7 @@ require_once("superadminheader.php");
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-3">
                                 <label for="yearsem" class="form-label">Year-Sem</label>
                                 <select name="yearsem" id="yearsem" class="form-select" required>
                                     <option value="">Select Year-Sem</option>
@@ -242,7 +244,11 @@ require_once("superadminheader.php");
                                     <?php endforeach; ?>
                                 </select>
                             </div>
-                            <div class="col-md-4">
+                            <div class="col-md-2">
+                                <label for="section" class="form-label">Section <small class="text-muted">(Optional)</small></label>
+                                <input type="text" name="section" id="section" class="form-control" maxlength="10" placeholder="e.g. A or 1" value="<?= $editClass ? htmlspecialchars($editClass['section'] ?? '') : ''; ?>">
+                            </div>
+                            <div class="col-md-3">
                                 <label for="spec_id" class="form-label">Specialization</label>
                                 <select name="spec_id" id="spec_id" class="form-select" required>
                                     <option value="">Select Specialization</option>
@@ -391,6 +397,7 @@ require_once("superadminheader.php");
                                                                                     <thead>
                                                                                         <tr>
                                                                                             <th>Class Name</th>
+                                                                                            <th>Section</th>
                                                                                             <th>Specialization</th>
                                                                                             <th>Start Date</th>
                                                                                             <th>End Date</th>
@@ -404,6 +411,7 @@ require_once("superadminheader.php");
                                                                                         <?php foreach ($classRows as $row): $class = $row['class']; ?>
                                                                                             <tr>
                                                                                                 <td><?= htmlspecialchars($class['classname']); ?></td>
+                                                                                                <td><?= htmlspecialchars($class['section'] ?: '—'); ?></td>
                                                                                                 <td><?= htmlspecialchars($row['spec_shortname']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['start_date']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['end_date']); ?></td>
@@ -468,6 +476,7 @@ if (window.location.search.includes('edit=new')) {
     document.getElementById('id').value = '';
     document.getElementById('acad_year').value = '';
     document.getElementById('yearsem').value = '';
+    document.getElementById('section').value = '';
     document.getElementById('spec_id').value = '';
     document.getElementById('classname').value = '';
     document.getElementById('start_date').value = '';

@@ -89,7 +89,8 @@ if ($class_id) {
         list($prev_yearsem, $prev_acad_year) = getPreviousClassDetails($current_yearsem, $current_acad_year);
 
         if ($prev_yearsem && $prev_acad_year) {
-            $prev_class = $obj->getClassBySpecYearsemAndAcadYear($spec_id, $prev_yearsem, $prev_acad_year);
+            $current_section = $current_class['section'] ?? null;
+            $prev_class = $obj->getClassBySpecYearsemAndAcadYear($spec_id, $prev_yearsem, $prev_acad_year, $current_section ?: null);
             if ($prev_class) {
                 $previous_students = $obj->getStudentsByClass($prev_class['id']);
                 $showImportOption = !empty($previous_students);

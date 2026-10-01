@@ -631,7 +631,7 @@ class Admin extends User
     {
         $res = array();
         try {
-            $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? and status=1 order by acad_year DESC, yearsem");
+            $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? and status=1 order by acad_year DESC, yearsem, section ASC");
             $stmt->bind_param("i", $spec_id);
             $stmt->execute();
             $result = $stmt->get_result();
@@ -642,12 +642,17 @@ class Admin extends User
         return $res;
     }
 
-    public function getClassBySpecYearsemAndAcadYear($spec_id, $yearsem, $acad_year)
+    public function getClassBySpecYearsemAndAcadYear($spec_id, $yearsem, $acad_year, $section = null)
     {
         $res = array();
         try {
-            $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? and yearsem = ? and acad_year = ?");
-            $stmt->bind_param("iss", $spec_id, $yearsem, $acad_year);
+            if ($section !== null) {
+                $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? AND yearsem = ? AND acad_year = ? AND section = ?");
+                $stmt->bind_param("isss", $spec_id, $yearsem, $acad_year, $section);
+            } else {
+                $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? AND yearsem = ? AND acad_year = ? ORDER BY section ASC LIMIT 1");
+                $stmt->bind_param("iss", $spec_id, $yearsem, $acad_year);
+            }
             $stmt->execute();
             $result = $stmt->get_result();
             $res = $result->fetch_assoc();

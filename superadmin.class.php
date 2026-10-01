@@ -224,11 +224,21 @@ class SuperAdmin extends User
         return $res;
     }
 
+    public function generateClassName($spec_shortname, $yearsem, $section = '')
+    {
+        $base = trim($spec_shortname . ' - ' . $yearsem);
+        $section = trim($section);
+        if ($section !== '') {
+            return $base . ' - Sec ' . strtoupper($section);
+        }
+        return $base;
+    }
+
     public function getClassesByProgram()
     {
         $res = ['status' => 0];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.start_date, c.end_date, c.timing_id, c.status, p.prog_shortname
+            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.section, c.start_date, c.end_date, c.timing_id, c.status, p.prog_shortname
                 FROM classes c
                 JOIN specialization s ON c.spec_id = s.id
                 JOIN programs p ON s.prog_id = p.id");
@@ -247,7 +257,7 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.start_date, c.end_date, c.spec_id, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id");
+            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.section, c.start_date, c.end_date, c.spec_id, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id");
             $stmt->execute();
             $result = $stmt->get_result();
             $res['data'] = $result->fetch_all(MYSQLI_ASSOC);
@@ -264,6 +274,7 @@ class SuperAdmin extends User
         $acad_year = $data['acad_year'];
         $classname = $data['classname'];
         $yearsem = $data['yearsem'];
+        $section = strtoupper(trim($data['section'] ?? ''));
         $spec_id = (int) $data['spec_id'];
         $start_date = $data['start_date'];
         $timing_id = (int) $data['timing_id'];
@@ -274,11 +285,11 @@ class SuperAdmin extends User
         try {
             if (!empty($data["id"])) {
                 $class_id = (int) $data["id"];
-                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("sssissiiii", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status, $class_id);
+                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, section = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, status = ? WHERE id = ?");
+                $stmt->bind_param("ssssissiiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status, $class_id);
             } else {
-                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, spec_id, start_date, end_date, timing_id, reg_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("sssissiii", $acad_year, $classname, $yearsem, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status);
+                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, section, spec_id, start_date, end_date, timing_id, reg_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssissiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status);
             }
 
             if (!$stmt->execute()) {
@@ -483,7 +494,7 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0, 'data' => []];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.classname, c.acad_year, c.yearsem, c.start_date, c.end_date, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status, c.spec_id, s.spec_shortname, s.prog_id, p.prog_shortname
+            $stmt = $this->conn->prepare("SELECT c.id, c.classname, c.acad_year, c.yearsem, c.section, c.start_date, c.end_date, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status, c.spec_id, s.spec_shortname, s.prog_id, p.prog_shortname
             FROM classes c
             JOIN specialization s ON c.spec_id = s.id
             JOIN programs p ON s.prog_id = p.id

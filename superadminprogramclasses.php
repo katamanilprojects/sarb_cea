@@ -230,8 +230,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     foreach ($specRows as $spec) {
                         $data = [
                             'acad_year' => $postAcadYear,
-                            'classname' => ($spec['spec_shortname'] ?? 'Class') . ' - ' . $postYearSem,
+                            'classname' => $superadmin->generateClassName($spec['spec_shortname'] ?? 'Class', $postYearSem),
                             'yearsem' => $postYearSem,
+                            'section' => '',
                             'spec_id' => $spec['id'],
                             'start_date' => $postStartDate,
                             'end_date' => $postEndDate,

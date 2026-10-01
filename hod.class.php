@@ -357,7 +357,7 @@ class HOD extends User
     {
         $res = array();
         try {
-            $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? AND status=1 AND end_date >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH) ORDER BY acad_year DESC, yearsem");
+            $stmt = $this->conn->prepare("SELECT * FROM classes WHERE spec_id = ? AND status=1 AND end_date >= DATE_SUB(CURDATE(), INTERVAL 24 MONTH) ORDER BY acad_year DESC, yearsem, section ASC");
             $stmt->bind_param("i", $spec_id);
             $stmt->execute();
             $result = $stmt->get_result();
