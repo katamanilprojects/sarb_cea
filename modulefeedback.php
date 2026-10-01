@@ -548,7 +548,7 @@ $effectiveAcadYear = !empty($selected_acad_year) ? $selected_acad_year : ($feedb
                         $showSubjectLabel = true;
                         $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
                         $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
-                        include('partials/faculty_remarks_card.php');
+                        include('views/partials/faculty_remarks_card.php');
                     ?>
                 <?php endif; ?>
 
@@ -1258,7 +1258,7 @@ $effectiveAcadYear = !empty($selected_acad_year) ? $selected_acad_year : ($feedb
                     $showSubjectLabel = false;
                     $metaSubCode = $feedbackData['meta']['subcode'] ?? '';
                     $metaSubName = $feedbackData['meta']['sub_fullname'] ?? '';
-                    include('partials/faculty_remarks_card.php');
+                    include('views/partials/faculty_remarks_card.php');
                 ?>
 
             <?php endif; ?>
