@@ -18,14 +18,6 @@ $class_id = $_POST['class_id'];
 // Handle form submission
 if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
     unset($_SESSION['secretcode']);
-    if (!empty($_POST['whattodo']) && $_POST['whattodo'] == "editsubcode" && !empty($_POST['subject_id']) && !empty($_POST['new_subcode'])) {
-        $res_arr = $obj->updateSubjectCode($_POST['subject_id'], $_POST['new_subcode'], $class_id);
-        if (!empty($res_arr['status']) && $res_arr['status'] == 1) {
-            $msg = "Subject code updated successfully.";
-        } else {
-            $msg = (!empty($res_arr['err'])) ? $res_arr['err'] : "Failed to update subject code. Please try again.";
-        }
-    }
 
     if (!empty($_POST['subject_sno']) && !empty($_POST['subcode']) && !empty($_POST['sub_shortname']) && !empty($_POST['sub_fullname']) && !empty($_POST['sub_type']) && !empty($_POST['class_id'])) {
         $numBatches = !empty($_POST['num_batches']) ? (int)$_POST['num_batches'] : 1;
@@ -120,97 +112,93 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
     $currRes = $currObj->getSubjectsForClass($classInfo['reg_id'], $classInfo['spec_id'], $classInfo['yearsem']);
     $curriculumSubjects = $currRes['data'] ?? [];
 }
+// Prepare lookup of existing subcodes for badge indicator
+$existingSubcodes = [];
+if (!empty($subjectList)) {
+    foreach ($subjectList as $s) {
+        $clean = strtoupper(trim($s['subcode']));
+        $existingSubcodes[$clean] = true;
+        $baseCode = preg_replace('/[a-fA-F]$/', '', $clean);
+        $existingSubcodes[$baseCode] = true;
+    }
+}
 ?>
 
 <div class="container">
-    <div class="card">
-        <div class="card-header">
-            <div class="float-start">
-                Specialization: <?= htmlspecialchars($_POST['spec_fullname']) ?>
+    <div class="card mb-3 shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <div>
+                <strong>Specialization:</strong> <?= htmlspecialchars($_POST['spec_fullname'] ?? '') ?> | 
+                <strong>Class:</strong> <?= htmlspecialchars($_POST['class_fullname'] ?? '') ?>
             </div>
-            <div class="float-end">
-                <a href="hodviewclasses.php" class="btn btn-sm btn-outline-success">All Classes</a>
+            <div>
+                <a href="hodviewclasses.php" class="btn btn-sm btn-outline-success">
+                    <i class="bi bi-arrow-left me-1"></i>All Classes
+                </a>
             </div>
-        </div>
-        <div class="card-header">
-            Class: <?= htmlspecialchars($_POST['class_fullname']) ?>
         </div>
     </div>
 </div>
 <div class="container">
     <div class="row">
         <div class="col-sm-6">
-            <div class="card">
-                <div class="card-header">Add New Subject</div>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
+                    <span class="fw-bold"><i class="bi bi-plus-circle me-1"></i>Add Subject to Class</span>
+                    <span class="badge bg-light text-primary">From Curriculum</span>
+                </div>
                 <div class="card-body">
-                    <form action="hodviewsubjects.php" method="post">
+                    <form action="hodviewsubjects.php" method="post" id="hodAddSubjectForm" onsubmit="return validateHodForm()">
                         <?php if (!empty($curriculumSubjects)): ?>
-                            <div class="form-group mb-3 p-2 bg-light border rounded">
-                                <label for="curr_sub_picker" class="fw-bold text-primary">
-                                    <i class="bi bi-journal-bookmark-fill me-1"></i>Select from Curriculum / Syllabus:
+                            <!-- 1. Course Dropdown -->
+                            <div class="form-group mb-3">
+                                <label for="curr_sub_picker" class="form-label fw-bold text-dark">
+                                    <i class="bi bi-journal-bookmark-fill me-1 text-primary"></i>1. Select Course / Subject: <span class="text-danger">*</span>
                                 </label>
-                                <select id="curr_sub_picker" class="form-select form-select-sm" onchange="applyCurriculumSubject(this)">
-                                    <option value="">-- Choose Predefined Subject --</option>
-                                    <?php foreach ($curriculumSubjects as $cs): ?>
+                                <select id="curr_sub_picker" class="form-select" onchange="applyCurriculumSubject(this)" required>
+                                    <option value="">-- Choose Course from Curriculum --</option>
+                                    <?php foreach ($curriculumSubjects as $cs): 
+                                        $isAdded = isset($existingSubcodes[strtoupper(trim($cs['subcode']))]);
+                                        $catPrefix = !empty($cs['course_category']) ? '[' . $cs['course_category'] . '] ' : '';
+                                    ?>
                                         <option value="<?= htmlspecialchars($cs['subcode']) ?>"
+                                                data-id="<?= $cs['id'] ?>"
                                                 data-sno="<?= htmlspecialchars($cs['subject_sno']) ?>"
                                                 data-subcode="<?= htmlspecialchars($cs['subcode']) ?>"
                                                 data-fullname="<?= htmlspecialchars($cs['sub_fullname']) ?>"
                                                 data-shortname="<?= htmlspecialchars($cs['sub_shortname']) ?>"
-                                                data-type="<?= htmlspecialchars($cs['sub_type']) ?>">
-                                            <?= htmlspecialchars($cs['subject_sno'] . '. [' . $cs['subcode'] . '] ' . $cs['sub_fullname'] . ' (' . $cs['sub_type'] . ')') ?>
+                                                data-type="<?= htmlspecialchars($cs['sub_type']) ?>"
+                                                data-category="<?= htmlspecialchars($cs['course_category'] ?? '') ?>"
+                                                data-l="<?= htmlspecialchars($cs['lecture_hours']) ?>"
+                                                data-t="<?= htmlspecialchars($cs['tutorial_hours']) ?>"
+                                                data-pr="<?= htmlspecialchars($cs['pr_hours'] ?? '0.0') ?>"
+                                                data-p="<?= htmlspecialchars($cs['practical_hours']) ?>"
+                                                data-c="<?= htmlspecialchars($cs['credits']) ?>">
+                                            <?= htmlspecialchars($cs['subject_sno'] . '. ' . $catPrefix . '[' . $cs['subcode'] . '] ' . $cs['sub_fullname'] . ' (' . $cs['sub_type'] . ')') . ($isAdded ? ' ✓ [Already Added]' : '') ?>
                                         </option>
                                     <?php endforeach; ?>
                                 </select>
-                                <small class="text-muted">Selecting auto-fills S.No, code, name, and type.</small>
+                                <small class="form-text text-muted">Courses pre-configured by Academic Section for this syllabus.</small>
                             </div>
-                        <?php endif; ?>
-                        <div class="form-group">
-                            <label for="subject_sno">Subject S.No. (Based on Syllabus/Curriculum)</label>
-                            <select name="subject_sno" id="subject_sno" class="form-select" required>
-                                <option value="">--Select Subject S.No.--</option>
-                                <?php
-                                for ($i = 1; $i < 13; $i++) {
-                                    echo '<option value="' . $i . '">' . $i . '</option>';
-                                }
-                                ?>
-                            </select>
-                        </div>
-                        <div class="form-group position-relative">
-                            <label for="subcode">Subject Code:</label>
-                            <div class="input-group">
-                                <input type="text" name="subcode" id="subcode" class="form-control text-uppercase" required autocomplete="off">
-                                <button type="button" class="btn btn-outline-secondary" onclick="lookupSubjectCodeHod()" title="Lookup catalog details">
-                                    <i class="bi bi-search" id="hodLookupIcon"></i>
-                                </button>
+
+                            <!-- Selected Course Info Card (Dynamic Preview) -->
+                            <div id="selectedCourseInfoCard" class="card bg-light border mb-3" style="display: none;">
+                                <div class="card-body py-2 px-3">
+                                    <div class="d-flex justify-content-between align-items-center mb-1">
+                                        <strong id="infoSubCode" class="text-primary font-monospace fs-6"></strong>
+                                        <div>
+                                            <span id="infoSubCategory" class="badge bg-secondary me-1"></span>
+                                            <span id="infoSubType" class="badge bg-info text-dark"></span>
+                                        </div>
+                                    </div>
+                                    <div id="infoSubName" class="fw-semibold text-dark mb-1"></div>
+                                    <small class="text-muted" id="infoHoursCredits"></small>
+                                </div>
                             </div>
-                            <small id="hodLookupStatus" class="form-text text-muted"></small>
-                        </div>
-                        <input type="hidden" id="hod_reg_id" value="<?= htmlspecialchars($classInfo['reg_id'] ?? '') ?>">
-                        <div class="form-group">
-                            <label for="sub_fullname">Subject Full Name:</label>
-                            <input type="text" name="sub_fullname" id="sub_fullname" class="form-control" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="sub_shortname">Subject Short Name:</label>
-                            <input type="text" name="sub_shortname" id="sub_shortname" class="form-control" maxlength="20" required>
-                        </div>
-                        <div class="form-group">
-                            <label for="sub_type">Subject Type:</label>
-                            <select name="sub_type" id="sub_type" class="form-select" required onchange="onSubTypeChange(this)">
-                                <option value="Theory">Theory</option>
-                                <option value="Lab">Lab</option>
-                                <option value="PE">Professional Elective</option>
-                                <option value="OE">Open Elective</option>
-                                <option value="OE">Humanities Elective</option>
-                                <option value="Skill">Skill Oriented Course</option>
-                                <option value="MNCC">Mandatory Not-Credit Course</option>
-                                <option value="dti">Design Thinking & Innovation</option>
-                            </select>
-                        </div>
-                        <div class="form-group mt-2 p-2 border rounded bg-light">
-                            <label for="num_batches" class="fw-bold text-dark">
-                                <i class="bi bi-people-fill me-1 text-primary"></i>Batching / Groups:
+                        <!-- 2. Batches Dropdown -->
+                        <div class="form-group mb-3 p-2 bg-light border rounded">
+                            <label for="num_batches" class="form-label fw-bold text-dark mb-1">
+                                <i class="bi bi-people-fill me-1 text-primary"></i>2. Batches / Groups: <span class="text-danger">*</span>
                             </label>
                             <select name="num_batches" id="num_batches" class="form-select form-select-sm" onchange="updateBatchPreview()">
                                 <option value="1">1 Batch - Whole Class (Default)</option>
@@ -218,37 +206,47 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
                                 <option value="3">3 Batches (Group A, Group B, Group C)</option>
                                 <option value="4">4 Batches (Group A, Group B, Group C, Group D)</option>
                             </select>
-                            <div id="batchPreviewBox" class="small mt-1 text-muted" style="display: none;"></div>
+                            <div id="batchPreviewBox" class="small mt-2 p-2 border rounded bg-white text-dark" style="display: none;"></div>
                         </div>
-                        <div class="form-group mt-2">
-                            <label for="group_name">Group / Batch Identifier <small class="text-muted">(Optional)</small></label>
-                            <input type="text" name="group_name" id="group_name" class="form-control" maxlength="10"
-                                   placeholder="e.g. A, B, 1, 2 (Leave empty if not divided)" style="text-transform: uppercase;">
-                            <small class="form-text text-muted">Leave empty for courses taken by the whole class.</small>
-                        </div>
-                        <br />
+
+                        <!-- Hidden fields carrying curriculum values to backend -->
+                        <input type="hidden" name="curr_sub_id" id="curr_sub_id" value="">
+                        <input type="hidden" name="subject_sno" id="subject_sno" value="">
+                        <input type="hidden" name="subcode" id="subcode" value="">
+                        <input type="hidden" name="sub_fullname" id="sub_fullname" value="">
+                        <input type="hidden" name="sub_shortname" id="sub_shortname" value="">
+                        <input type="hidden" name="sub_type" id="sub_type" value="Theory">
+                        <input type="hidden" name="group_name" id="group_name" value="">
+
                         <input type="hidden" name="class_id" value="<?php echo $_POST["class_id"]; ?>" />
                         <input type="hidden" name="class_fullname" value="<?php echo $_POST["class_fullname"]; ?>" />
                         <input type="hidden" name="spec_fullname" value="<?php echo $_POST["spec_fullname"] ?>" />
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" class="btn btn-primary" id="submitSubjectBtn">Add Subject</button>
+                        <button type="submit" class="btn btn-primary px-4" id="submitSubjectBtn">Add Subject to Class</button>
                     </form>
-                    <?php if (isset($msg)) echo '<div class="alert alert-info">' . $msg . '</div>'; ?>
+                    <?php else: ?>
+                        <div class="alert alert-warning py-3 mb-0">
+                            <i class="bi bi-exclamation-triangle me-1"></i> No curriculum subjects found for this regulation and semester. Please contact the <strong>Academic Section</strong> to configure the Curriculum Subjects for this syllabus.
+                        </div>
+                    <?php endif; ?>
+                    <?php if (isset($msg)) echo '<div class="alert alert-info mt-3 mb-0">' . $msg . '</div>'; ?>
                 </div>
             </div>
         </div>
         <div class="col-sm-6">
-            <div class="card">
-                <div class="card-header">Important points</div>
+            <div class="card shadow-sm mb-4">
+                <div class="card-header bg-light fw-bold"><i class="bi bi-info-circle me-1"></i>Curriculum Integration Guidelines</div>
                 <div class="card-body">
-                    <ul>
-                        <li>The <u>Subject S.No</u>, <u>Subject Code</u> and <u>Full Name</u> should match the S.No, SubCode and Subject Name used in the <strong>Academic Syllabus</strong>.<br />(<strong>Same S.No</strong> will be present for the elective subjects)</li>
+                    <ul class="mb-0">
+                        <li><strong>Standardized Curriculum Selection:</strong>
+                            <p class="mb-1 text-muted small">Select the course directly from the <strong>Course Dropdown</strong>. Subject S.No, Code, Short Name, Full Name, Category, and Type are automatically fetched from the Academic Syllabus catalog.</p>
+                        </li>
                         <br />
                         <li><strong>Automated Batch / Group Generator:</strong>
                             <ul>
-                                <li>For Labs or practical courses divided into groups, select <strong>2, 3, or 4 Batches</strong> from the dropdown above.</li>
-                                <li>The system will <strong>automatically generate</strong> standard-compliant entries (e.g. <code>ABC123a: Lab (Group A)</code> and <code>ABC123b: Lab (Group B)</code>) in a single click.</li>
-                                <li>This ensures 100% compatibility with Attendance Marking, Faculty Allocation, Timetable Scheduling, and CIA Analysis.</li>
+                                <li class="text-muted small">For Labs or practical courses divided into groups, select <strong>2, 3, or 4 Batches</strong> from the dropdown.</li>
+                                <li class="text-muted small">The system will <strong>automatically generate</strong> standard-compliant entries (e.g. <code>ABC123a: Lab (Group A)</code> and <code>ABC123b: Lab (Group B)</code>) in a single click.</li>
+                                <li class="text-muted small">Ensures 100% compatibility with Attendance Marking, Faculty Allocation, Timetable Scheduling, and CIA Analysis.</li>
                             </ul>
                         </li>
                     </ul>
@@ -257,299 +255,200 @@ if (!empty($classInfo) && !empty($classInfo['reg_id']) && !empty($classInfo['spe
         </div>
     </div>
     <br>
-    <div class="card">
-        <div class="card-header">Display Subjects</div>
-        <div class="card-body">
-            <table class="table table-bordered">
-                <thead>
-                    <tr style='border-top: 1px solid #000;'>
-                        <th>S.No.</th>
-                        <th>Code</th>
-                        <th>Short Name</th>
-                        <th>Full Name</th>
-                        <th>Type</th>
-                        <th></th>
-                        <th></th>
-                    </tr>
-                </thead>
-                <tbody>
-                    <?php
-                    if (!empty($subjectList)) {
-                        $sno = "";
-                        foreach ($subjectList as $subject) {
-                            echo '<tr>';
-                            if ($sno == $subject['subject_sno']) {
-                                $style = '';
-                            } else {
-                                $style = " style= 'border-top: 1px solid #000;'";
-                                $sno = $subject['subject_sno'];
-                            }
-                            echo "<td {$style}>" . htmlspecialchars($subject['subject_sno']) . "</td>";
-                            echo "<td {$style}>" . htmlspecialchars($subject['subcode']) . "</td>";
-                            echo "<td {$style}>" . htmlspecialchars($subject['sub_shortname']) . "</td>";
-                            echo "<td {$style}>" . htmlspecialchars($subject['raw_sub_fullname'] ?? $subject['sub_fullname']);
-                            if (!empty($subject['group_name'])) {
-                                echo " <span class='badge bg-info text-dark ms-1'>Group " . htmlspecialchars($subject['group_name']) . "</span>";
-                            }
-                            echo "</td>";
-                            echo "<td {$style}>" . htmlspecialchars($subject['sub_type']) . "</td>";
-                            echo "<td {$style}>";
-                    ?>
-                            <form action="hodviewsubjects.php" method="post" onsubmit="return confirm('Are you sure you want to Delete Subject:  <?= htmlspecialchars($subject['subcode'] ?? ''); ?> ?');">
-                                <input type="hidden" name="class_id" value="<?php echo $_POST["class_id"]; ?>" />
-                                <input type="hidden" name="class_fullname" value="<?php echo $_POST["class_fullname"]; ?>" />
-                                <input type="hidden" name="spec_fullname" value="<?php echo $_POST["spec_fullname"] ?>" />
-                                <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                                <input type="hidden" name="subject_id" value="<?php echo $subject["id"]; ?>" />
-                                <input type="hidden" name="whattodo" value="deletesubject" />
-                                <input type="submit" class="btn btn-outline-danger" value="X" />
-                            </form>
-                    <?php
-                            echo "</td>";
-                            echo "<td {$style}>";                                                
-                            echo "<button type='button' class='btn btn-primary btn-sm ml-2' onclick='editSubcode({$subject['id']}, \"{$subject['subcode']}\")'>
-                                <i class='fa fa-edit'></i> Edit SubCode</button>";
-                            echo "</td>";
-                            echo "</tr>";
-                        }
-                    } else {
-                        echo "<tr><td colspan='7'>No subjects found.</td></tr>";
-                    }
-                    ?>
-                </tbody>
-                <script>
-                    function editSubcode(subjectId, currentSubcode) {
-                        var newSubcode = prompt("Edit Subject Code:", currentSubcode);
-
-                        if (newSubcode !== null && newSubcode.trim() !== "" && newSubcode !== currentSubcode) {
-                            var form = document.createElement('form');
-                            form.method = 'POST';
-                            form.action = '';
-
-                            var whattodoInput = document.createElement('input');
-                            whattodoInput.type = 'hidden';
-                            whattodoInput.name = 'whattodo';
-                            whattodoInput.value = 'editsubcode';
-                            form.appendChild(whattodoInput);
-
-                            var subjectIdInput = document.createElement('input');
-                            subjectIdInput.type = 'hidden';
-                            subjectIdInput.name = 'subject_id';
-                            subjectIdInput.value = subjectId;
-                            form.appendChild(subjectIdInput);
-
-                            var subcodeInput = document.createElement('input');
-                            subcodeInput.type = 'hidden';
-                            subcodeInput.name = 'new_subcode';
-                            subcodeInput.value = newSubcode.trim();
-                            form.appendChild(subcodeInput);
-
-                            var secretcodeInput = document.createElement('input');
-                            secretcodeInput.type = 'hidden';
-                            secretcodeInput.name = 'secretcode';
-                            secretcodeInput.value = '<?php echo $_SESSION['secretcode']; ?>';
-                            form.appendChild(secretcodeInput);
-
-                            // Add class_id to maintain context
-                            var classIdInput = document.createElement('input');
-                            classIdInput.type = 'hidden';
-                            classIdInput.name = 'class_id';
-                            classIdInput.value = '<?php echo $class_id; ?>';
-                            form.appendChild(classIdInput);
-
-                            document.body.appendChild(form);
-                            form.submit();
-                        }
-                    }
-
-                    function onSubTypeChange(selectEl) {
-                        const batchSel = document.getElementById('num_batches');
-                        if (selectEl.value.toLowerCase() === 'lab') {
-                            if (batchSel && batchSel.value === "1") {
-                                batchSel.value = "2"; // Suggest 2 batches by default for labs
-                            }
-                        }
-                        updateBatchPreview();
-                    }
-
-                    function updateBatchPreview() {
-                        const numBatches = parseInt(document.getElementById('num_batches').value) || 1;
-                        const previewBox = document.getElementById('batchPreviewBox');
-                        const submitBtn = document.getElementById('submitSubjectBtn');
-                        const code = (document.getElementById('subcode').value || 'CODE').trim();
-                        const name = (document.getElementById('sub_fullname').value || 'Subject Name').trim();
-
-                        if (numBatches <= 1) {
-                            if (previewBox) {
-                                previewBox.style.display = 'none';
-                                previewBox.innerHTML = '';
-                            }
-                            if (submitBtn) submitBtn.textContent = 'Add Subject';
-                            return;
-                        }
-
-                        const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-                        const groupNames = ['Group A', 'Group B', 'Group C', 'Group D', 'Group E', 'Group F'];
-                        let html = '<strong>Will automatically generate ' + numBatches + ' subjects:</strong><ul class="mb-0 ps-3 mt-1">';
-
-                        for (let i = 0; i < numBatches; i++) {
-                            const subCode = code + letters[i];
-                            const subName = name + ' (' + groupNames[i] + ')';
-                            html += '<li><code>' + subCode + '</code>: ' + subName + '</li>';
-                        }
-                        html += '</ul>';
-
-                        if (previewBox) {
-                            previewBox.innerHTML = html;
-                            previewBox.style.display = 'block';
-                        }
-                        if (submitBtn) {
-                            submitBtn.textContent = 'Add ' + numBatches + ' Batches';
-                        }
-                    }
-
-                    function applyCurriculumSubject(selectEl) {
-                        if (!selectEl.value) return;
-                        const opt = selectEl.options[selectEl.selectedIndex];
-                        if (!opt) return;
-
-                        const sno = opt.dataset.sno;
-                        const code = opt.dataset.subcode;
-                        const fullname = opt.dataset.fullname;
-                        const shortname = opt.dataset.shortname;
-                        const type = opt.dataset.type;
-
-                        if (sno) {
-                            const snoEl = document.getElementById('subject_sno');
-                            if (snoEl) snoEl.value = sno;
-                        }
-                        if (code) {
-                            const codeEl = document.getElementById('subcode');
-                            if (codeEl) codeEl.value = code;
-                        }
-                        if (fullname) {
-                            const fnEl = document.getElementById('sub_fullname');
-                            if (fnEl) fnEl.value = fullname;
-                        }
-                        if (shortname) {
-                            const snEl = document.getElementById('sub_shortname');
-                            if (snEl) snEl.value = shortname;
-                        }
-                        if (type) {
-                            const stEl = document.getElementById('sub_type');
-                            if (stEl) {
-                                let matched = false;
-                                for (let i = 0; i < stEl.options.length; i++) {
-                                    if (stEl.options[i].value.toLowerCase() === type.toLowerCase() ||
-                                        stEl.options[i].text.toLowerCase() === type.toLowerCase()) {
-                                        stEl.selectedIndex = i;
-                                        matched = true;
-                                        break;
-                                    }
-                                }
-                                if (!matched) {
-                                    const newOpt = new Option(type, type, true, true);
-                                    stEl.add(newOpt);
-                                }
-                            }
-
-                            const batchSel = document.getElementById('num_batches');
-                            if (type.toLowerCase() === 'lab') {
-                                if (batchSel) batchSel.value = "2";
-                            } else {
-                                if (batchSel) batchSel.value = "1";
-                            }
-                        }
-                        updateBatchPreview();
-                    }
-
-                    function lookupSubjectCodeHod() {
-                        const subcodeInput = document.getElementById('subcode');
-                        const subcode = subcodeInput ? subcodeInput.value.trim() : '';
-                        const regIdEl = document.getElementById('hod_reg_id');
-                        const regId = regIdEl ? regIdEl.value : '';
-                        const statusEl = document.getElementById('hodLookupStatus');
-                        const iconEl = document.getElementById('hodLookupIcon');
-
-                        if (!subcode) return;
-
-                        if (iconEl) iconEl.className = 'spinner-border spinner-border-sm';
-                        if (statusEl) {
-                            statusEl.className = 'form-text text-muted';
-                            statusEl.textContent = 'Searching catalog...';
-                        }
-
-                        fetch('curriculum_subject_ajax.php?action=lookup_code&subcode=' + encodeURIComponent(subcode) + '&reg_id=' + encodeURIComponent(regId))
-                            .then(r => r.json())
-                            .then(res => {
-                                if (iconEl) iconEl.className = 'bi bi-search';
-                                if (res.status === 1 && res.data) {
-                                    const d = res.data;
-                                    if (statusEl) {
-                                        statusEl.className = 'form-text text-success fw-bold';
-                                        statusEl.textContent = '✓ Details auto-retrieved from catalog!';
-                                    }
-                                    if (d.sub_fullname) document.getElementById('sub_fullname').value = d.sub_fullname;
-                                    if (d.sub_shortname) document.getElementById('sub_shortname').value = d.sub_shortname;
-                                    if (d.sub_type) {
-                                        const stEl = document.getElementById('sub_type');
-                                        if (stEl) {
-                                            for (let i = 0; i < stEl.options.length; i++) {
-                                                if (stEl.options[i].value.toLowerCase() === d.sub_type.toLowerCase() ||
-                                                    stEl.options[i].text.toLowerCase() === d.sub_type.toLowerCase()) {
-                                                    stEl.selectedIndex = i;
-                                                    break;
-                                                }
-                                            }
-                                        }
-                                        const batchSel = document.getElementById('num_batches');
-                                        if (d.sub_type.toLowerCase() === 'lab') {
-                                            if (batchSel) batchSel.value = "2";
-                                        } else {
-                                            if (batchSel) batchSel.value = "1";
-                                        }
-                                    }
-                                    updateBatchPreview();
+    <br>
+    <div class="card shadow-sm">
+        <div class="card-header bg-light d-flex justify-content-between align-items-center">
+            <h6 class="mb-0 fw-bold"><i class="bi bi-table me-2"></i>Class Subjects (<?= count($subjectList) ?>)</h6>
+            <span class="badge bg-secondary"><?= htmlspecialchars($_POST['class_fullname'] ?? '') ?></span>
+        </div>
+        <div class="card-body p-0">
+            <div class="table-responsive">
+                <table class="table table-hover align-middle mb-0 text-center">
+                    <thead class="table-dark">
+                        <tr>
+                            <th style="width: 50px;">S.No.</th>
+                            <th style="width: 130px;">Code</th>
+                            <th>Short Name</th>
+                            <th class="text-start">Full Name</th>
+                            <th style="width: 100px;">Type</th>
+                            <th style="width: 90px;">Category</th>
+                            <th style="width: 70px;">Action</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+                        <?php
+                        if (!empty($subjectList)) {
+                            $sno = "";
+                            foreach ($subjectList as $subject) {
+                                echo '<tr>';
+                                if ($sno == $subject['subject_sno']) {
+                                    $style = '';
                                 } else {
-                                    if (statusEl) {
-                                        statusEl.className = 'form-text text-muted';
-                                        statusEl.textContent = 'New subject code (enter details below)';
-                                    }
+                                    $style = " style='border-top: 2px solid #dee2e6;'";
+                                    $sno = $subject['subject_sno'];
                                 }
-                            })
-                            .catch(err => {
-                                if (iconEl) iconEl.className = 'bi bi-search';
-                                if (statusEl) {
-                                    statusEl.className = 'form-text text-danger';
-                                    statusEl.textContent = 'Lookup error';
+                                echo "<td {$style} class='fw-bold'>" . htmlspecialchars($subject['subject_sno']) . "</td>";
+                                echo "<td {$style}><span class='badge bg-primary fs-7'>" . htmlspecialchars($subject['subcode']) . "</span></td>";
+                                echo "<td {$style}>" . htmlspecialchars($subject['sub_shortname']) . "</td>";
+                                echo "<td {$style} class='text-start fw-semibold'>" . htmlspecialchars($subject['raw_sub_fullname'] ?? $subject['sub_fullname']);
+                                if (!empty($subject['group_name'])) {
+                                    echo " <span class='badge bg-info text-dark ms-1'>Group " . htmlspecialchars($subject['group_name']) . "</span>";
                                 }
-                            });
-                    }
-
-                    // Attach live listeners for code and name updates to keep batch preview in sync & debounce lookup
-                    let lookupTimerHod = null;
-                    document.addEventListener('DOMContentLoaded', function() {
-                        const subCodeEl = document.getElementById('subcode');
-                        const subNameEl = document.getElementById('sub_fullname');
-                        if (subCodeEl) {
-                            subCodeEl.addEventListener('input', function() {
-                                updateBatchPreview();
-                                clearTimeout(lookupTimerHod);
-                                const val = this.value.trim();
-                                if (val.length >= 3) {
-                                    lookupTimerHod = setTimeout(lookupSubjectCodeHod, 600);
-                                }
-                            });
-                            subCodeEl.addEventListener('blur', lookupSubjectCodeHod);
+                                echo "</td>";
+                                echo "<td {$style}><span class='badge bg-light text-dark border'>" . htmlspecialchars($subject['sub_type']) . "</span></td>";
+                                echo "<td {$style}>" . (!empty($subject['course_category']) ? '<span class="badge bg-secondary">' . htmlspecialchars($subject['course_category']) . '</span>' : '<span class="text-muted">-</span>') . "</td>";
+                                echo "<td {$style}>";
+                        ?>
+                                <form action="hodviewsubjects.php" method="post" onsubmit="return confirm('Are you sure you want to Delete Subject:  <?= htmlspecialchars($subject['subcode'] ?? ''); ?> ?');">
+                                    <input type="hidden" name="class_id" value="<?php echo $_POST["class_id"]; ?>" />
+                                    <input type="hidden" name="class_fullname" value="<?php echo $_POST["class_fullname"]; ?>" />
+                                    <input type="hidden" name="spec_fullname" value="<?php echo $_POST["spec_fullname"] ?>" />
+                                    <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
+                                    <input type="hidden" name="subject_id" value="<?php echo $subject["id"]; ?>" />
+                                    <input type="hidden" name="whattodo" value="deletesubject" />
+                                    <button type="submit" class="btn btn-outline-danger btn-sm" title="Delete Subject">
+                                        <i class="bi bi-trash"></i>
+                                    </button>
+                                </form>
+                        <?php
+                                echo "</td>";
+                                echo "</tr>";
+                            }
+                        } else {
+                            echo "<tr><td colspan='7' class='text-muted py-4'>No subjects found for this class. Select a course and batches above to add subjects.</td></tr>";
                         }
-                        if (subNameEl) subNameEl.addEventListener('input', updateBatchPreview);
-                    });
-                </script>
-
-            </table>
+                        ?>
+                    </tbody>
+                </table>
+            </div>
         </div>
     </div>
 </div>
+
+<script>
+function applyCurriculumSubject(selectEl) {
+    if (!selectEl.value) {
+        const infoCard = document.getElementById('selectedCourseInfoCard');
+        if (infoCard) infoCard.style.display = 'none';
+        document.getElementById('curr_sub_id').value = '';
+        document.getElementById('subject_sno').value = '';
+        document.getElementById('subcode').value = '';
+        document.getElementById('sub_fullname').value = '';
+        document.getElementById('sub_shortname').value = '';
+        document.getElementById('sub_type').value = 'Theory';
+        updateBatchPreview();
+        return;
+    }
+
+    const opt = selectEl.options[selectEl.selectedIndex];
+    if (!opt) return;
+
+    const id = opt.dataset.id || '';
+    const sno = opt.dataset.sno || '';
+    const code = opt.dataset.subcode || '';
+    const fullname = opt.dataset.fullname || '';
+    const shortname = opt.dataset.shortname || '';
+    const type = opt.dataset.type || 'Theory';
+    const cat = opt.dataset.category || '';
+    const l = opt.dataset.l || '0.0';
+    const t = opt.dataset.t || '0.0';
+    const pr = opt.dataset.pr || '0.0';
+    const p = opt.dataset.p || '0.0';
+    const c = opt.dataset.c || '0.0';
+
+    // Populate hidden inputs
+    document.getElementById('curr_sub_id').value = id;
+    document.getElementById('subject_sno').value = sno;
+    document.getElementById('subcode').value = code;
+    document.getElementById('sub_fullname').value = fullname;
+    document.getElementById('sub_shortname').value = shortname;
+    document.getElementById('sub_type').value = type;
+
+    // Update dynamic preview card
+    const infoCard = document.getElementById('selectedCourseInfoCard');
+    if (infoCard) {
+        document.getElementById('infoSubCode').textContent = code;
+        document.getElementById('infoSubName').textContent = fullname;
+        document.getElementById('infoSubType').textContent = type;
+        const catBadge = document.getElementById('infoSubCategory');
+        if (cat) {
+            catBadge.textContent = cat;
+            catBadge.style.display = 'inline-block';
+        } else {
+            catBadge.style.display = 'none';
+        }
+        document.getElementById('infoHoursCredits').textContent = 'Lecture (L): ' + l + ' | Tutorial (T): ' + t + ' | Practical (Pr): ' + pr + ' | Lab (P): ' + p + ' | Credits: ' + c;
+        infoCard.style.display = 'block';
+    }
+
+    updateBatchPreview();
+}
+
+function updateBatchPreview() {
+    const numBatches = parseInt(document.getElementById('num_batches').value) || 1;
+    const previewBox = document.getElementById('batchPreviewBox');
+    const submitBtn = document.getElementById('submitSubjectBtn');
+    const code = (document.getElementById('subcode').value || '').trim();
+    const name = (document.getElementById('sub_fullname').value || '').trim();
+
+    if (!code || !name) {
+        if (previewBox) {
+            previewBox.style.display = 'none';
+            previewBox.innerHTML = '';
+        }
+        if (submitBtn) submitBtn.textContent = 'Add Subject to Class';
+        return;
+    }
+
+    if (numBatches <= 1) {
+        if (previewBox) {
+            previewBox.innerHTML = '<span class="text-success"><i class="bi bi-check-circle me-1"></i>Single offering (Whole Class): <code>' + code + '</code> - ' + name + '</span>';
+            previewBox.style.display = 'block';
+        }
+        if (submitBtn) submitBtn.textContent = 'Add Subject to Class';
+        return;
+    }
+
+    const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
+    const groupNames = ['Group A', 'Group B', 'Group C', 'Group D', 'Group E', 'Group F'];
+    let html = '<div class="fw-bold mb-1"><i class="bi bi-diagram-3 me-1 text-primary"></i>Will automatically generate ' + numBatches + ' batch subjects:</div><ul class="mb-0 ps-3">';
+
+    for (let i = 0; i < numBatches; i++) {
+        const subCode = code + letters[i];
+        const subName = name + ' (' + groupNames[i] + ')';
+        html += '<li><code>' + subCode + '</code>: ' + subName + '</li>';
+    }
+    html += '</ul>';
+
+    if (previewBox) {
+        previewBox.innerHTML = html;
+        previewBox.style.display = 'block';
+    }
+    if (submitBtn) {
+        submitBtn.textContent = 'Add ' + numBatches + ' Batches to Class';
+    }
+}
+
+function validateHodForm() {
+    const subcode = (document.getElementById('subcode').value || '').trim();
+    const fullname = (document.getElementById('sub_fullname').value || '').trim();
+    if (!subcode || !fullname) {
+        alert('Please select a course from the curriculum dropdown.');
+        const picker = document.getElementById('curr_sub_picker');
+        if (picker) picker.focus();
+        return false;
+    }
+    return true;
+}
+
+// Auto-initialize on load if a course is pre-selected
+document.addEventListener('DOMContentLoaded', function() {
+    const picker = document.getElementById('curr_sub_picker');
+    if (picker && picker.value) {
+        applyCurriculumSubject(picker);
+    }
+});
+</script>
 
 <?php
 require_once("hodfooter.php");

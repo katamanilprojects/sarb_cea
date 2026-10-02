@@ -56,17 +56,26 @@ sequenceDiagram
 
 Under autonomous academic regulations (e.g., R15, R19, R20, R23), final internal marks are computed across Mid-1 and Mid-2 using specific weightage formulas:
 
-### 3.1 Standard Autonomous Theory Mid Aggregation
+### 3.1 Autonomous Regulatory Calculation Rules & Dynamic Settings
+Under autonomous academic regulations (e.g., R15, R19, R20, R23), final internal marks are computed across Mid-1 and Mid-2 using specific weightage formulas retrieved dynamically via `SettingsService` (`academic_settings` table):
 - **Mid-1 Total**: $\text{Mid}_1$ out of 30.
 - **Mid-2 Total**: $\text{Mid}_2$ out of 30.
 - **Combined Internal Calculation**:
-  $$\text{Final Internal} = (0.80 \times \max(\text{Mid}_1, \text{Mid}_2)) + (0.20 \times \min(\text{Mid}_1, \text{Mid}_2))$$
-  *(or best-of / average depending on specific cohort regulation).*
+  $$\text{Final Internal} = (W_{\text{best}} \times \max(\text{Mid}_1, \text{Mid}_2)) + (W_{\text{worst}} \times \min(\text{Mid}_1, \text{Mid}_2))$$
+  - Under R19/R20/R23: $W_{\text{best}} = 0.80$ and $W_{\text{worst}} = 0.20$ (or $0.75 / 0.25$ depending on specific regulation configuration).
+  - Configurable without code edits via `superadminacademicsettings.php`.
 
-### 3.2 Condensed Views & Consolidated Reports
+### 3.2 Condensed Views & Official e-Bluebook Export
 - **`facciamarkscondensed.php`**: Renders side-by-side Mid-1, Mid-2, and final weighted aggregate scores.
 - **`facuglabciamarkscondensed.php`**: Consolidates Day-to-Day and Lab Exam marks into final lab internal score.
-- **`download_cls_cia.php` / `download_bluebook.php`**: Generates printable PDF / CSV mark registers (Blue Books) required for university examinations audit.
+- **`download_cls_cia.php`**: Quick tabular class CIA marks summary report.
+- **`download_bluebook.php`**: Generates the complete official university **e-Bluebook** powered by `EBluebookPDFService`:
+  - **Section 1**: Course Bio & Student Nominal Roll.
+  - **Section 2A**: Lecture Lesson Plan (Estimated Diary).
+  - **Section 2B**: Diary of Lecturer Classes (4-column statutory format).
+  - **Section 2C**: Course Delivery Compliance & Deviation Report (NBA 2.2 milestone dates, deviations, compensatory classes, and signatures).
+  - **Section 3**: Student Attendance Register.
+  - **Section 4**: Continuous Internal Assessment (CIA) Marks Register with component breakdowns.
 
 ---
 
@@ -87,3 +96,13 @@ Faculty can attach digital documentation to each assessment (question papers, an
 - Stored in `cia_attachments`:
   - `subject_id`, `assessment_number`, `file_title`, `file_path`, `uploaded_at`.
 - Managed via `Faculty::addCIAAttachment()` and `Faculty::deleteCIAAttachment()`.
+
+---
+
+## 6. Semester End Examination (SEE) Evaluation Pipeline
+
+Managed via `SEEAssessment` (`seeassessment.class.php`) and stored in `external_assessment_marks`:
+- **Modes of Entry**:
+  - **Mode A (`DETAILED`)** via `facseecompques.php` & `facseemarksentry.php`: Granular entry of compulsory Question 1 (covering all COs) and elective choices (Units 1-5), supporting question-level direct external attainment.
+  - **Mode B (`DIRECT`)** via `facseedirectmarks.php`: Direct entry of consolidated university marks out of maximum marks (70 or 35).
+- **Consolidated External Review (`facseemarkscondensed.php`)**: Side-by-side ledger displaying scored external marks and status.

@@ -63,16 +63,17 @@ define('DB_NAME', 'u182589698_jntuaceasarb');
    COLLATE utf8mb4_general_ci;
    ```
 
-2. Import the schema file `u182589698_jntuaceasarb_database_scheme.sql`:
+2. Initialize database schema:
    ```bash
-   mysql -u u182589698_jntuaceasarb -p u182589698_jntuaceasarb < u182589698_jntuaceasarb_database_scheme.sql
+   mysql -u u182589698_jntuaceasarb -p u182589698_jntuaceasarb < schema_backup.sql
    ```
 
-3. Verify that the 48 core tables and constraints are loaded successfully:
+3. Verify that all 55 tables and 71 constraints are loaded successfully:
    ```sql
    USE u182589698_jntuaceasarb;
    SHOW TABLES;
    ```
+   *(A reference template is available in `dbcredentials.class.php.example`)*
 
 ---
 

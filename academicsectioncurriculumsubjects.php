@@ -218,7 +218,7 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                         </div>
 
                         <!-- Subject Type -->
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label fw-bold">Subject Type <span class="text-danger">*</span></label>
                             <select name="sub_type" id="sub_type" class="form-select form-select-sm" required>
                                 <?php
@@ -226,6 +226,34 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                 $currentType = $editSubject['sub_type'] ?? 'Theory';
                                 foreach ($subTypes as $st): ?>
                                     <option value="<?= $st ?>" <?= ($currentType === $st) ? 'selected' : '' ?>><?= $st ?></option>
+                                <?php endforeach; ?>
+                            </select>
+                        </div>
+
+                        <!-- Course Category -->
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Course Category</label>
+                            <select name="course_category" id="course_category" class="form-select form-select-sm">
+                                <?php
+                                $categories = [
+                                    "" => "-- Select Category --",
+                                    "BS" => "BS - Basic Science",
+                                    "ES" => "ES - Engineering Science",
+                                    "HS" => "HS - Humanities & Social Sciences",
+                                    "PC" => "PC - Professional Core",
+                                    "PE" => "PE - Professional Elective",
+                                    "OE" => "OE - Open Elective",
+                                    "MC" => "MC - Mandatory Course",
+                                    "PR" => "PR - Project / Internship",
+                                    "SC" => "SC - Skill Oriented Course",
+                                    "AC" => "AC - Audit Course"
+                                ];
+                                $currentCat = strtoupper(trim($editSubject['course_category'] ?? ''));
+                                if (!empty($currentCat) && !array_key_exists($currentCat, $categories)) {
+                                    $categories[$currentCat] = $currentCat;
+                                }
+                                foreach ($categories as $catCode => $catLabel): ?>
+                                    <option value="<?= $catCode ?>" <?= ($currentCat === $catCode) ? 'selected' : '' ?>><?= htmlspecialchars($catLabel) ?></option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -238,26 +266,32 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                    value="<?= htmlspecialchars($editSubject['sub_fullname'] ?? '') ?>">
                         </div>
 
-                        <!-- L - T - P - C (Hours and Credits) -->
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold">Lecture Hours (L)</label>
+                        <!-- L - T - Pr - P - C (Hours and Credits) -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Lecture (L)</label>
                             <input type="number" step="0.5" min="0" max="20" name="lecture_hours" id="lecture_hours" 
                                    class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['lecture_hours'] ?? '3.0') ?>" required>
                         </div>
 
-                        <div class="col-md-3">
-                            <label class="form-label fw-bold">Tutorial Hours (T)</label>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold">Tutorial (T)</label>
                             <input type="number" step="0.5" min="0" max="10" name="tutorial_hours" id="tutorial_hours" 
                                    class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['tutorial_hours'] ?? '0.0') ?>" required>
                         </div>
 
                         <div class="col-md-3">
-                            <label class="form-label fw-bold">Practical Hours (P)</label>
+                            <label class="form-label fw-bold">Practical (Pr)</label>
+                            <input type="number" step="0.5" min="0" max="20" name="pr_hours" id="pr_hours" 
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['pr_hours'] ?? '0.0') ?>" required>
+                        </div>
+
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold">Practical Lab (P)</label>
                             <input type="number" step="0.5" min="0" max="20" name="practical_hours" id="practical_hours" 
                                    class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['practical_hours'] ?? '0.0') ?>" required>
                         </div>
 
-                        <div class="col-md-3">
+                        <div class="col-md-2">
                             <label class="form-label fw-bold">Credits (C)</label>
                             <input type="number" step="0.5" min="0" max="30" name="credits" id="credits" 
                                    class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['credits'] ?? '3.0') ?>" required>
@@ -290,13 +324,15 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                         <thead class="table-dark">
                             <tr>
                                 <th style="width: 50px;">S.No</th>
-                                <th style="width: 130px;">Code</th>
+                                <th style="width: 120px;">Code</th>
                                 <th class="text-start">Subject Full Name</th>
                                 <th>Short Name</th>
                                 <th>Type</th>
-                                <th style="width: 50px;">L</th>
-                                <th style="width: 50px;">T</th>
-                                <th style="width: 50px;">P</th>
+                                <th style="width: 70px;">Category</th>
+                                <th style="width: 45px;">L</th>
+                                <th style="width: 45px;">T</th>
+                                <th style="width: 45px;">Pr</th>
+                                <th style="width: 45px;">P</th>
                                 <th style="width: 60px;">Credits</th>
                                 <th style="width: 80px;">Status</th>
                                 <th style="width: 150px;">Actions</th>
@@ -305,7 +341,7 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                         <tbody>
                             <?php if (empty($subjectsList)): ?>
                                 <tr>
-                                    <td colspan="11" class="text-muted py-4">No subjects found for this regulation, branch, and semester. Use the form above to add subjects.</td>
+                                    <td colspan="13" class="text-muted py-4">No subjects found for this regulation, branch, and semester. Use the form above to add subjects.</td>
                                 </tr>
                             <?php else: ?>
                                 <?php 
@@ -321,7 +357,7 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                         <td class="fw-bold"><?= htmlspecialchars($sub['subject_sno']) ?></td>
                                         <td>
                                             <span class="badge <?= $isActive ? 'bg-primary' : 'bg-secondary' ?> fs-7">
-                                                <?= htmlspecialchars($sub['subcode']) ?>
+                                                 <?= htmlspecialchars($sub['subcode']) ?>
                                             </span>
                                         </td>
                                         <td class="text-start fw-semibold">
@@ -332,8 +368,16 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                         </td>
                                         <td><?= htmlspecialchars($sub['sub_shortname']) ?></td>
                                         <td><span class="badge bg-info text-dark"><?= htmlspecialchars($sub['sub_type']) ?></span></td>
+                                        <td>
+                                            <?php if (!empty($sub['course_category'])): ?>
+                                                <span class="badge bg-secondary"><?= htmlspecialchars($sub['course_category']) ?></span>
+                                            <?php else: ?>
+                                                <span class="text-muted">-</span>
+                                            <?php endif; ?>
+                                        </td>
                                         <td><?= htmlspecialchars($sub['lecture_hours']) ?></td>
                                         <td><?= htmlspecialchars($sub['tutorial_hours']) ?></td>
+                                        <td><?= htmlspecialchars($sub['pr_hours'] ?? '0.0') ?></td>
                                         <td><?= htmlspecialchars($sub['practical_hours']) ?></td>
                                         <td class="fw-bold <?= $isActive ? 'text-success' : 'text-muted' ?>"><?= htmlspecialchars($sub['credits']) ?></td>
                                         <td>
@@ -371,7 +415,7 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                     </tr>
                                 <?php endforeach; ?>
                                 <tr class="table-secondary fw-bold">
-                                    <td colspan="8" class="text-end pe-3">Active Total Credits:</td>
+                                    <td colspan="10" class="text-end pe-3">Active Total Credits:</td>
                                     <td class="text-success"><?= number_format($totalCredits, 1) ?></td>
                                     <td colspan="2"></td>
                                 </tr>
@@ -555,8 +599,14 @@ function lookupSubjectCode() {
                 if (d.sub_fullname) document.getElementById('sub_fullname').value = d.sub_fullname;
                 if (d.sub_shortname) document.getElementById('sub_shortname').value = d.sub_shortname;
                 if (d.sub_type) document.getElementById('sub_type').value = d.sub_type;
+                if (d.course_category !== undefined && document.getElementById('course_category')) {
+                    document.getElementById('course_category').value = d.course_category;
+                }
                 if (d.lecture_hours !== undefined) document.getElementById('lecture_hours').value = d.lecture_hours;
                 if (d.tutorial_hours !== undefined) document.getElementById('tutorial_hours').value = d.tutorial_hours;
+                if (d.pr_hours !== undefined && document.getElementById('pr_hours')) {
+                    document.getElementById('pr_hours').value = d.pr_hours;
+                }
                 if (d.practical_hours !== undefined) document.getElementById('practical_hours').value = d.practical_hours;
                 if (d.credits !== undefined) document.getElementById('credits').value = d.credits;
                 if (d.subject_sno !== undefined && document.getElementById('subject_sno')) {

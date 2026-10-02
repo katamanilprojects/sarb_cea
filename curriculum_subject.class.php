@@ -185,7 +185,7 @@ class CurriculumSubject extends User
                 return $res;
             }
 
-            $sql = "SELECT id, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, lecture_hours, tutorial_hours, practical_hours, credits
+            $sql = "SELECT id, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits
                     FROM curriculum_subjects
                     WHERE reg_id = ? AND spec_id = ? AND yearsem = ? AND status = 1
                     ORDER BY subject_sno ASC, subcode ASC";
@@ -268,7 +268,7 @@ class CurriculumSubject extends User
             $regId = (int)$regId;
 
             // First check in curriculum_subjects matching the same regulation
-            $sql = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, lecture_hours, tutorial_hours, practical_hours, credits
+            $sql = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits
                     FROM curriculum_subjects
                     WHERE subcode = ? AND reg_id = ?
                     ORDER BY id DESC LIMIT 1";
@@ -289,7 +289,7 @@ class CurriculumSubject extends User
             $stmt->close();
 
             // If not found in curriculum_subjects, search any regulation in curriculum_subjects
-            $sql2 = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, lecture_hours, tutorial_hours, practical_hours, credits
+            $sql2 = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits
                      FROM curriculum_subjects
                      WHERE subcode = ?
                      ORDER BY id DESC LIMIT 1";
@@ -318,8 +318,10 @@ class CurriculumSubject extends User
                 $stmt3->execute();
                 $result3 = $stmt3->get_result();
                 if ($row3 = $result3->fetch_assoc()) {
+                    $row3['course_category'] = '';
                     $row3['lecture_hours'] = 0.0;
                     $row3['tutorial_hours'] = 0.0;
+                    $row3['pr_hours'] = 0.0;
                     $row3['practical_hours'] = 0.0;
                     $row3['credits'] = 0.0;
                     $res['data'] = $row3;
@@ -360,8 +362,10 @@ class CurriculumSubject extends User
             $subFullname = trim($data['sub_fullname'] ?? '');
             $subShortname = strtoupper(trim($data['sub_shortname'] ?? ''));
             $subType = trim($data['sub_type'] ?? 'Theory');
+            $courseCategory = strtoupper(trim($data['course_category'] ?? ''));
             $lectureHours = (float)($data['lecture_hours'] ?? 0.0);
             $tutorialHours = (float)($data['tutorial_hours'] ?? 0.0);
+            $prHours = (float)($data['pr_hours'] ?? 0.0);
             $practicalHours = (float)($data['practical_hours'] ?? 0.0);
             $credits = (float)($data['credits'] ?? 0.0);
 
@@ -373,14 +377,14 @@ class CurriculumSubject extends User
             if ($id > 0) {
                 // Update
                 $sql = "UPDATE curriculum_subjects 
-                        SET subject_sno = ?, subcode = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, 
-                            lecture_hours = ?, tutorial_hours = ?, practical_hours = ?, credits = ?, status = 1
+                        SET subject_sno = ?, subcode = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, course_category = ?, 
+                            lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?, status = 1
                         WHERE id = ?";
                 $stmt = $this->conn->prepare($sql);
                 if (!$stmt) {
                     throw new Exception("Prepare failed: " . $this->conn->error);
                 }
-                $stmt->bind_param("issssddddi", $subjectSno, $subcode, $subFullname, $subShortname, $subType, $lectureHours, $tutorialHours, $practicalHours, $credits, $id);
+                $stmt->bind_param("isssssdddddi", $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits, $id);
                 if (!$stmt->execute()) {
                     throw new Exception("Execute failed: " . $stmt->error);
                 }
@@ -399,11 +403,11 @@ class CurriculumSubject extends User
                     $checkStmt->close();
                     $existingId = (int)$existing['id'];
                     $updateSql = "UPDATE curriculum_subjects 
-                                  SET subject_sno = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, 
-                                      lecture_hours = ?, tutorial_hours = ?, practical_hours = ?, credits = ?, status = 1
+                                  SET subject_sno = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, course_category = ?, 
+                                      lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?, status = 1
                                   WHERE id = ?";
                     $uStmt = $this->conn->prepare($updateSql);
-                    $uStmt->bind_param("isssddddi", $subjectSno, $subFullname, $subShortname, $subType, $lectureHours, $tutorialHours, $practicalHours, $credits, $existingId);
+                    $uStmt->bind_param("issssdddddi", $subjectSno, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits, $existingId);
                     $uStmt->execute();
                     $uStmt->close();
                     $res['status'] = 1;
@@ -412,13 +416,13 @@ class CurriculumSubject extends User
                     $checkStmt->close();
                     // Insert
                     $sql = "INSERT INTO curriculum_subjects 
-                            (prog_id, reg_id, spec_id, yearsem, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, lecture_hours, tutorial_hours, practical_hours, credits, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+                            (prog_id, reg_id, spec_id, yearsem, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
                     $stmt = $this->conn->prepare($sql);
                     if (!$stmt) {
                         throw new Exception("Prepare failed: " . $this->conn->error);
                     }
-                    $stmt->bind_param("iiisissssdddd", $progId, $regId, $specId, $yearsem, $subjectSno, $subcode, $subFullname, $subShortname, $subType, $lectureHours, $tutorialHours, $practicalHours, $credits);
+                    $stmt->bind_param("iiisisssssddddd", $progId, $regId, $specId, $yearsem, $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits);
                     if (!$stmt->execute()) {
                         throw new Exception("Execute failed: " . $stmt->error);
                     }

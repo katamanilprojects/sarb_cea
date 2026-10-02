@@ -54,7 +54,7 @@ sequenceDiagram
 
 ### Step 1: Subject Selection & Unmarked Hours Fetch
 - Faculty logs in and navigates to `facaddattendance.php`.
-- The system loads the faculty's assigned subjects via `Faculty::getSubjectsByFacultyId($faculty_id)`.
+- The system loads the faculty's assigned subjects via the `Subject` service (`Subject::getOfferedSubjectsByFaculty($faculty_id)`).
 - When a subject and date are picked, an AJAX request invokes `Faculty::getUnmarkedHours($sub_id, $date)`.
 - The method compares the class timing periods configured in `class_timing_schedule` against periods already marked in `attendance` for that `sub_id` and `date`.
 - Only unrecorded hours are displayed as selectable checkboxes. This prevents accidental duplicate attendance submissions.
@@ -64,8 +64,10 @@ sequenceDiagram
 - By default, all enrolled students are pre-checked as "Present".
 - The faculty unchecks the checkboxes corresponding to students who are absent.
 
-### Step 3: Teaching Diary Requirement
-- Faculty enters a summary of syllabus topics covered during the selected periods.
+### Step 3: Frictionless Daily Teaching Diary
+- Faculty enters a natural free-text summary of syllabus topics covered during the selected periods.
+- **Zero-Friction Design**: Daily marking is 100% focused on natural topic logging with zero friction (no mandatory CO selection, no popup prompts during daily attendance).
+- Lesson plan alignment and CO tagging are performed systematically at the end of the semester during the reconciliation phase (`faclessonplanreconciliation.php`), linking `diary.lesson_plan_id` to planned lectures.
 - Submitting attendance without a diary entry is prevented by client-side and server-side validation.
 
 ### Step 4: Transactional Database Insertion
@@ -96,12 +98,14 @@ For special college events, sports meets, campus placement drives, or institutio
 
 ---
 
-## 4. Attendance Reports & Aggregations
+## 4. Attendance Reports & Official Bluebook Exports
 
-Faculty and administrators can inspect marked attendance through:
+Faculty and administrators can inspect and export marked attendance through:
 - **`facshowattendance.php`**: Daily period-by-period attendance view and monthly summary.
-- **`moduleshowallclsattendance.php`**: Aggregate class percentage reports categorized into:
+- **`adminshowallclsattendance.php` / `hodshowallclsattendance.php` / `academicsectionshowallclsattendance.php`**: Aggregate class percentage reports categorized by autonomous rules:
   - $\ge 75\%$: Satisfactory.
   - $65\% \text{ to } 74.99\%$: Condonation eligible (subject to medical certificate & fees).
   - $< 65\%$: Shortage / Detention risk.
-- **`export_attendance_excel.php`**: Real-time spreadsheet export of monthly attendance matrices.
+- **`download_bluebook.php`**: Generates the official university e-Bluebook via `EBluebookPDFService`:
+  - **Section 2B ('DIARY OF LECTURER CLASSES')**: Rendered in a clean 4-column format (`S.No`, `Date`, `Time`, `Topics Covered`).
+  - **Section 3 ('ATTENDANCE REGISTER')**: Comprehensive student-by-student period roll with monthly aggregates and overall attendance percentages.

@@ -41,6 +41,12 @@ Most master tables include a `status` integer flag used for soft-deactivation:
 | `subjects` | `0` | **Archived Course**. |
 | `curriculum_subjects` | `1` | **Active Master Subject**: Visible in curriculum syllabus catalogs and class allotment picker. |
 | `curriculum_subjects` | `0` | **Archived / Inactive Master Subject**. |
+| `student_batches` | `1` | **Active Cohort**: Students currently enrolled in this degree batch. |
+| `student_batches` | `0` | **Graduated / Archived Cohort**. |
+| `regulations` | `1` | **Active Regulation**: Currently active for curriculum mapping. |
+| `regulations` | `0` | **Superseded Regulation**. |
+| `academic_settings` | `1` | **Editable Rule**: Configurable via SuperAdmin dashboard. |
+| `academic_settings` | `0` | **System Locked Rule**: Core autonomous clause protected from UI mutation. |
 | `buildings` | `1` | **Active Facility**. |
 | `buildings` | `0` | **Under Renovation / Inactive**. |
 | `halls` | `1` | **Usable Hall / Classroom**. |
@@ -197,4 +203,68 @@ Different degree levels and subject types store marks in dedicated specialized c
 | **PG Theory** | `pg_internal_assessment_marks` | `marks` | 40 marks |
 | **UG Laboratory** | `uglab_internal_assessment_marks` | `day_to_day_marks`, `internal_test_marks` | 30 marks (e.g., 20 day-to-day + 10 lab test) |
 | **UG Project** | `ugproject_internal_assessment_marks` | `component1_marks`, `component2_marks` | 50 / 100 marks (Review 1 & Review 2 defenses) |
+
+---
+
+## 10. Lesson Planning & End-of-Course Reconciliation
+
+### 10.1 Lesson Plan Pedagogy Modes (`lesson_plans.pedagogy`)
+- `Chalk & Talk`: Traditional board-and-marker or blackboard lecture.
+- `PPT/LCD`: Digital slide presentation / projection.
+- `Coding Demo`: Live interactive code execution or simulator demonstration.
+- `Video`: Multimedia instructional video or NPTEL/virtual lab screening.
+- `Flipped`: Flipped classroom collaborative discussion or student seminar.
+
+### 10.2 Lesson Plan Bloom Levels (`lesson_plans.bloom_level`, `course_outcomes.bloom_level`)
+- Standardized labels: `L1-Remember`, `L2-Understand`, `L3-Apply`, `L4-Analyze`, `L5-Evaluate`, `L6-Create`.
+
+### 10.3 Course Completion Audit Lifecycle (`course_completion_audits`)
+- **Faculty Sign-off Status (`faculty_signoff_status`)**:
+  - `DRAFT`: Faculty is in the process of mapping chronological diary entries to planned lectures.
+  - `SUBMITTED`: Faculty has submitted the reconciliation report and syllabus completion metrics for HOD review.
+  - `APPROVED`: HOD has approved and locked the course delivery compliance audit.
+- **HOD Approval Status (`hod_approval_status`)**:
+  - `PENDING`: Awaiting review by the department head.
+  - `APPROVED`: Formally signed off and integrated into e-Bluebook Section 2C.
+  - `REJECTED`: Returned to instructor with remarks for correction.
+
+---
+
+## 11. Semester End Examination (SEE) Evaluation
+
+### 11.1 SEE Entry Modes (`external_assessment_marks.entry_mode`)
+- `DETAILED`: Mode A. Itemized question paper entry (compulsory Question 1 covering all COs + resolved either/or choices across Units 1 to 5). Supports direct question-level CO attainment.
+- `DIRECT`: Mode B. Ledger entry of consolidated university marks out of maximum marks (typically 70 or 35). Direct attainment calculated proportionately across all course outcomes.
+
+---
+
+## 12. Autonomous Academic Settings Engine
+
+### 12.1 Regulatory Categories (`academic_settings.category`)
+- `CIA`: Continuous internal assessment calculation rules (weightage of best/worst test, assignment components).
+- `SEE`: Semester end exam maximum marks, passing minimum thresholds.
+- `ATTENDANCE`: Minimum attendance for condonation, detention cutoffs, medical exemptions.
+- `ATTAINMENT`: Default target benchmark percentages (e.g. 60%), level percentage cutoffs (50%, 60%, 70%).
+- `GRADING`: Letter grade boundaries and grade point scales.
+- `GENERAL`: Institutional academic calendar and semester scheduling parameters.
+
+### 12.2 Data Types (`academic_settings.data_type`)
+- `STRING`: Alphanumeric values.
+- `INT`: Integer configuration numbers.
+- `FLOAT`: Decimal weightages (e.g., `0.80`, `0.20`, `60.00`).
+- `BOOL`: Boolean flags (`1` or `0`).
+- `JSON`: Complex structured policies (e.g., component mark distributions, rubrics).
+
+---
+
+## 13. Class Sectioning and Batch Grouping Semantics
+
+### 13.1 Class Section (`classes.section`)
+- Empty string (`''`): Single cohort class without division.
+- Non-empty (e.g., `'A'`, `'B'`, `'1'`, `'2'`): Section within the specialization and semester. Standard class display names are generated via `SuperAdmin::generateClassName()` as `<Spec> - <YearSem> - Sec <Section>`.
+
+### 13.2 Subject Group Name (`subjects.group_name`)
+- Empty string (`''`): Regular core subject attended by all students in the class.
+- Non-empty (e.g., `'A'`, `'B'`, `'1'`, `'2'`): Sub-batch division used for laboratory batches or student elective choice groups.
+
 

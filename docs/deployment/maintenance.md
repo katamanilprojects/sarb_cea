@@ -73,10 +73,15 @@ Set up a logrotate policy or cron job to compress and prune files older than 60 
 find /Applications/XAMPP/xamppfiles/htdocs/classattendance.in/jntuacea/logs/ -name "*.log" -mtime +60 -delete
 ```
 
-### 3.2 Database Audit Tables (`activity_logs` & `fac_activity_logs`)
-For performance optimization, audit logs can be archived annually into an archive table:
+### 3.2 Database Audit Tables
+For regulatory auditing and compliance retention:
+- **`activity_logs` & `fac_activity_logs`**: General administrative and faculty daily logs.
+- **`academic_settings_audit`**: Immutable log of academic policy parameter mutations.
+- **`course_completion_audits`**: Formal NBA Criterion 2.2 course delivery records and HOD approvals.
+
+For performance optimization on large multi-year deployments, operational logs can be archived annually:
 ```sql
--- Archive logs older than 1 year
+-- Archive operational logs older than 1 year
 CREATE TABLE IF NOT EXISTS activity_logs_archive LIKE activity_logs;
 INSERT INTO activity_logs_archive SELECT * FROM activity_logs WHERE timestamp < NOW() - INTERVAL 1 YEAR;
 DELETE FROM activity_logs WHERE timestamp < NOW() - INTERVAL 1 YEAR;
@@ -89,12 +94,22 @@ DELETE FROM activity_logs WHERE timestamp < NOW() - INTERVAL 1 YEAR;
 At the beginning of a new academic semester:
 1. **SuperAdmin**:
    - Create the new academic year entry in `superadminacademicyears.php` if transitioning to a new year.
-   - Generate new class sections in `superadminclasses.php`.
+   - Configure or review regulatory policy parameters (CIA theory best/worst weightages, attendance thresholds, attainment targets) in `superadminacademicsettings.php`.
+   - Generate new class sections in `superadminclasses.php` (supporting section letters/numbers, e.g., 'A', 'B').
    - Update class timing schedules in `class_timing_schedule` if semester class timings change.
-2. **Admin**:
+2. **Academic Section**:
+   - Maintain master syllabus curriculum courses in `academicsectioncurriculumsubjects.php`.
+   - Upload official regulation and syllabus documents.
+3. **Admin**:
    - Enroll incoming cohorts into classes (`adminenrollstudents.php`).
    - Create faculty accounts for new teaching appointments.
-3. **HOD**:
+4. **HOD**:
    - Assign faculty to subjects (`hodmapfaculty.php`).
-   - Map elective choices to students (`hodmapstudents.php`).
+   - Map elective choices and laboratory batch divisions to students (`hodmapstudents.php`).
    - Build and publish weekly timetables (`hodmanage_timetable.php`).
+5. **Faculty**:
+   - Formulate Course Outcomes in `facaddcos.php`.
+   - Upload lecture lesson plans via CSV or form in `facaddlessonplan.php`.
+   - Conduct classes with frictionless topic entry in `facaddattendance.php`.
+   - At semester conclusion, execute end-of-course reconciliation and submit compliance audit in `faclessonplanreconciliation.php`.
+

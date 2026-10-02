@@ -1,20 +1,21 @@
 # Database Schema Reference
 
-This document provides an exhaustive, field-by-field reference of all 48 tables, columns, data types, nullability, keys, and defaults extracted directly from `u182589698_jntuaceasarb_database_scheme.sql`.
+This document provides an exhaustive, field-by-field reference of all 55 tables, columns, data types, nullability, keys, and defaults extracted directly from the system database.
 
 ---
 
 ## Functional Domain Index
 
-The 48 tables in the database are organized into 8 functional domains:
+The 55 tables in the database are organized into 9 functional domains:
 1. [Identity, Access & Audit Logging](#1-identity-access--audit-logging) (6 tables)
-2. [Academic Programs & Structure](#2-academic-programs--structure) (6 tables)
+2. [Academic Programs, Batches & Structure](#2-academic-programs-batches--structure) (8 tables)
 3. [Enrollment & Course Allotment](#3-enrollment--course-allotment) (2 tables)
-4. [Daily Attendance & Teaching Diary](#4-daily-attendance--teaching-diary) (5 tables)
+4. [Daily Attendance, Lesson Plans & Course Audit](#4-daily-attendance-lesson-plans--course-audit) (7 tables)
 5. [Timetable Management](#5-timetable-management) (3 tables)
-6. [Continuous Internal Assessment (CIA) & Marks](#6-continuous-internal-assessment-cia--marks) (11 tables)
+6. [Continuous Internal & External Assessment (CIA/SEE) & Marks](#6-continuous-internal--external-assessment-ciasee--marks) (12 tables)
 7. [Outcome-Based Education (OBE) & Attainment](#7-outcome-based-education-obe--attainment) (8 tables)
 8. [Physical Infrastructure, Surveys & Student Feedback](#8-physical-infrastructure-surveys--student-feedback) (7 tables)
+9. [Autonomous Academic Settings & Parameters](#9-autonomous-academic-settings--parameters) (2 tables)
 
 ---
 
@@ -106,8 +107,8 @@ Dedicated audit log tracking faculty operations (attendance marking, diary entri
 > **Foreign Keys**: `user_id` &rarr; `faculties(id)`
 
 
-## 2. Academic Programs & Structure
-Hierarchical academic scaffolding: terms, degree programs, regulations, specializations, class cohorts, and subjects.
+## 2. Academic Programs, Batches & Structure
+Hierarchical academic scaffolding: terms, degree programs, regulations, specializations, admitted cohorts (batches), class cohorts, subjects, and master curriculum catalogs.
 
 ### 2.1 `academic_years`
 Academic year terms (e.g., 2023-2024, 2024-2025).
@@ -129,6 +130,7 @@ Degree programs offered by the institution (e.g., B.Tech, M.Tech, MCA).
 | `program_code` | `varchar(5)` | No | UNI | - | Unique degree program code (e.g., UG, PG) |
 | `prog_shortname` | `varchar(20)` | No | - | - | Short code (e.g., B.Tech, M.Tech, MCA) |
 | `prog_fullname` | `varchar(50)` | No | - | - | Full degree name (e.g., Bachelor of Technology, Master of Technology) |
+| `program_level` | `enum('UG','PG','PHD')` | No | - | UG | Degree level classification |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 
 > **Unique Keys**: (`program_code`)
@@ -141,6 +143,8 @@ Academic regulations governing curriculum, attendance rules, and graduation crit
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Regulation ID |
 | `regulation` | `varchar(4)` | No | - | - | Regulation code string (e.g., R15, R19, R20, R23) |
 | `prog_id` | `int(11)` | No | MUL | - | Foreign key referencing programs.id |
+| `start_year` | `int(4)` | Yes | - | NULL | Academic implementation year of regulation |
+| `is_active` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Superseded / Inactive |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 
 > **Foreign Keys**: `prog_id` &rarr; `programs(id)`
@@ -161,44 +165,64 @@ Specialization branches/disciplines tied to departments and degree programs.
 
 > **Foreign Keys**: `dept_id` &rarr; `departments(id)`, `prog_id` &rarr; `programs(id)`
 
-### 2.5 `classes`
-Academic classes/cohorts defining a group of students in an academic year, semester, and specialization.
+### 2.5 `student_batches`
+Admitted student cohorts adhering to specific academic regulations across their degree lifecycle.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Batch entity ID |
+| `program_id` | `int(5)` | No | MUL | - | Foreign key referencing programs.id |
+| `regulation_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
+| `batch_name` | `varchar(50)` | No | - | - | Admitted cohort label (e.g., 2023-2027) |
+| `admission_year`| `int(4)` | No | - | - | Year of student admission |
+| `graduation_year`| `int(4)` | No | - | - | Expected year of degree completion |
+| `is_active` | `tinyint(1)` | No | - | 1 | 1 = Active cohort, 0 = Graduated / Inactive |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+
+> **Unique Keys**: (`program_id`,`batch_name`)
+> **Foreign Keys**: `program_id` &rarr; `programs(id)`, `regulation_id` &rarr; `regulations(id)`
+
+### 2.6 `classes`
+Academic classes/cohorts defining a group of students in an academic year, semester, section, and specialization.
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(5)` | No | PRI | AUTO_INCREMENT | Class cohort ID |
-| `acad_year` | `varchar(10)` | No | UNI | - | Academic year string (e.g., 2024-2025) |
-| `classname` | `varchar(60)` | No | - | - | Human-readable class label (e.g., B.Tech IV Year I Sem CSE) |
-| `yearsem` | `varchar(20)` | No | UNI | - | Year and semester numeral (e.g., 11=I-I, 12=I-II, 21=II-I, 41=IV-I) |
+| `acad_year` | `varchar(10)` | No | MUL | - | Academic year string (e.g., 2024-2025) |
+| `classname` | `varchar(60)` | No | - | - | Human-readable class label (e.g., CSE - III-I - Sec A) |
+| `yearsem` | `varchar(20)` | No | - | - | Year and semester numeral (e.g., 11=I-I, 12=I-II, 21=II-I, 41=IV-I) |
+| `section` | `varchar(10)` | No | - | '' | Optional section identifier (e.g., 'A', 'B', '1', '2' or empty) |
 | `start_date` | `date` | No | - | - | Semester instructional start date |
 | `end_date` | `date` | No | - | - | Semester instructional end date |
 | `status` | `int(11)` | No | - | 1 | 1 = Current / Active, 0 = Archived |
-| `spec_id` | `int(5)` | No | UNI | - | Foreign key referencing specialization.id |
+| `spec_id` | `int(5)` | No | MUL | - | Foreign key referencing specialization.id |
 | `timing_id` | `int(11)` | No | - | 1 | Class timing slot group ID referencing class_timings.timing_id |
 | `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
+| `batch_id` | `int(11)` | Yes | MUL | NULL | Optional foreign key referencing student_batches.id |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 
-> **Unique Keys**: (`acad_year`,`yearsem`,`spec_id`)
-> **Foreign Keys**: `spec_id` &rarr; `specialization(id)`, `reg_id` &rarr; `regulations(id)`
+> **Foreign Keys**: `spec_id` &rarr; `specialization(id)`, `reg_id` &rarr; `regulations(id)`, `batch_id` &rarr; `student_batches(id)`
 
-### 2.6 `subjects`
-Curriculum subjects/courses taught within an academic class.
+### 2.7 `subjects`
+Curriculum subjects/courses taught within an academic class offering.
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
-| `id` | `int(5)` | No | PRI | AUTO_INCREMENT | Subject ID |
+| `id` | `int(5)` | No | PRI | AUTO_INCREMENT | Subject offering ID |
 | `subject_sno` | `varchar(3)` | No | - | - | Ordering serial number within the syllabus |
-| `subcode` | `varchar(20)` | No | UNI | - | Official course catalog code (e.g., 20A05501T) |
+| `subcode` | `varchar(20)` | No | - | - | Course catalog code (e.g., 20A05501T) |
 | `sub_shortname` | `varchar(20)` | No | - | - | Subject short acronym (e.g., CN, OS, DBMS, DAA) |
 | `sub_fullname` | `varchar(100)` | No | - | - | Full descriptive subject title (e.g., Computer Networks) |
-| `sub_type` | `varchar(20)` | No | - | - | Course classification: Theory, Lab, Project, Comprehensive Viva, Mandatory Course |
-| `class_id` | `int(5)` | No | UNI | - | Foreign key referencing classes.id |
+| `group_name` | `varchar(10)` | No | - | '' | Group identifier for batch divisions/electives (e.g., '', 'A', 'B', '1', '2') |
+| `sub_type` | `varchar(20)` | No | - | - | Course classification: Theory, Lab, Project, Mandatory Course |
+| `class_id` | `int(5)` | No | MUL | - | Foreign key referencing classes.id |
+| `curr_sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing curriculum_subjects.id |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 
-> **Unique Keys**: (`subcode`,`class_id`)
-> **Foreign Keys**: `class_id` &rarr; `classes(id)`
+> **Unique Keys**: (`class_id`,`subcode`,`group_name`)
+> **Foreign Keys**: `class_id` &rarr; `classes(id)`, `curr_sub_id` &rarr; `curriculum_subjects(id)`
 
-### 2.7 `curriculum_subjects`
+### 2.8 `curriculum_subjects`
 Central syllabus subject catalog managed by Academic Section, decoupled from active academic years and class instances.
 
 | Column | Type | Nullable | Key | Default | Description |
@@ -255,8 +279,8 @@ Junction table enrolling individual students into specific subjects (supports co
 > **Foreign Keys**: `stu_id` &rarr; `students(id)`, `sub_id` &rarr; `subjects(id)`
 
 
-## 4. Daily Attendance & Teaching Diary
-Daily lecture period attendance marking, faculty syllabus diary coverage, deletion/correction workflows, and condonation rules.
+## 4. Daily Attendance, Lesson Plans & Course Audit
+Daily lecture period attendance marking, faculty syllabus diary coverage, lesson planning, end-of-course reconciliation, deletion/correction workflows, and condonation rules.
 
 ### 4.1 `attendance`
 Daily period-by-period student attendance tracking records.
@@ -286,9 +310,10 @@ Faculty daily teaching diary documenting syllabus content covered during each co
 | `hour` | `int(11)` | No | UNI | - | Period / hour number (1 to 7) |
 | `diary` | `varchar(255)` | No | MUL | - | Detailed description of topic / syllabus unit taught |
 | `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
+| `lesson_plan_id` | `int(11)` | Yes | MUL | NULL | Optional foreign key referencing lesson_plans.id |
 
 > **Unique Keys**: (`sub_id`,`faculty_id`,`date`,`hour`)
-> **Foreign Keys**: `faculty_id` &rarr; `faculties(id)`, `sub_id` &rarr; `subjects(id)`
+> **Foreign Keys**: `faculty_id` &rarr; `faculties(id)`, `sub_id` &rarr; `subjects(id)`, `lesson_plan_id` &rarr; `lesson_plans(id)`
 
 ### 4.3 `attendance_delete_requests`
 Formal faculty requests to revoke erroneously marked attendance periods, subject to HOD review and approval.
@@ -329,15 +354,67 @@ Exemption permissions granting condonation or on-duty attendance credit for inst
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Permission record ID |
-| `stu_id` | `int(11)` | No | MUL | - | - |
-| `class_id` | `int(11)` | No | MUL | - | - |
-| `date` | `date` | No | MUL | - | - |
-| `hour` | `int(11)` | No | MUL | - | - |
-| `permission_type` | `varchar(50)` | No | - | - | - |
+| `stu_id` | `int(11)` | No | MUL | - | Foreign key referencing students.id |
+| `class_id` | `int(11)` | No | MUL | - | Foreign key referencing classes.id |
+| `date` | `date` | No | MUL | - | Permission date |
+| `hour` | `int(11)` | No | MUL | - | Permission period / hour |
+| `permission_type` | `varchar(50)` | No | - | - | Type code (OD, MEDICAL, SPORTS, EVENT) |
 | `reason` | `text` | No | - | - | Permission justification (Sports, Medical, NCC, NSS, Academic Conference) |
-| `document_path` | `varchar(255)` | Yes | - | NULL | - |
-| `granted_by_hod_id` | `int(11)` | No | - | - | - |
+| `document_path` | `varchar(255)` | Yes | - | NULL | Uploaded supporting sanction letter |
+| `granted_by_hod_id` | `int(11)` | No | - | - | Approving HOD user ID |
 | `created_at` | `timestamp` | No | - | current_timestamp() | Submission timestamp |
+
+### 4.6 `lesson_plans`
+Course delivery schedule and lecture plan mapping each planned lecture to target Course Outcomes, Bloom levels, and pedagogical methodology.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Lesson plan entry ID |
+| `sub_id` | `int(5)` | No | MUL | - | Foreign key referencing subjects.id |
+| `unit_number` | `int(2)` | No | - | - | Syllabus Unit (1 to 5) |
+| `lecture_number`| `int(3)` | No | - | - | Sequential lecture number (1..50+) |
+| `planned_topic` | `varchar(255)`| No | - | - | Specific syllabus concept or topic planned |
+| `co_id` | `int(11)` | No | MUL | - | Target Course Outcome referencing course_outcomes.id |
+| `bloom_level` | `varchar(20)` | No | - | L3-Apply | Target Bloom taxonomy cognitive level |
+| `pedagogy` | `varchar(50)` | No | - | Chalk & Talk | Pedagogy: Chalk & Talk, PPT/LCD, Coding Demo, Video, Flipped |
+| `reference_material`| `varchar(255)`| Yes | - | NULL | Textbook / Chapter / Web reference citation |
+| `planned_hours` | `int(2)` | No | - | 1 | Duration planned in lecture periods |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+
+> **Unique Keys**: (`sub_id`,`lecture_number`)
+> **Foreign Keys**: `sub_id` &rarr; `subjects(id)`, `co_id` &rarr; `course_outcomes(id)`
+
+### 4.7 `course_completion_audits`
+End-of-course syllabus reconciliation, unit milestone completion dates, pedagogical deviations, compensatory classes, and faculty/HOD audit sign-off (NBA Criterion 2.2).
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Audit record ID |
+| `sub_id` | `int(11)` | No | UNI | - | Foreign key referencing subjects.id |
+| `faculty_id` | `int(11)` | No | MUL | - | Foreign key referencing faculties.id |
+| `total_planned_lectures` | `int(4)` | No | - | 0 | Total lectures planned in lesson plan |
+| `total_actual_conducted` | `int(4)` | No | - | 0 | Total actual lectures conducted from diary |
+| `total_compensatory_classes` | `int(4)` | No | - | 0 | Number of extra/compensatory classes conducted |
+| `syllabus_completion_pct` | `decimal(5,2)` | No | - | 0.00 | Computed syllabus coverage percentage |
+| `unit1_completion_date` | `date` | Yes | - | NULL | Actual completion date of Unit 1 |
+| `unit2_completion_date` | `date` | Yes | - | NULL | Actual completion date of Unit 2 |
+| `unit3_completion_date` | `date` | Yes | - | NULL | Actual completion date of Unit 3 |
+| `unit4_completion_date` | `date` | Yes | - | NULL | Actual completion date of Unit 4 |
+| `unit5_completion_date` | `date` | Yes | - | NULL | Actual completion date of Unit 5 |
+| `deviations_reason` | `text` | Yes | - | NULL | Justification for syllabus pacing deviations or missed lectures |
+| `compensatory_actions` | `text` | Yes | - | NULL | Remedial/compensatory actions taken to cover shortfall |
+| `topics_beyond_syllabus` | `text` | Yes | - | NULL | Advanced industry or research topics covered beyond curriculum |
+| `faculty_signoff_status` | `enum('DRAFT','SUBMITTED','APPROVED')` | No | - | DRAFT | Faculty submission lifecycle state |
+| `faculty_signoff_at` | `datetime` | Yes | - | NULL | Timestamp of faculty compliance signoff |
+| `hod_approval_status` | `enum('PENDING','APPROVED','REJECTED')` | No | - | PENDING | HOD departmental review status |
+| `hod_approval_at` | `datetime` | Yes | - | NULL | Timestamp of HOD approval |
+| `hod_remarks` | `text` | Yes | - | NULL | Department head review feedback or compliance notes |
+| `reconciliation_mapping`| `longtext` | Yes | - | NULL | Serialized JSON mapping between diary entries and lesson plans |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+> **Unique Keys**: (`sub_id`)
+> **Foreign Keys**: `sub_id` &rarr; `subjects(id)`
 
 
 ## 5. Timetable Management
@@ -540,21 +617,45 @@ Staging table for bulk student date of joining reconciliation imports.
 
 > **Unique Keys**: (`htno`)
 
+### 6.12 `external_assessment_marks`
+Final Consolidated and Direct Semester End Examination (SEE) marks storage for direct attainment computation.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Record identifier |
+| `student_id` | `int(11)` | No | MUL | - | Foreign key referencing students.id |
+| `subject_id` | `int(11)` | No | MUL | - | Foreign key referencing subjects.id |
+| `entry_mode` | `enum('DETAILED','DIRECT')` | No | - | DETAILED | Mode A (Detailed Question 1 + Choice) or Mode B (Direct Ledger) |
+| `external_marks`| `decimal(5,2)` | No | - | - | Final scored marks out of max_marks |
+| `max_marks` | `decimal(5,2)` | No | - | 70.00 | Maximum external assessment marks (typically 70 or 35) |
+| `q1_marks` | `decimal(5,2)` | Yes | - | NULL | Marks scored in compulsory Question 1 (Mode A) |
+| `choice_marks` | `decimal(5,2)` | Yes | - | NULL | Total marks scored from choice questions (Mode A) |
+| `part_a_marks` | `decimal(5,2)` | Yes | - | NULL | Composite split course Part A marks |
+| `part_b_marks` | `decimal(5,2)` | Yes | - | NULL | Composite split course Part B marks |
+| `submitted_by` | `int(11)` | Yes | - | NULL | Faculty user ID who submitted the marks |
+| `submitted_at` | `timestamp` | No | - | current_timestamp() | Submission and modification timestamp |
+
+> **Unique Keys**: (`student_id`,`subject_id`)
+> **Foreign Keys**: `student_id` &rarr; `students(id)`, `subject_id` &rarr; `subjects(id)`
+
 
 ## 7. Outcome-Based Education (OBE) & Attainment
 NBA compliance framework: Course Outcomes, Program Outcomes (POs/PSOs), Blooms taxonomy tagging, and question-level marks.
 
 ### 7.1 `course_outcomes`
-Course Outcomes (CO1 through CO6) formulated per subject in Outcome-Based Education (OBE).
+Course Outcomes (CO1 through CO6) formulated per subject offering or tied to master BOS curriculum subjects in Outcome-Based Education (OBE).
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Course Outcome ID |
-| `sub_id` | `int(11)` | No | MUL | - | Foreign key referencing subjects.id |
+| `sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing subjects.id (NULL if BOS master CO) |
 | `co_number` | `int(11)` | No | - | - | CO sequence numeral (1 to 6) |
 | `co_description` | `text` | No | - | - | Detailed learning outcome statement |
+| `curr_sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing curriculum_subjects.id (for BOS master COs) |
+| `bloom_level` | `varchar(20)` | No | - | L3-Apply | Target Bloom taxonomy level (L1 to L6) |
+| `target_threshold_percent` | `decimal(5,2)` | No | - | 60.00 | Attainment benchmark threshold percentage (typically 60%) |
 
-> **Foreign Keys**: `sub_id` &rarr; `subjects(id)`
+> **Foreign Keys**: `sub_id` &rarr; `subjects(id)`, `curr_sub_id` &rarr; `curriculum_subjects(id)`
 
 ### 7.2 `po_pso`
 Program Outcomes (PO1 to PO12) and Program Specific Outcomes (PSO1 to PSO4) defined per regulation and specialization.
@@ -562,14 +663,17 @@ Program Outcomes (PO1 to PO12) and Program Specific Outcomes (PSO1 to PSO4) defi
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Outcome statement ID |
-| `acad_year` | `varchar(20)` | No | UNI | - | Academic year string (e.g., 2024-2025) |
-| `regulation` | `varchar(10)` | Yes | UNI | NULL | Regulation string (e.g., R20, R23) |
-| `specid` | `int(11)` | Yes | UNI | NULL | Foreign key referencing specialization.id |
+| `acad_year` | `varchar(20)` | No | MUL | - | Academic year string (e.g., 2024-2025) |
+| `regulation` | `varchar(10)` | Yes | - | NULL | Regulation string (e.g., R20, R23) |
+| `specid` | `int(11)` | Yes | MUL | NULL | Foreign key referencing specialization.id |
 | `po_pso` | `varchar(255)` | Yes | - | NULL | Outcome type classification ('PO' or 'PSO') |
 | `orderid` | `int(11)` | Yes | - | NULL | Sequential ordering index (1 to 12 for PO, 1 to 4 for PSO) |
-| `code` | `varchar(10)` | Yes | UNI | NULL | Outcome code (e.g., PO1, PO2, PSO1, PSO2) |
+| `code` | `varchar(10)` | Yes | - | NULL | Outcome code (e.g., PO1, PO2, PSO1, PSO2) |
 | `description` | `varchar(500)` | Yes | - | NULL | Full text of the graduate attribute or competency statement |
 | `updated_at` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
+| `reg_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing regulations.id |
+| `target_score` | `decimal(3,2)` | No | - | 2.00 | Target attainment score out of 3.0 scale |
+| `effective_from_year` | `int(4)` | No | MUL | 2020 | Starting academic cohort year of validity |
 
 > **Unique Keys**: (`acad_year`,`regulation`,`specid`,`code`)
 > **Foreign Keys**: `specid` &rarr; `specialization(id)`
@@ -793,4 +897,44 @@ Comprehensive student appraisal of teaching faculty across 19 instructional and 
 
 > **Unique Keys**: (`student_id`,`subject_id`,`faculty_id`)
 > **Foreign Keys**: `faculty_id` &rarr; `faculties(id)`, `student_id` &rarr; `students(id)`, `subject_id` &rarr; `subjects(id)`
+
+
+## 9. Autonomous Academic Settings & Parameters
+Centralized autonomous regulatory policy engine, parameter versioning, thresholds, and audit logging for institutional governance.
+
+### 9.1 `academic_settings`
+Centralized repository of academic regulations and policy configuration parameters (CIA/SEE weightages, condonation/detention thresholds, attainment benchmarks).
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Setting parameter ID |
+| `regulation_code` | `varchar(10)` | No | MUL | - | Regulation identifier (e.g., R19, R20, R23) |
+| `category` | `enum('CIA','SEE','ATTENDANCE','ATTAINMENT','GRADING','GENERAL')` | No | MUL | - | Regulatory policy category |
+| `setting_key` | `varchar(64)` | No | - | - | Parameter configuration key (e.g., `cia_theory_weightage_best`) |
+| `setting_value` | `text` | No | - | - | Serialized setting value (scalar or JSON payload) |
+| `data_type` | `enum('STRING','INT','FLOAT','BOOL','JSON')` | No | - | STRING | Type specification for automatic application casting |
+| `description` | `varchar(255)` | Yes | - | NULL | Academic regulation context and autonomous policy clause |
+| `is_editable` | `tinyint(1)` | No | - | 1 | 1 = Configurable via UI, 0 = System locked |
+| `updated_by` | `int(11)` | Yes | - | NULL | User ID of administrator who performed update |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+> **Unique Keys**: (`regulation_code`,`setting_key`)
+
+### 9.2 `academic_settings_audit`
+Complete immutable audit trail tracking parameter mutations in academic rules, prior values, new values, modifier user IDs, and client IP addresses.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Audit log record ID |
+| `setting_id` | `int(11)` | No | MUL | - | Foreign key referencing academic_settings.id |
+| `regulation_code` | `varchar(10)` | No | MUL | - | Regulation code of the setting at time of mutation |
+| `setting_key` | `varchar(64)` | No | - | - | Modified setting key |
+| `old_value` | `text` | Yes | - | NULL | Value prior to modification |
+| `new_value` | `text` | No | - | - | Value following modification |
+| `changed_by` | `int(11)` | Yes | MUL | NULL | User ID who performed the update |
+| `changed_at` | `timestamp` | No | - | current_timestamp() | Mutation timestamp |
+| `ip_address` | `varchar(45)` | Yes | - | NULL | Client IP address of requesting user |
+
+> **Foreign Keys**: `setting_id` &rarr; `academic_settings(id)`
+
 

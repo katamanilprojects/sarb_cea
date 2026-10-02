@@ -43,8 +43,9 @@ class Subject extends DBCredentials {
         $data = [];
         try {
             $stmt = $this->conn->prepare(
-                "SELECT " . self::sqlProjection('s') . "
+                "SELECT " . self::sqlProjection('s') . ", cs.course_category
                  FROM subjects s
+                 LEFT JOIN curriculum_subjects cs ON s.curr_sub_id = cs.id
                  WHERE s.class_id = ?
                  ORDER BY CAST(s.subject_sno AS UNSIGNED) ASC, s.group_name ASC"
             );

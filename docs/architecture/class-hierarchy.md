@@ -132,10 +132,60 @@ classDiagram
         +getRulesByRegulation(reg_id) array
     }
 
+    class Subject {
+        +getOfferedSubjectsByFaculty(faculty_id, acad_year) array
+        +getOfferedSubjectsByClass(class_id) array
+        +getOfferedSubjectsByDepartment(dept_id, acad_year) array
+        +getOfferedSubjectById(id) array
+        +getCurriculumSubjectsBySpecAndSem(spec_id, yearsem, reg_id) array
+        +isElectiveGroup(sub_id) bool
+        +getSubjectGroupBatches(sub_id) array
+    }
+
+    class LessonPlanService {
+        +getPlanBySubject(sub_id) array
+        +saveLecturePlan(data) array
+        +bulkImportFromCSV(sub_id, rows) array
+        +getReconciliationData(sub_id) array
+        +saveDiaryLessonPlanMappings(mappings) array
+        +saveCourseCompletionAudit(data) array
+        +getCourseCompletionAudit(sub_id) array
+    }
+
+    class SettingsService {
+        -static instance: SettingsService
+        +getInstance() SettingsService
+        +get(regCode, key, default) mixed
+        +getSetting(regCode, key) array
+        +getAllSettingsByRegulation(regCode) array
+        +set(regCode, key, value, userId, ip) array
+    }
+
+    class EBluebookPDFService {
+        +generateBluebook(sub_id, options) string
+    }
+
+    class OBEAnalysisPDFService {
+        +generateOBEAnalysisReport(sub_id, options) string
+    }
+
+    class COAttainment {
+        +calculateDirectAttainment(sub_id) array
+        +calculatePOPSOAttainment(sub_id) array
+    }
+
+    class SEEAssessment {
+        +saveExternalMarks(data) array
+        +getExternalMarksBySubject(sub_id) array
+        +calculateSeeAttainment(sub_id) array
+    }
+
     %% Inheritance relationships
     DBCredentials <|-- User
     DBCredentials <|-- Departments
     DBCredentials <|-- Programs
+    DBCredentials <|-- Subject
+    DBCredentials <|-- SettingsService
 
     User <|-- SuperAdmin
     User <|-- Admin
@@ -147,11 +197,15 @@ classDiagram
     User <|-- Syllabus
     User <|-- CurriculumSubject
     User <|-- AttendanceRules
+    User <|-- COAttainment
+    User <|-- SEEAssessment
 
-    %% Composition in SuperAdmin
+    %% Composition and Delegation
     SuperAdmin *-- Departments
     SuperAdmin *-- Programs
     SuperAdmin *-- AttendanceRules
+    Faculty ..> Subject : "delegates offering queries"
+    HOD ..> Subject : "delegates offering queries"
 ```
 
 ---
@@ -179,21 +233,39 @@ classDiagram
 ## 3. Domain Model Subclasses
 
 ### 3.1 Role Service Models
-- **`SuperAdmin`** (`superadmin.class.php`): System-wide master data manager. Configures academic years, programs, departments, specializations, classes, class timings, and attendance rules. Composes instances of `Programs`, `Departments`, `Regulations`, and `AttendanceRules`.
+- **`SuperAdmin`** (`superadmin.class.php`): System-wide master data manager. Configures academic years, programs, departments, specializations, classes (including section assignment via `generateClassName()`), class timings, and attendance rules. Composes instances of `Programs`, `Departments`, `Regulations`, and `AttendanceRules`.
 - **`Admin`** (`admin.class.php`): Institution administrator. Enrolls students, manages faculty profiles, sets student status, maps faculty/students to subjects, and resets passwords with remarks.
-- **`AcademicSection`** (`academicsection.class.php`): Academic affairs office. Manages buildings, examination halls, regulations, syllabus files, and student/faculty password resets.
-- **`HOD`** (`hod.class.php`): Department head. Oversees departmental subjects, assigns faculty to subjects (`faculty_sub`), maps students (`student_sub`), manages timetable schedules, and approves/rejects faculty attendance deletion requests.
-- **`Faculty`** (`faculty.class.php`): Instructors. Marks daily attendance with period/hour validation, maintains teaching diary entries, logs exceptional attendance, and submits attendance deletion requests when corrections are required.
+- **`AcademicSection`** (`academicsection.class.php`): Academic affairs office. Manages buildings, examination halls, regulations, master curriculum subject catalogs (`CurriculumSubject`), syllabus files, and student/faculty password resets.
+- **`HOD`** (`hod.class.php`): Department head. Oversees departmental subjects, assigns faculty to subjects (`faculty_sub`), maps students (`student_sub`), manages timetable schedules, reviews/approves faculty attendance deletion requests, and approves end-of-course syllabus completion audits. Delegates subject queries to `Subject`.
+- **`Faculty`** (`faculty.class.php`): Instructors. Marks daily attendance with frictionless period topic logging, maintains teaching diary entries, logs exceptional attendance, submits attendance deletion requests, and submits syllabus completion compliance audits. Delegates course offering queries to `Subject`.
 
-### 3.2 Academic & Assessment Service Models
+### 3.2 Subject Management Model
+- **`Subject`** (`subject.class.php`): Dedicated service model managing active subject offerings (`subjects` table), elective choice groups, laboratory batch divisions (`subjects.group_name`), and links to master curriculum catalog courses (`curr_sub_id`). Centralizes offering retrieval across faculty, departmental, and class contexts.
+
+### 3.3 Academic, Assessment & OBE Service Models
 - **`CIA`** (`cia.class.php`): Handles Continuous Internal Assessment marks entry, calculations, condensed reports, and grade thresholds for UG, PG, Lab, and Project subjects.
+- **`CIAMarks`** (`ciamarks.class.php`): Modular CIA scoring engine managing question-level entries and validation.
+- **`AssessmentStructure`** (`assessmentstructure.class.php`): Configures assessment question components, Bloom taxonomy mapping, and max marks.
+- **`CourseOutcome`** (`courseoutcome.class.php`): Manages Course Outcome definitions, BOS master linking (`curr_sub_id`), and cognitive level targets.
+- **`COAttainment`** (`coattainment.class.php`): Computes direct and indirect CO attainment, threshold adherence, and PO-PSO attainment articulation matrices.
+- **`SEEAssessment`** (`seeassessment.class.php`): Handles Semester End Examination assessment structures, detailed question-level entries, direct ledger marks, and external attainment calculation.
+- **`LearningAnalytics`** (`learninganalytics.class.php`): Computes OBE learning progression, score distributions, and accreditation metrics.
+- **`CIADataExchange`** (`ciadataexchange.class.php`): Manages Excel/CSV template generation, bulk import sanitization, and data export.
+- **`FacCIAAnalysis2`** (`facciaanalysis2.class.php`): Active choice-aware analytical calculator for direct/indirect CO-PO attainment matrices and visual charts (legacy `facciaanalysis.class.php` has been cleaned up and removed).
 - **`Timetable`** (`timetable.class.php`): Configures class timing templates, timing schedules per date ranges, weekly class timetables, and teacher allocations.
 - **`Syllabus`** (`syllabus.class.php`): Uploads and retrieves curriculum regulations and syllabus units.
+- **`CurriculumSubject`** (`curriculum_subject.class.php`): Academic section catalog manager for central course templates across regulations.
 - **`AttendanceRules`** (`attendancerules.class.php`): Manages attendance condonation and shortage criteria based on program regulations.
-- **`FacCIAAnalysis` & `FacCIAAnalysis2`** (`facciaanalysis.class.php`, `facciaanalysis2.class.php`): Computes Course Outcome (CO) and Program Outcome (PO) direct and indirect attainment, Bloom's level coverage, and articulation matrices.
 
-### 3.3 Feedback, Survey & Reporting Service Models
-- **`FeedbackService`** (`feedbackservice.class.php`): Multi-granularity analytical service for Course Outcome (CO) indirect surveys, Course End Surveys (CES), and Student Faculty Appraisals. Composes `DBCredentials` and `Logs`. Provides Subject-wise, Class-wise, Faculty-wise, and Department-wise aggregated metrics, 5-star rating distributions, 5-domain CES averages, and qualitative feedback retrieval.
-- **`EnhancedPDFService`** (`services/EnhancedPDFService.php`): High-fidelity PDF report generation service powered by TCPDF. Renders NBA/NAAC compliant executive feedback summaries, 5-star distribution bars (5★ through 1★), domain radar/bar visual styles, and qualitative student feedback cards.
-- **`FeedbackExcelService`** (`services/FeedbackExcelService.php`): Comprehensive Excel export engine powered by PhpSpreadsheet. Generates formatted multi-tab analytical workbooks containing executive KPI summaries, aggregated CO tables, domain-level metrics, and raw response audit sheets (`Raw - Student CO Matrix`, `Raw - CES`, `Raw - Faculty Appraisal`).
+### 3.4 Regulatory Policy & Lesson Plan Services
+- **`SettingsService`** (`services/SettingsService.php`): Centralized singleton service providing access to regulation-specific autonomous academic parameters (`academic_settings` table), including CIA/SEE weightages, attendance thresholds, and attainment targets, backed by an immutable mutation audit log (`academic_settings_audit`).
+- **`LessonPlanService`** (`services/LessonPlanService.php`): Manages lecture-by-lecture syllabus planning (`lesson_plans` table), bulk CSV upload with Bloom's level and CO sanitization, end-of-course automated reconciliation against daily teaching diary logs (`diary.lesson_plan_id`), and NBA Criterion 2.2 course completion compliance audits (`course_completion_audits` table).
+
+### 3.5 Accreditation Dossier & Feedback Services
+- **`EBluebookPDFService`** (`services/EBluebookPDFService.php`): High-fidelity PDF generation engine powered by TCPDF producing official course Bluebooks containing Section 1 (Nominal Roll), Section 2A (Lesson Plan), Section 2B (Teaching Diary of Classes), Section 2C (Course Delivery Compliance & Deviation Report), Section 3 (Attendance Register), and Section 4 (CIA Marks Register).
+- **`OBEAnalysisPDFService`** (`services/OBEAnalysisPDFService.php`): Generates comprehensive NBA/NAAC Outcome-Based Education dossiers with CO formulation, CO-PO-PSO articulation matrices, question-to-CO mappings, direct/indirect attainment calculations, and visual attainment charts.
+- **`FeedbackService`** (`feedbackservice.class.php`): Multi-granularity analytical service for Course Outcome (CO) indirect surveys, Course End Surveys (CES), and Student Faculty Appraisals.
+- **`EnhancedPDFService`** (`services/EnhancedPDFService.php`): High-fidelity executive student feedback report generator.
+- **`FeedbackExcelService`** (`services/FeedbackExcelService.php`): Multi-tab analytical workbook generator powered by PhpSpreadsheet.
+
 

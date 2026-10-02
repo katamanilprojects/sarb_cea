@@ -14,16 +14,17 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[Coding Standards & Conventions](./architecture/coding-standards.md)**: PHPDoc conventions, standardized method return arrays, database transaction patterns, and MySQLi prepared statements.
 
 ### 2. [Database Documentation](./database/)
-- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 48 tables from `u182589698_jntuaceasarb_database_scheme.sql`, organized by functional domain.
-- **[Entity-Relationship Diagrams & Keys](./database/relationships.md)**: Mermaid ER diagrams, explicit foreign keys, and exact table join mechanisms (`users.username` joins, mapping tables).
-- **[Data Dictionary](./database/data-dictionary.md)**: Status flags, enumeration values (`assessment_components`), criteria operators, and Bloom's taxonomy definitions.
+- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 55 tables, organized by 9 functional domains.
+- **[Entity-Relationship Diagrams & Keys](./database/relationships.md)**: Mermaid ER diagrams, 71 explicit foreign keys, and exact table join mechanisms (`users.username` joins, mapping tables).
+- **[Data Dictionary](./database/data-dictionary.md)**: Status flags, enumeration values (`assessment_components`), criteria operators, Bloom's taxonomy definitions, and academic settings categories.
 
 ### 3. [Workflows & Business Logic](./workflows/)
-- **[Attendance Marking & Diary Workflow](./workflows/attendance-marking.md)**: Subject selection, hour validation, student mapping verification, and atomic database transactions.
+- **[Attendance Marking & Diary Workflow](./workflows/attendance-marking.md)**: Subject selection via `Subject` class, hour validation, frictionless daily topic logging, and atomic database transactions.
+- **[Lesson Planning, Reconciliation & Compliance Workflow](./workflows/lesson-plan-and-compliance.md)**: Lecture syllabus planning, bulk CSV upload, end-of-course daily topic reconciliation, and NBA Criterion 2.2 course completion compliance audits.
 - **[Attendance Deletion & Approval Lifecycle](./workflows/attendance-deletion.md)**: Faculty deletion requests, reason tracking, and HOD review/approval lifecycle.
-- **[CIA Marks Entry & Calculations](./workflows/cia-marks-entry.md)**: Theory, Lab, PG, and Project marks entry, aggregation algorithms, and CSV/Excel exports.
-- **[Timetable Management](./workflows/timetable-management.md)**: Class timing slots, class schedule ranges, HOD allocation, and faculty weekly timetables.
-- **[CO-PO Attainment & OBE Analysis](./workflows/co-po-attainment.md)**: Course Outcomes, Bloom's levels, question-to-CO mapping, and NBA attainment matrices.
+- **[CIA & SEE Marks Entry & Calculations](./workflows/cia-marks-entry.md)**: Theory, Lab, PG, Project, and Semester End Exam (SEE) marks entry, dynamic regulatory rules via `SettingsService`, and official e-Bluebook generation via `EBluebookPDFService`.
+- **[Timetable Management](./workflows/timetable-management.md)**: Class timing slots, class schedule ranges, section handling, HOD allocation, and faculty weekly timetables.
+- **[CO-PO Attainment & OBE Analysis](./workflows/co-po-attainment.md)**: Course Outcomes, Bloom's levels, question-to-CO mapping, direct/indirect NBA attainment matrices, and official dossier export via `OBEAnalysisPDFService`.
 - **[Student Feedback & Institutional Surveys](./workflows/feedback-surveys.md)**: Course Outcomes indirect feedback, 5-domain Course End Surveys (CES), faculty appraisals, strict anonymity safeguards, and PDF/Excel exports.
 
 ### 4. [Roles & Permissions](./roles-and-permissions/)
@@ -47,13 +48,17 @@ graph TD
     Router --> Auth[Authentication & Brute Force Guard: user.class.php]
     Router --> Domain[Domain Service Classes]
     
-    subgraph Domain Models
+    subgraph Domain Models & Services
         Admin[admin.class.php]
         Faculty[faculty.class.php]
         HOD[hod.class.php]
         Acad[academicsection.class.php]
         SuperAdmin[superadmin.class.php]
-        CIA[cia.class.php]
+        Subject[subject.class.php]
+        CIA[cia.class.php / ciamarks.class.php]
+        OBE[coattainment.class.php]
+        LessonPlan[services/LessonPlanService.php]
+        Settings[services/SettingsService.php]
         Timetable[timetable.class.php]
         Feedback[feedbackservice.class.php]
     end

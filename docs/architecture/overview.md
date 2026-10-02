@@ -23,12 +23,16 @@ The application follows a **Hybrid Page-Controller / Domain-Service** architectu
    - Manage request parsing, session verification, authorization guards, and HTML rendering.
    - Include shared layout fragments (`header.php`, `menu.php`, `footer.php`).
 
-2. **Domain Service Models (`*.class.php`)**:
+2. **Domain Service Models (`*.class.php` & `services/`)**:
    - Encapsulate all database operations, business logic, transaction handling, and validations.
+   - Core administrative models: `User`, `Admin`, `Faculty`, `HOD`, `AcademicSection`, `SuperAdmin`.
+   - Course and offering models: `Subject` (offerings, elective groups, batch divisions), `CurriculumSubject` (master catalog).
+   - Assessment & OBE models: `CIA`, `CIAMarks`, `AssessmentStructure`, `COAttainment`, `CourseOutcome`, `SEEAssessment`, `LearningAnalytics`, `Timetable`, `AttendanceRules`, `FacCIAAnalysis2`.
+   - Dedicated business services: `SettingsService` (autonomous policy rules), `LessonPlanService` (lecture delivery and reconciliation), `EBluebookPDFService` (accreditation Bluebook generation), `OBEAnalysisPDFService` (NBA attainment reports), `EnhancedPDFService`, and `FeedbackExcelService`.
    - Return structured associative arrays indicating status and payloads (e.g., `['status' => 1, 'data' => ...]`).
 
 3. **AJAX Endpoints**:
-   - Lightweight PHP scripts (`ajax_handler.php`, `ajax_get_classes.php`, `ajax_get_timings.php`) that read `$_GET` / `$_POST`, invoke model classes, and return JSON responses to dynamic UI widgets.
+   - Lightweight PHP scripts (`ajax_handler.php`, `ajax_get_classes.php`, `ajax_get_timings.php`, `curriculum_subject_ajax.php`) that read `$_GET` / `$_POST`, invoke model classes, and return JSON responses to dynamic UI widgets.
 
 ---
 
@@ -61,11 +65,16 @@ The system supports smooth legacy migration from MD5 to standard PHP `password_h
      ```
    - Logs the upgrade event: `Password silently upgraded MD5->bcrypt for user: <username>`.
 
+### 3.3 Server & File Access Hardening
+Direct web access to sensitive environment definitions, SQL dumps, log files, and repository metadata is blocked via server-level `.htaccess` rewrite and deny rules:
+- Prohibits access to `.env*`, `*.sql`, `*.log`, `*.git*`, and composer files.
+- Protects `logs/` and `uploads/` directories from direct script execution.
+
 ---
 
 ## 4. Logging & Audit Subsystems
 
-The application employs a dual logging strategy combining flat-file logs with database audit tables:
+The application employs a multi-tiered audit strategy combining flat-file logs with specialized database audit tables:
 
 ### 4.1 Flat-File Logging (`logs.class.php`)
 Located in the `logs/` directory with daily-stamped log files:
@@ -73,9 +82,11 @@ Located in the `logs/` directory with daily-stamped log files:
 - **Error Logs** (`logs/error_YYYY-MM-DD.log`): Records SQL prepare/execute failures, database connection errors, and caught exceptions via `Logs::errLog()`.
 
 ### 4.2 Database Audit Trails
-For regulatory audit compliance:
+For regulatory compliance and statutory governance:
 - **`activity_logs` Table**: Records general administrative actions (`user_id`, `action`, `details`, `timestamp`).
-- **`fac_activity_logs` Table**: Specifically tracks faculty activities such as attendance marking, diary updates, and marks entry (`user_id` referencing `faculties.id`, `action`, `details`, `timestamp`).
+- **`fac_activity_logs` Table**: Tracks faculty operational transactions such as attendance marking, diary updates, and marks entry (`user_id` referencing `faculties.id`, `action`, `details`, `timestamp`).
+- **`academic_settings_audit` Table**: Immutable audit log of all mutations to autonomous regulatory parameters (`setting_id`, `regulation_code`, `setting_key`, `old_value`, `new_value`, `changed_by`, `changed_at`, `ip_address`).
+- **`course_completion_audits` Table**: Formal end-of-semester syllabus reconciliation audit tracking planned vs actual conducted lectures, milestone completion dates, deviations, compensatory lectures, and formal faculty/HOD sign-off (NBA Criterion 2.2).
 
 ---
 
