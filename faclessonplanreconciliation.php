@@ -9,6 +9,9 @@ if (empty($_SESSION["user"]) || empty($_SESSION["role"]) || $_SESSION['role'] !=
     exit();
 }
 
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_LESSON_PLAN');
+
 require_once("faculty.class.php");
 require_once("services/LessonPlanService.php");
 
@@ -24,6 +27,7 @@ $err = '';
 
 // Handle Form Submissions
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && $selected_sub_id) {
+    \FeatureManager::requireWriteAccess('MOD_LESSON_PLAN');
     // 1. Save Diary Mappings if submitted
     if (isset($_POST['mapping']) && is_array($_POST['mapping'])) {
         $mapRes = $lpService->saveDiaryLessonPlanMappings($selected_sub_id, $_POST['mapping']);
@@ -95,6 +99,7 @@ require_once("facheader.php");
             <?php endif; ?>
         </div>
         <div class="card-body">
+            <?= \FeatureManager::renderReadOnlyBanner('MOD_LESSON_PLAN'); ?>
             <form action="faclessonplanreconciliation.php" method="get" class="row g-3 align-items-end mb-2">
                 <div class="col-md-9">
                     <label for="sub_id" class="form-label fw-bold">Select Course / Subject Offering:</label>
@@ -220,13 +225,13 @@ require_once("facheader.php");
                         <span class="badge bg-secondary ms-2"><?= $recon['total_conducted'] ?> Conducted Classes</span>
                     </div>
                     <div class="d-flex gap-2 mt-2 mt-md-0">
-                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="autoSequenceMappings()" title="Map diary entries in sequential 1-to-1 order">
+                        <button type="button" class="btn btn-sm btn-outline-primary" onclick="autoSequenceMappings()" title="Map diary entries in sequential 1-to-1 order" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                             <i class="bi bi-lightning-charge-fill me-1"></i>1-Click Auto-Sequence
                         </button>
-                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllMappings()" title="Reset all mappings to unmapped">
+                        <button type="button" class="btn btn-sm btn-outline-secondary" onclick="clearAllMappings()" title="Reset all mappings to unmapped" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                             <i class="bi bi-x-circle me-1"></i>Reset
                         </button>
-                        <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary">
+                        <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                             <i class="bi bi-save me-1"></i>Save Mappings
                         </button>
                     </div>
@@ -313,7 +318,7 @@ require_once("facheader.php");
                 </div>
                 <div class="card-footer bg-light d-flex justify-content-between align-items-center py-2">
                     <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Mapping links each conducted class to the planned topic and automatically updates the target Course Outcome (CO).</small>
-                    <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary">
+                    <button type="submit" name="save_mappings_only" value="1" class="btn btn-sm btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                         <i class="bi bi-save me-1"></i>Save Mappings
                     </button>
                 </div>
@@ -372,10 +377,10 @@ require_once("facheader.php");
                     </div>
 
                     <div class="d-flex justify-content-end gap-2">
-                        <button type="submit" name="is_final_submission" value="0" class="btn btn-outline-secondary">
+                        <button type="submit" name="is_final_submission" value="0" class="btn btn-outline-secondary" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                             <i class="bi bi-save me-1"></i>Save Draft
                         </button>
-                        <button type="submit" name="is_final_submission" value="1" class="btn btn-success">
+                        <button type="submit" name="is_final_submission" value="1" class="btn btn-success" <?= \FeatureManager::isFacultyReadOnly('MOD_LESSON_PLAN') ? 'disabled' : ''; ?>>
                             <i class="bi bi-send-check me-1"></i>Submit Course Completion to HOD
                         </button>
                     </div>

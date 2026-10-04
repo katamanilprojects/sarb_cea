@@ -1,6 +1,8 @@
 <?php
-session_start();
-if ($_SESSION['role'] !== 'superadmin') {
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+if (empty($_SESSION['role']) || $_SESSION['role'] !== 'superadmin') {
     header('Location: ./');
     exit();
 }
@@ -42,6 +44,10 @@ $programMap = [];
 foreach ($programRows as $prog) {
     $programMap[(int)$prog['id']] = $prog;
 }
+
+require_once __DIR__ . '/services/BatchOBEService.php';
+$batchService = \Services\BatchOBEService::getInstance();
+$studentBatches = $batchService->getBatches();
 
 $programClassMap = [];
 if (!empty($classesByProgram['data'])) {
@@ -143,6 +149,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             'end_date' => $_POST['end_date'],
             'timing_id' => (int)$_POST['timing_id'],
             'reg_id' => (int)$_POST['reg_id'],
+            'batch_id' => !empty($_POST['batch_id']) ? (int)$_POST['batch_id'] : null,
             'status' => $_POST['status'] ?? 1
         ];
 
@@ -288,6 +295,17 @@ require_once("superadminheader.php");
                                 </select>
                             </div>
                             <div class="col-md-4">
+                                <label for="batch_id" class="form-label">Graduating Batch (Cohort)</label>
+                                <select name="batch_id" id="batch_id" class="form-select">
+                                    <option value="">-- No Batch Assigned --</option>
+                                    <?php foreach ($studentBatches as $sb): ?>
+                                        <option value="<?= (int)$sb['id']; ?>" <?= $editClass && !empty($editClass['batch_id']) && (int)$editClass['batch_id'] === (int)$sb['id'] ? 'selected' : ''; ?>>
+                                            <?= htmlspecialchars($sb['batch_name'] . ' (' . $sb['prog_shortname'] . ' - ' . $sb['regulation'] . ')'); ?>
+                                        </option>
+                                    <?php endforeach; ?>
+                                </select>
+                            </div>
+                            <div class="col-md-4">
                                 <label for="status" class="form-label">Status</label>
                                 <select name="status" id="status" class="form-select">
                                     <option value="1" <?= $editClass && (int)$editClass['status'] === 1 ? 'selected' : ''; ?>>Active</option>
@@ -398,6 +416,7 @@ require_once("superadminheader.php");
                                                                                         <tr>
                                                                                             <th>Class Name</th>
                                                                                             <th>Section</th>
+                                                                                            <th>Batch</th>
                                                                                             <th>Specialization</th>
                                                                                             <th>Start Date</th>
                                                                                             <th>End Date</th>
@@ -412,6 +431,7 @@ require_once("superadminheader.php");
                                                                                             <tr>
                                                                                                 <td><?= htmlspecialchars($class['classname']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['section'] ?: '—'); ?></td>
+                                                                                                <td><?= !empty($class['batch_name']) ? '<span class="badge bg-light text-primary border">' . htmlspecialchars($class['batch_name']) . '</span>' : '<span class="text-muted small">—</span>'; ?></td>
                                                                                                 <td><?= htmlspecialchars($row['spec_shortname']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['start_date']); ?></td>
                                                                                                 <td><?= htmlspecialchars($class['end_date']); ?></td>

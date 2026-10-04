@@ -13,35 +13,54 @@ This guide details the technical requirements, environment setup, database insta
 
 ---
 
-## 2. Directory Layout & Repository Placement
+## 2. Directory Layout & Standalone Application Architecture
 
-In a standard XAMPP setup:
+The system consists of two independent, decoupled web applications communicating with the shared MariaDB database:
+1. **`jntuacea`**: Faculty, HOD, Academic Section, Admin, and Superadmin Portal.
+2. **`jntuaceastudents`**: Student Self-Service Portal (Profiles, Vault, Results, Certificates).
+
+On development / shared environments:
 ```text
 /Applications/XAMPP/xamppfiles/htdocs/classattendance.in/
-├── .env.php                  <-- Environment configuration file (CRITICAL)
-└── jntuacea/                 <-- Project root directory
+├── .env.php                  <-- Shared environment configuration file (or placed locally)
+├── jntuacea/                 <-- Staff / Admin Application (Independent)
+│   ├── index.php
+│   ├── dbcredentials.class.php
+│   ├── services/
+│   │   ├── FeatureManager.php
+│   │   ├── ExamResultsService.php
+│   │   ├── StudentProfileService.php
+│   │   └── BatchOBEService.php
+│   └── uploads/
+└── jntuaceastudents/         <-- Student Portal Application (Independent)
     ├── index.php
     ├── dbcredentials.class.php
-    ├── user.class.php
-    ├── logs/
-    ├── uploads/
-    └── ...
+    ├── services/
+    │   ├── FeatureManager.php
+    │   ├── ExamResultsService.php
+    │   └── StudentProfileService.php
+    └── uploads/
 ```
+
+On production servers, each application can be deployed to its own independent document root or subdomain (e.g., `jntuacea.classattendance.in` and `jntuaceastudents.classattendance.in`) with zero cross-application filesystem dependencies.
 
 ---
 
 ## 3. Environment Configuration (`.env.php`)
 
 > [!IMPORTANT]
-> The database connection class (`DBCredentials` in `dbcredentials.class.php`) explicitly requires the configuration file located in the **parent directory**:
+> The database connection class (`DBCredentials` in `dbcredentials.class.php`) in both applications dynamically looks for `.env.php` first in its own application root (`__DIR__ . '/.env.php'`) and falls back to the parent directory (`dirname(__DIR__) . '/.env.php'`).
 > ```php
 > if (!defined('DB_HOST')) {
->     require_once dirname(__DIR__) . '/.env.php';
+>     if (file_exists(__DIR__ . '/.env.php')) {
+>         require_once __DIR__ . '/.env.php';
+>     } elseif (file_exists(dirname(__DIR__) . '/.env.php')) {
+>         require_once dirname(__DIR__) . '/.env.php';
+>     }
 > }
 > ```
-> It does **not** read a standard `.env` text file.
 
-Create or verify the `.env.php` file at `../.env.php` relative to the project root:
+Create or verify the `.env.php` file:
 
 ```php
 <?php
@@ -68,7 +87,7 @@ define('DB_NAME', 'u182589698_jntuaceasarb');
    mysql -u u182589698_jntuaceasarb -p u182589698_jntuaceasarb < schema_backup.sql
    ```
 
-3. Verify that all 55 tables and 71 constraints are loaded successfully:
+3. Verify that all 66 tables and constraints are loaded successfully:
    ```sql
    USE u182589698_jntuaceasarb;
    SHOW TABLES;
@@ -89,8 +108,12 @@ chmod -R 775 uploads/
 # Ensure subdirectories exist inside uploads/
 mkdir -p uploads/cia_attachments
 mkdir -p uploads/syllabus
+mkdir -p uploads/student_docs
+mkdir -p uploads/results_csv
 chmod -R 775 uploads/cia_attachments
 chmod -R 775 uploads/syllabus
+chmod -R 775 uploads/student_docs
+chmod -R 775 uploads/results_csv
 ```
 
 ---

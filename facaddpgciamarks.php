@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -9,6 +12,7 @@ $ciaObj = new CIA();
 
 // Handle form submission
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode'] && !empty($_POST['submit_action'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     unset($_SESSION['secretcode']);
     $sub_id = $_POST['sub_id'];
     $assessmentNumber = $_POST['assessment_number'];
@@ -105,6 +109,7 @@ require_once("facheader.php");
 					<strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>)
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <form action="facaddpgciamarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
@@ -127,15 +132,15 @@ require_once("facheader.php");
                                 <?php foreach ($studentList as $key => $student) : ?>
                                     <tr>
                                         <td><?php echo $student['username']; ?><br /><?php echo $student['name']; ?><input type="hidden" name="student_id[]" value="<?php echo $student['id']; ?>"></td>
-                                        <td><input type="text" name="marks[]" class="form-control" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['marks'] : ''; ?>" /></td>
+                                        <td><input type="text" name="marks[]" class="form-control" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['marks'] : ''; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : ''; ?> /></td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
                         <div class="d-flex justify-content-between">
-                            <button type="submit" name="submit_action" value="submit" class="pull-left btn btn-primary">Validate & Submit Marks</button>
-                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary">Save without Submitting</button>
+                            <button type="submit" name="submit_action" value="submit" class="pull-left btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Validate & Submit Marks</button>
+                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Save without Submitting</button>
                         </div>
                     </form>
                 </div>

@@ -1,12 +1,12 @@
 # Database Schema Reference
 
-This document provides an exhaustive, field-by-field reference of all 55 tables, columns, data types, nullability, keys, and defaults extracted directly from the system database.
+This document provides an exhaustive, field-by-field reference of all 56 tables, columns, data types, nullability, keys, and defaults extracted directly from the system database.
 
 ---
 
 ## Functional Domain Index
 
-The 55 tables in the database are organized into 9 functional domains:
+The 56 tables in the database are organized into 9 functional domains:
 1. [Identity, Access & Audit Logging](#1-identity-access--audit-logging) (6 tables)
 2. [Academic Programs, Batches & Structure](#2-academic-programs-batches--structure) (8 tables)
 3. [Enrollment & Course Allotment](#3-enrollment--course-allotment) (2 tables)
@@ -15,7 +15,7 @@ The 55 tables in the database are organized into 9 functional domains:
 6. [Continuous Internal & External Assessment (CIA/SEE) & Marks](#6-continuous-internal--external-assessment-ciasee--marks) (12 tables)
 7. [Outcome-Based Education (OBE) & Attainment](#7-outcome-based-education-obe--attainment) (8 tables)
 8. [Physical Infrastructure, Surveys & Student Feedback](#8-physical-infrastructure-surveys--student-feedback) (7 tables)
-9. [Autonomous Academic Settings & Parameters](#9-autonomous-academic-settings--parameters) (2 tables)
+9. [Autonomous Academic Settings & Parameters](#9-autonomous-academic-settings--parameters) (3 tables)
 
 ---
 
@@ -936,5 +936,231 @@ Complete immutable audit trail tracking parameter mutations in academic rules, p
 | `ip_address` | `varchar(45)` | Yes | - | NULL | Client IP address of requesting user |
 
 > **Foreign Keys**: `setting_id` &rarr; `academic_settings(id)`
+
+### 9.3 `system_feature_modules`
+Centralized feature toggle configuration engine enabling granular per-role visibility and global activation across 11 discrete system modules.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Unique module record ID |
+| `module_key` | `varchar(50)` | No | UNI | - | Unique system module identifier (e.g., `MOD_ATTENDANCE`, `MOD_CIA_MARKS`) |
+| `module_name` | `varchar(100)` | No | - | - | Human-readable title of the module |
+| `category` | `varchar(50)` | No | MUL | - | Functional classification (`ATTENDANCE`, `ASSESSMENT`, `OBE`, `QUALITY`, `PLANNING`) |
+| `description` | `text` | Yes | - | NULL | Detailed architectural purpose and impact description |
+| `is_enabled_globally` | `tinyint(1)` | No | - | 1 | Master kill switch (1 = Enabled institution-wide, 0 = Disabled everywhere) |
+| `faculty_visibility` | `enum('VISIBLE','HIDDEN','READONLY')` | No | - | VISIBLE | Faculty interface access rule |
+| `student_visibility` | `enum('VISIBLE','HIDDEN')` | No | - | VISIBLE | Student portal interface access rule |
+| `hod_visibility` | `enum('VISIBLE','HIDDEN','READONLY')` | No | - | VISIBLE | Head of Department interface access rule |
+| `sort_order` | `int(11)` | No | - | 0 | Display sequence on the administrative feature management page |
+| `updated_by` | `int(11)` | Yes | - | NULL | User ID of the SuperAdmin who performed the update |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp (auto-updates) |
+
+> **Unique Keys**: (`module_key`)
+
+
+## 10. Institutional Governance: Cohort Batches, Results Publication & Student Dossier
+Autonomous academic governance architecture anchoring Vision, Mission, PEOs, POs/PSOs, and regulations to permanent student cohorts (e.g. 2025–2029), automating end-semester examination results ingestion, and managing student profiles, digital vaults, physical custodial certificates, and statutory certificate issuance.
+
+### 10.1 `student_batches`
+Master permanent cohort definition binding students, regulations, and multi-year OBE attainment.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Cohort Batch ID |
+| `program_id` | `int(11)` | No | MUL | - | Degree program (B.Tech, M.Tech, MCA, etc.) |
+| `regulation_id` | `int(11)` | No | MUL | - | Governing regulation governing this batch |
+| `batch_name` | `varchar(100)` | No | - | - | Institutional batch name (e.g., `2025-2029 (B.Tech Regular)`) |
+| `admission_year` | `year(4)` | No | - | - | Academic entry year (e.g., 2025) |
+| `graduation_year` | `year(4)` | No | - | - | Scheduled graduation year (e.g., 2029) |
+| `is_active` | `tinyint(1)` | No | - | 1 | 1 = Currently enrolled, 0 = Graduated / Inactive |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+### 10.2 `vision_mission`
+Stores master institutional and departmental Vision & Mission statements. Inherited automatically by cohorts admitted in or after `effective_from_year`.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Record ID |
+| `dept_id` | `int(11)` | Yes | MUL | NULL | Department ID (NULL = Institutional level) |
+| `effective_from_year` | `int(4)` | No | - | 2020 | Effective from entry year |
+| `vision_statement` | `text` | No | - | - | Vision statement text |
+| `mission_statements` | `text` | No | - | - | JSON object of indexed mission statements `{"M1": "...", "M2": "..."}` |
+| `is_active` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Superseded |
+| `created_by` | `int(11)` | Yes | - | NULL | User ID who drafted/entered statement |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+### 10.3 `peos`
+Master Program Educational Objectives defined at the department/program level. Inherited automatically by cohort batches.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | PEO Record ID |
+| `dept_id` | `int(11)` | No | MUL | - | Academic department ID |
+| `program_id` | `int(5)` | Yes | MUL | NULL | Optional specific degree program ID |
+| `peo_code` | `varchar(20)` | No | - | - | PEO identifier (e.g. `PEO1`, `PEO2`) |
+| `peo_title` | `varchar(255)` | Yes | - | NULL | PEO headline / short title |
+| `peo_description` | `text` | No | - | - | Comprehensive PEO narrative |
+| `target_score` | `decimal(3,2)` | No | - | 2.00 | Master target attainment score on 3-point rubric |
+| `effective_from_year` | `int(4)` | No | - | 2020 | Effective entry year for curriculum versioning |
+| `sort_order` | `int(11)` | No | - | 1 | Sequence order in reports |
+| `is_active` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Superseded |
+
+### 10.4 `peo_mission_mapping`
+Cross-mapping correlation matrix between master Program Educational Objectives (PEOs) and Mission statements.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Matrix Cell ID |
+| `peo_id` | `int(11)` | No | MUL | - | Foreign key to `peos(id)` |
+| `mission_key` | `varchar(20)` | No | - | - | Mission key (e.g. `M1`, `M2`) |
+| `correlation_level` | `tinyint(1)` | No | - | 0 | 0 = None, 1 = Low, 2 = Medium, 3 = High |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+### 10.5 `po_peo_mapping`
+Cross-mapping correlation matrix between master Program Outcomes / Program Specific Outcomes (`po_pso`) and master PEOs (`peos`).
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Matrix Cell ID |
+| `po_pso_id` | `int(11)` | No | MUL | - | Foreign key to `po_pso(id)` |
+| `peo_id` | `int(11)` | No | MUL | - | Foreign key to `peos(id)` |
+| `correlation_level` | `tinyint(1)` | No | - | 0 | 0 = None, 1 = Low, 2 = Medium, 3 = High |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+### 10.5.1 `batch_peo_targets`
+Optional cohort-specific target score overrides for specific PEOs. Allows a cohort to set a higher/custom attainment threshold without altering master definitions.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Override Record ID |
+| `batch_id` | `int(11)` | No | MUL | - | Foreign key to `student_batches(id)` |
+| `peo_id` | `int(11)` | No | MUL | - | Foreign key to `peos(id)` |
+| `target_score` | `decimal(3,2)` | No | - | 2.00 | Cohort-specific target score |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+### 10.6 `exam_notifications`
+Examination session release notifications managing bulk result publication and access authorization.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Notification ID |
+| `notification_code` | `varchar(50)` | No | UNI | - | Unique notification code (e.g. `EXAM-2026-BTECH-R20-4-2`) |
+| `title` | `varchar(255)` | No | - | - | Examination title |
+| `program_id` | `int(11)` | No | MUL | - | Target degree program |
+| `regulation_id` | `int(11)` | No | MUL | - | Target academic regulation |
+| `yearsem` | `varchar(20)` | No | - | - | Semester identifier (e.g., `IV-II`, `III-I`) |
+| `academic_year` | `varchar(20)` | No | - | - | Academic year session (e.g. `2025-2026`) |
+| `month_year` | `varchar(50)` | No | - | - | Examination month and year (e.g., `May/June 2026`) |
+| `release_date` | `date` | No | - | - | Date of result announcement |
+| `is_published` | `tinyint(1)` | No | - | 0 | 1 = Visible to students, 0 = Staged in draft |
+| `uploaded_by` | `int(11)` | No | - | - | Administrator user ID |
+
+### 10.7 `exam_results`
+Granular subject-level student examination grades, marks, credits earned, and pass/fail statuses.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Result Record ID |
+| `notification_id` | `int(11)` | No | MUL | - | Foreign key to `exam_notifications(id)` |
+| `htno` | `varchar(30)` | No | MUL | - | Hall Ticket / Roll Number |
+| `student_id` | `int(11)` | Yes | MUL | NULL | Enrolled student ID if matched |
+| `subject_code` | `varchar(30)` | No | MUL | - | Course / Subject Code |
+| `subject_name` | `varchar(150)` | Yes | - | NULL | Course Title |
+| `subject_id` | `int(11)` | Yes | MUL | NULL | Foreign key to `subjects(id)` if matched |
+| `internal_marks` | `decimal(5,2)` | Yes | - | NULL | CIA Continuous assessment score |
+| `external_marks` | `decimal(5,2)` | Yes | - | NULL | SEE End-semester examination score |
+| `total_marks` | `decimal(5,2)` | Yes | - | NULL | Consolidated total marks |
+| `grade_letter` | `varchar(5)` | Yes | - | NULL | Letter grade (`S`, `A`, `B`, `C`, `D`, `E`, `F`) |
+| `grade_points` | `int(11)` | Yes | - | NULL | Grade points on 10-point scale |
+| `credits_registered`| `decimal(4,2)` | No | - | 0.00 | Subject credit allocation |
+| `credits_earned` | `decimal(4,2)` | No | - | 0.00 | Credits awarded upon passing |
+| `result_status` | `enum('PASS','FAIL','ABSENT','MALPRACTICE','WITHHELD')` | No | - | PASS | Final examination result outcome |
+
+### 10.8 `student_profiles`
+Master biographical, parental, entrance, and residential dossier for enrolled students.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Profile ID |
+| `roll_no` | `varchar(30)` | No | UNI | - | Foreign key to `users(username)` |
+| `dob` | `date` | Yes | - | NULL | Date of birth |
+| `gender` | `enum('MALE','FEMALE','OTHER')` | Yes | - | NULL | Gender |
+| `blood_group` | `varchar(10)` | Yes | - | NULL | Blood group |
+| `aadhar_number` | `varchar(20)` | Yes | - | NULL | 12-digit UIDAI Aadhaar number |
+| `father_name` | `varchar(150)` | Yes | - | NULL | Father / Guardian full name |
+| `mother_name` | `varchar(150)` | Yes | - | NULL | Mother full name |
+| `parent_phone` | `varchar(20)` | Yes | - | NULL | Emergency parental phone |
+| `parent_email` | `varchar(150)` | Yes | - | NULL | Parental communication email |
+| `admission_category`| `varchar(50)` | Yes | - | NULL | Quota (CONVENOR, ECET, SPOT, NRI, GATE) |
+| `rank_obtained` | `int(11)` | Yes | - | NULL | Entrance exam state rank |
+| `hall_ticket_admission`| `varchar(50)` | Yes | - | NULL | Entrance hall ticket number |
+| `admission_date` | `date` | Yes | - | NULL | Date of admission into the college |
+| `permanent_address`| `text` | Yes | - | NULL | Permanent domicile address |
+| `current_address` | `text` | Yes | - | NULL | Present communication address |
+| `profile_photo_path`| `varchar(255)` | Yes | - | NULL | Student portrait photograph path |
+| `is_verified` | `tinyint(1)` | No | - | 0 | 1 = Verified by Academic Section |
+| `verified_by` | `int(11)` | Yes | - | NULL | Staff user ID who verified profile |
+| `verified_at` | `datetime` | Yes | - | NULL | Timestamp of verification |
+
+### 10.9 `student_documents`
+Digital document vault storing verified scans of educational certificates and credentials.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Document ID |
+| `roll_no` | `varchar(30)` | No | MUL | - | Foreign key to `users(username)` |
+| `doc_type` | `varchar(50)` | No | MUL | - | Type (SSC_MEMO, INTER_DIPLOMA_MEMO, ALLOTMENT_ORDER, etc.) |
+| `doc_title` | `varchar(150)` | No | - | - | Descriptive document label |
+| `file_name` | `varchar(255)` | No | - | - | Original uploaded file name |
+| `file_path` | `varchar(255)` | No | - | - | Secure server storage path |
+| `file_size` | `int(11)` | No | - | - | Size in bytes |
+| `mime_type` | `varchar(100)` | No | - | - | MIME format (`application/pdf`, `image/png`, etc.) |
+| `is_original_submitted`| `tinyint(1)` | No | - | 0 | 1 = Physical original deposited in college safe custody |
+| `custody_status` | `enum('IN_CUSTODY','TEMPORARILY_ISSUED','RETURNED_PERMANENT')` | Yes | - | IN_CUSTODY | Physical document custody state |
+| `custody_location_ref`| `varchar(100)` | Yes | - | NULL | Storage rack / shelf reference identifier |
+| `is_verified` | `tinyint(1)` | No | - | 0 | 1 = Inspected and verified by Academic Section |
+| `verified_by` | `int(11)` | Yes | - | NULL | Staff user ID who verified document |
+| `verified_at` | `datetime` | Yes | - | NULL | Timestamp of verification |
+
+### 10.10 `student_custodial_records`
+Master physical custody ledger tracking the movement and custody of original certificates deposited during admission.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Custody Record ID |
+| `roll_no` | `varchar(30)` | No | MUL | - | Foreign key to `users(username)` |
+| `document_name` | `varchar(150)` | No | - | - | Name of original document |
+| `certificate_serial_no`| `varchar(100)` | Yes | - | NULL | Serial number printed on hardcopy |
+| `original_received` | `tinyint(1)` | No | - | 1 | 1 = Original certificate in custody |
+| `received_date` | `date` | No | - | - | Date original document deposited |
+| `received_by` | `int(11)` | Yes | - | NULL | Staff user ID who received certificate |
+| `status` | `enum('IN_CUSTODY','TEMPORARILY_RETURNED','PERMANENTLY_RETURNED')` | No | MUL | IN_CUSTODY | Physical custody status |
+| `purpose_of_withdrawal`| `varchar(255)` | Yes | - | NULL | Purpose for temporary loan (Passport, Visa, etc.) |
+| `issued_date` | `date` | Yes | - | NULL | Date temporarily issued to student |
+| `expected_return_date`| `date` | Yes | - | NULL | Promised date to return to safe custody |
+| `actual_returned_date`| `date` | Yes | - | NULL | Date returned back to custody |
+| `remarks` | `text` | Yes | - | NULL | Custody movement notes and rack locations |
+
+### 10.11 `student_certificate_requests`
+Statutory certificate application and generation engine (Custodial, Bonafide, Study & Conduct, TC, No Dues).
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Application ID |
+| `certificate_no` | `varchar(60)` | No | UNI | - | Unique institutional certificate tracking number |
+| `roll_no` | `varchar(30)` | No | MUL | - | Foreign key to `users(username)` |
+| `cert_type` | `enum('CUSTODIAL','BONAFIDE','STUDY_CONDUCT','TRANSFER_CERTIFICATE','NO_DUES')` | No | - | - | Certificate classification |
+| `purpose` | `varchar(255)` | No | - | - | Reason / Addressed authority |
+| `status` | `enum('REQUESTED','APPROVED','REJECTED','GENERATED','ISSUED')` | No | MUL | REQUESTED | Workflow processing status |
+| `requested_date`| `date` | No | - | - | Date student applied |
+| `approved_by` | `int(11)` | Yes | - | NULL | Staff user ID who approved |
+| `approved_at` | `datetime` | Yes | - | NULL | Timestamp of approval |
+| `issued_at` | `datetime` | Yes | - | NULL | Timestamp when handed over / generated |
+| `custom_fields_json`| `longtext` | Yes | - | NULL | JSON payload with cert-specific parameters |
+| `remarks` | `text` | Yes | - | NULL | Verification notes |
+
+
 
 

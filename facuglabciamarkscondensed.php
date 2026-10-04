@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once("services/FeatureManager.php");
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "Condensed Marks";
 
 require_once("facheader.php");

@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_METADATA');
 require_once "faculty.class.php";
 require_once "cia.class.php";
 

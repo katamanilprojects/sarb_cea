@@ -1,6 +1,6 @@
 # Database Relationships & Entity-Relationship Diagrams
 
-This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted directly from the system database schema (55 tables, 71 active foreign key constraints).
+This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted directly from the system database schema (66 tables, covering 10 functional domains).
 
 ---
 
@@ -311,3 +311,80 @@ Directly verified against the system database schema (all 71 active foreign key 
 | `subjects` | `fk_subjects_curriculum` | `curr_sub_id` | `curriculum_subjects(id)` | ON DELETE SET NULL ON UPDATE CASCADE |
 | `subject_questionnaire_questions` | `subject_questionnaire_questions_ibfk_2` | `created_by_user_id` | `users(id)` | ON UPDATE CASCADE |
 | `subject_questionnaire_questions` | `subject_questionnaire_questions_ibfk_1` | `subject_id` | `subjects(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `classes` | `fk_classes_batch` | `batch_id` | `student_batches(id)` | ON DELETE SET NULL ON UPDATE CASCADE |
+| `vision_mission` | `fk_vm_dept` | `dept_id` | `departments(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `peos` | `fk_peos_dept` | `dept_id` | `departments(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `peos` | `fk_peos_prog` | `program_id` | `programs(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `peo_mission_mapping` | `fk_pmm_peo` | `peo_id` | `peos(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `po_peo_mapping` | `fk_ppm_popso` | `po_pso_id` | `po_pso(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `po_peo_mapping` | `fk_ppm_peo` | `peo_id` | `peos(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `batch_peo_targets` | `fk_bpt_batch` | `batch_id` | `student_batches(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `batch_peo_targets` | `fk_bpt_peo` | `peo_id` | `peos(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `exam_notifications` | `fk_en_regulation` | `regulation_id` | `regulations(id)` | ON UPDATE CASCADE |
+| `exam_notifications` | `fk_en_program` | `program_id` | `programs(id)` | ON UPDATE CASCADE |
+| `exam_results` | `fk_er_notification` | `notification_id` | `exam_notifications(id)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `exam_results` | `fk_er_student` | `student_id` | `students(id)` | ON DELETE SET NULL ON UPDATE CASCADE |
+| `exam_results` | `fk_er_subject` | `subject_id` | `subjects(id)` | ON DELETE SET NULL ON UPDATE CASCADE |
+| `student_profiles` | `fk_sp_user` | `roll_no` | `users(username)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_documents` | `fk_sd_user` | `roll_no` | `users(username)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_custodial_records` | `fk_scr_user` | `roll_no` | `users(username)` | ON DELETE CASCADE ON UPDATE CASCADE |
+| `student_certificate_requests` | `fk_sc_req_user` | `roll_no` | `users(username)` | ON DELETE CASCADE ON UPDATE CASCADE |
+
+---
+
+## 9. Master OBE Hierarchy & Batch Cohort Inheritance Relationships
+
+```mermaid
+erDiagram
+    departments ||--o{ vision_mission : "dept_id"
+    departments ||--o{ peos : "dept_id"
+    programs ||--o{ peos : "program_id"
+    peos ||--o{ peo_mission_mapping : "peo_id"
+    po_pso ||--o{ po_peo_mapping : "po_pso_id"
+    peos ||--o{ po_peo_mapping : "peo_id"
+    student_batches ||--o{ classes : "classes.batch_id = student_batches.id"
+    student_batches ||--o{ batch_peo_targets : "batch_id"
+    peos ||--o{ batch_peo_targets : "peo_id"
+```
+
+- `vision_mission` stores institutional and departmental Vision and parsed Mission statements ($M_1, M_2, \dots$) as master standards.
+- `peos` defines Program Educational Objectives at the department/program level.
+- `peo_mission_mapping` forms the articulation correlation matrix between master PEOs and Mission statements.
+- `po_peo_mapping` links NBA Graduate Attributes / PSOs (`po_pso`) to master PEOs with weight levels ($0, 1, 2, 3$).
+- `student_batches` inherits these master definitions by department and admission year without duplicating text records.
+- `batch_peo_targets` allows cohorts to optionally specify custom target score overrides for specific PEOs.
+
+---
+
+## 10. Examination Results Publication & SEE Auto-Sync Relationships
+
+```mermaid
+erDiagram
+    regulations ||--o{ exam_notifications : "regulation_id"
+    programs ||--o{ exam_notifications : "program_id"
+    exam_notifications ||--o{ exam_results : "notification_id"
+    students ||--o{ exam_results : "student_id"
+    subjects ||--o{ exam_results : "subject_id"
+    exam_results ||--o{ external_assessment_marks : "syncs via htno & subject_code"
+```
+
+- `exam_notifications` governs the publication lifecycle, release date, and visibility of semester examination results.
+- `exam_results` stores individual course grades, numerical internal/external marks, grade points, and registered/earned credits per student.
+- `external_assessment_marks` receives automated syncs from `exam_results` using matching `htno` and `subject_code` under Mode C direct ledger entry.
+
+---
+
+## 11. Student Dossier, Vault, Physical Custody & Statutory Certificates
+
+```mermaid
+erDiagram
+    users ||--o| student_profiles : "users.username = student_profiles.roll_no"
+    users ||--o{ student_documents : "users.username = student_documents.roll_no"
+    users ||--o{ student_custodial_records : "users.username = student_custodial_records.roll_no"
+    users ||--o{ student_certificate_requests : "users.username = student_certificate_requests.roll_no"
+```
+
+- `student_profiles` expands the core `users` record into an institutional dossier with biographical, parental, reservation, entrance rank, and residential data.
+- `student_documents` manages digital uploads of verified certificates (PDF/PNG/JPG) with size limits and verification timestamps.
+- `student_custodial_records` acts as an auditable physical ledger for original certificates deposited during admission, tracking temporary checkouts (e.g. passport/visa applications) and reconciliation.
+- `student_certificate_requests` processes student applications for Custodial, Bonafide, Study & Conduct, Transfer (TC), and No Dues clearance certificates.

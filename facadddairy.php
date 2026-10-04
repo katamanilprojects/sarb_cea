@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CLASS_DIARY');
 
 $page_title = "Edit";
 require_once("facheader.php");
@@ -21,6 +23,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
             $selected_date = $_POST['date'];
             $unmarkedHours = $facultyObj->getUnmarkedHours($selected_sub_id, $selected_date);
         } elseif (!empty($_POST['hours']) && !empty($_POST['diary'])) {
+            \FeatureManager::requireWriteAccess('MOD_CLASS_DIARY');
             $result = $facultyObj->addDairy($_POST['hours'], $_POST['sub_id'], $_POST['date'], $_POST['diary'], $faculty_id);
 
             if ($result['status'] == 1) {
@@ -81,6 +84,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 </style>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_CLASS_DIARY'); ?>
     <br />
     <div class="row">
         <div class="col-sm-12">
@@ -153,7 +157,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                         </div>
                         <br />
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" class="btn btn-outline-primary">Save Dairy</button>
+                        <button type="submit" class="btn btn-outline-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CLASS_DIARY') ? 'disabled' : ''; ?>>Save Dairy</button>
                         </form>
                     <?php endif; ?>
                     <?php if (isset($msg)) echo '<div class="alert alert-info">' . $msg . '</div>'; ?>

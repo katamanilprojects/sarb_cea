@@ -68,6 +68,35 @@
 
         <div class="col-6 col-md-2">
             <div class="dropdown w-100">
+                <button class="w-100 btn <?php echo (!empty($page_title) && in_array($page_title, ['Publish Results', 'Student Profiles & Dossier', 'Certificates Ledger', 'Examination Results'])) ? 'btn-success' : 'btn-outline-primary'; ?> dropdown-toggle"
+                    type="button"
+                    id="examResultsDropdown"
+                    data-bs-toggle="dropdown"
+                    aria-expanded="false">
+                    <i class="bi bi-file-earmark-spreadsheet me-1"></i> Exams & Dossier
+                </button>
+                <ul class="dropdown-menu w-100" aria-labelledby="examResultsDropdown">
+                    <li>
+                        <a class="dropdown-item" href="academicsectionresults.php">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i> Publish Results
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="adminstudentprofiles.php">
+                            <i class="bi bi-person-badge me-1"></i> Student Profiles & Vault
+                        </a>
+                    </li>
+                    <li>
+                        <a class="dropdown-item" href="admincustodyledger.php">
+                            <i class="bi bi-journal-bookmark me-1"></i> Custody & Certificates
+                        </a>
+                    </li>
+                </ul>
+            </div>
+        </div>
+
+        <div class="col-6 col-md-2">
+            <div class="dropdown w-100">
                 <button class="w-100 btn <?php echo (!empty($page_title) && in_array($page_title, ['Reset Student Pwd', 'Reset Faculty Pwd', 'Change Pwd'])) ? 'btn-success' : 'btn-outline-primary'; ?> dropdown-toggle"
                     type="button"
                     id="accountActionsDropdown"

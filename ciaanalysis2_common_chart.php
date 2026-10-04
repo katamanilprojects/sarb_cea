@@ -4,12 +4,12 @@
                 <h6 class="mb-0">Assessment Scope:
                     <?php
                     $is_lab_scope = (isset($selected_sub_type) && ($selected_sub_type === 'lab' || $selected_sub_type === 'dti'));
-                    if ($is_lab_scope) {
+                    if (strcasecmp((string)$selected_assessment_number, 'see') === 0) {
+                        echo "Semester End Examination (SEE)";
+                    } elseif ($is_lab_scope) {
                         echo "Lab CIA";
                     } elseif ($selected_assessment_number === 'all') {
                         echo "Overall CIA";
-                    } elseif (strcasecmp((string)$selected_assessment_number, 'see') === 0) {
-                        echo "Semester End Examination (SEE)";
                     } elseif (is_numeric($selected_assessment_number)) {
                         echo "CIA - " . htmlspecialchars($selected_assessment_number);
                     } else {
@@ -22,12 +22,15 @@
                 <?php
                 // Check if SEE marks exist for the current course
                 require_once __DIR__ . '/seeassessment.class.php';
+                require_once __DIR__ . '/services/FeatureManager.php';
                 $seeCheckObj = new SEEAssessment();
                 $hasSeeMarks = false;
                 if (!empty($selected_sub_id)) {
                     $firstSubId = is_numeric($selected_sub_id) ? (int)$selected_sub_id : (int)explode(',', (string)$selected_sub_id)[0];
                     $hasSeeMarks = $seeCheckObj->isSEEMarksSubmitted($firstSubId);
                 }
+                $isSeeEnabled = \Services\FeatureManager::getInstance()->isModuleEnabled('MOD_SEE_MARKS');
+                $isCiaEnabled = \Services\FeatureManager::getInstance()->isModuleEnabled('MOD_CIA_MARKS');
                 ?>
 
                 <ul class="nav nav-tabs mb-3" id="analysisTab" role="tablist">
@@ -43,13 +46,11 @@
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="copo-matrix-tab" data-bs-toggle="tab" data-bs-target="#copo-matrix-tab-pane" type="button" role="tab" aria-controls="copo-matrix-tab-pane" aria-selected="false">CO-PO Matrix</button>
                     </li>
-                    <?php /*
-                    <?php if ($hasSeeMarks): ?>
+                    <?php if ($isSeeEnabled): ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="comprehensive-tab" data-bs-toggle="tab" data-bs-target="#comprehensive-tab-pane" type="button" role="tab" aria-controls="comprehensive-tab-pane" aria-selected="false"><i class="bi bi-award me-1"></i>Direct & Overall Attainment (NBA/NAAC)</button>
                     </li>
                     <?php endif; ?>
-                    */ ?>
                     <li class="nav-item" role="presentation">
                         <button class="nav-link" id="advanced-tab" data-bs-toggle="tab" data-bs-target="#advanced-tab-pane" type="button" role="tab" aria-controls="advanced-tab-pane" aria-selected="false">Other Insights</button>
                     </li>
@@ -158,8 +159,7 @@
                         </div>
                     </div>
 
-                    <?php /*
-                    <?php if ($hasSeeMarks): ?>
+                    <?php if ($isSeeEnabled): ?>
                     <div class="tab-pane fade" id="comprehensive-tab-pane" role="tabpanel" aria-labelledby="comprehensive-tab" tabindex="0">
                         <div class="card mb-4 border-0 shadow-sm">
                             <div class="card-body bg-light rounded">
@@ -218,7 +218,6 @@
                         </div>
                     </div>
                     <?php endif; ?>
-                    */ ?>
 
                     <div class="tab-pane fade" id="advanced-tab-pane" role="tabpanel" aria-labelledby="advanced-tab" tabindex="0">
                         <div class="row">

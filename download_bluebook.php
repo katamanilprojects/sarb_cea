@@ -17,6 +17,9 @@ if (php_sapi_name() === 'cli') {
     $start_date = null;
     $end_date = null;
 } else {
+    require_once __DIR__ . '/services/FeatureManager.php';
+    \FeatureManager::requireAccess('MOD_OBE_ANALYSIS');
+
     // Allow POST with secretcode OR active session with facid/admin/hod for GET
     $is_auth = false;
     if (!empty($_SESSION['facid']) || !empty($_SESSION['role'])) {

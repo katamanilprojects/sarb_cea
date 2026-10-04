@@ -1,6 +1,11 @@
 <?php
 // facseemarks.php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_SEE_MARKS');
+
 $page_title = "External (SEE) Examination Manager";
 require_once("facheader.php");
 require_once("faculty.class.php");
@@ -14,6 +19,20 @@ $faculty_id = $_SESSION['facid'];
 $facultySubjects = $facultyObj->getSubjectsByFacultyId($faculty_id);
 
 $selected_sub_id = null;
+if (!empty($_POST['action']) && $_POST['action'] === 'sync_results' && !empty($_POST['sub_id'])) {
+    \FeatureManager::requireWriteAccess('MOD_SEE_MARKS');
+    require_once __DIR__ . '/services/ExamResultsService.php';
+    $examService = \Services\ExamResultsService::getInstance();
+    $syncRes = $examService->syncResultsToSeeMarks((int)$_POST['sub_id'], (int)$faculty_id);
+    if ($syncRes['status'] === 1) {
+        $_SESSION['succ'] = $syncRes['msg'];
+    } else {
+        $_SESSION['err'] = $syncRes['err'];
+    }
+    header("Location: facseemarks.php?sub_id=" . intval($_POST['sub_id']));
+    exit();
+}
+
 if (!empty($_POST['sub_id']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
     unset($_SESSION['secretcode']);
     $selected_sub_id = intval($_POST['sub_id']);
@@ -24,6 +43,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 ?>
 
 <div class="container my-4">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_SEE_MARKS'); ?>
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white">
             <h5 class="mb-0"><i class="bi bi-journal-check me-2"></i>Semester End Examination (SEE) Evaluation Portal</h5>
@@ -80,16 +100,16 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 
             <div class="row g-4">
                 <!-- Step 1: QP Metadata -->
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card h-100 border-<?= $isMetaAdded ? 'success' : 'secondary'; ?>">
                         <div class="card-body text-center d-flex flex-column">
                             <i class="bi bi-file-earmark-ruled text-<?= $isMetaAdded ? 'success' : 'secondary'; ?> display-4"></i>
                             <h5 class="card-title mt-3">Step 1: QP Metadata</h5>
-                            <p class="card-text text-muted small">Configure Question 1 (1a-1j) compulsory short questions and Q2-Q11 Either/Or pairs, marks, Bloom's levels, and CO mappings.</p>
+                            <p class="card-text text-muted small">Configure Question 1 (1a-1j) compulsory questions and Q2-Q11 Either/Or pairs, Bloom levels, and CO mappings.</p>
                             <span class="badge <?= $isMetaAdded ? 'bg-success' : 'bg-danger'; ?> mb-3"><?= $isMetaAdded ? 'Metadata Configured' : 'Not Configured'; ?></span>
                             <div class="mt-auto">
                                 <a href="facseecompques.php?sub_id=<?= $selected_sub_id; ?>&component_id=<?= $component['id']; ?>" class="btn btn-outline-primary btn-sm w-100">
-                                    <i class="bi bi-pencil-square me-1"></i> <?= $isMetaAdded ? 'View / Reconfigure QP Structure' : 'Add QP Structure'; ?>
+                                    <i class="bi bi-pencil-square me-1"></i> <?= $isMetaAdded ? 'QP Structure' : 'Add Structure'; ?>
                                 </a>
                             </div>
                         </div>
@@ -97,22 +117,19 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                 </div>
 
                 <!-- Step 2: Mode A Detailed Marks -->
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card h-100 border-<?= ($isMetaAdded && !$isSubmitted) ? 'primary' : 'light'; ?>">
                         <div class="card-body text-center d-flex flex-column">
                             <i class="bi bi-table text-primary display-4"></i>
                             <h5 class="card-title mt-3">Mode A: Detailed Entry</h5>
-                            <p class="card-text text-muted small">Enter marks per sub-question (1a..1j, 2a, 2b..) via web grid or CSV upload. Auto-resolves Either/Or choice max pairs.</p>
+                            <p class="card-text text-muted small">Enter marks per sub-question (1a..1j, 2a, 2b..) via web grid or CSV upload. Auto-resolves choice max pairs.</p>
                             <div class="mt-auto d-grid gap-2">
                                 <?php if ($isMetaAdded): ?>
                                     <a href="facseemarksentry.php?sub_id=<?= $selected_sub_id; ?>&component_id=<?= $component['id']; ?>" class="btn btn-primary btn-sm">
-                                        <i class="bi bi-input-cursor-text me-1"></i> Question-Wise Entry
-                                    </a>
-                                    <a href="facseemarkscondensed.php?sub_id=<?= $selected_sub_id; ?>&component_id=<?= $component['id']; ?>" class="btn btn-outline-success btn-sm">
-                                        <i class="bi bi-check2-all me-1"></i> Review & Submit Mode A
+                                        <i class="bi bi-input-cursor-text me-1"></i> Question Entry
                                     </a>
                                 <?php else: ?>
-                                    <button class="btn btn-secondary btn-sm" disabled>Requires QP Metadata First</button>
+                                    <button class="btn btn-secondary btn-sm" disabled>Needs QP Metadata</button>
                                 <?php endif; ?>
                             </div>
                         </div>
@@ -120,20 +137,40 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                 </div>
 
                 <!-- Step 3: Mode B Direct Entry -->
-                <div class="col-md-4">
+                <div class="col-md-3">
                     <div class="card h-100 border-<?= ($isMetaAdded) ? 'info' : 'light'; ?>">
                         <div class="card-body text-center d-flex flex-column">
                             <i class="bi bi-card-checklist text-info display-4"></i>
-                            <h5 class="card-title mt-3">Mode B: Direct Ledger Entry</h5>
-                            <p class="card-text text-muted small">For university mark ledgers. Directly input the finalized total external score (out of <?= $maxSee; ?>) for each student.</p>
+                            <h5 class="card-title mt-3">Mode B: Direct Entry</h5>
+                            <p class="card-text text-muted small">For manual mark ledgers. Directly input the finalized total external score (out of <?= $maxSee; ?>) for each student.</p>
                             <div class="mt-auto d-grid gap-2">
                                 <?php if ($isMetaAdded): ?>
                                     <a href="facseedirectmarks.php?sub_id=<?= $selected_sub_id; ?>&component_id=<?= $component['id']; ?>" class="btn btn-info text-white btn-sm">
-                                        <i class="bi bi-card-list me-1"></i> <?= $isSubmitted ? 'View / Update Direct Marks' : 'Enter Direct Marks (Out of ' . $maxSee . ')'; ?>
+                                        <i class="bi bi-card-list me-1"></i> Direct Marks
                                     </a>
                                 <?php else: ?>
-                                    <button class="btn btn-secondary btn-sm" disabled>Requires QP Metadata First</button>
+                                    <button class="btn btn-secondary btn-sm" disabled>Needs QP Metadata</button>
                                 <?php endif; ?>
+                            </div>
+                        </div>
+                    </div>
+                </div>
+
+                <!-- Step 4: Mode C Auto-Sync from Exam Results -->
+                <div class="col-md-3">
+                    <div class="card h-100 border-success shadow-sm">
+                        <div class="card-body text-center d-flex flex-column">
+                            <i class="bi bi-cloud-arrow-down-fill text-success display-4"></i>
+                            <h5 class="card-title mt-3 text-success">Mode C: Auto-Sync</h5>
+                            <p class="card-text text-muted small">Auto-ingest verified external scores from officially published semester results. Zero manual typing!</p>
+                            <div class="mt-auto d-grid gap-2">
+                                <form method="POST" onsubmit="return confirm('Auto-sync external marks from published examination results for this subject?');">
+                                    <input type="hidden" name="action" value="sync_results">
+                                    <input type="hidden" name="sub_id" value="<?= $selected_sub_id; ?>">
+                                    <button type="submit" class="btn btn-success btn-sm w-100 fw-bold" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
+                                        <i class="bi bi-lightning-charge me-1"></i> Auto-Sync Results
+                                    </button>
+                                </form>
                             </div>
                         </div>
                     </div>

@@ -3,6 +3,9 @@
 use Mpdf\Tag\Mark;
 
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "Edit";
 require_once("facheader.php");
 require_once("faculty.class.php");

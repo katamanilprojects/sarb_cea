@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATT_REQUESTS');
+
 $page_title = "Manage Delete Requests";
 require_once("hod.class.php");
 require_once("hodheader.php");
@@ -8,6 +11,7 @@ $hodObj = new HOD();
 $dept_id = $_SESSION["dept_id"];
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['process_request'])) {
+    \FeatureManager::requireWriteAccess('MOD_ATT_REQUESTS');
     $request_id = $_POST['request_id'];
     $action = $_POST['process_request'];
     $result = $hodObj->processDeleteRequest($request_id, $action);
@@ -36,6 +40,7 @@ if (!empty($deleteRequests['data'])) {
 ?>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_ATT_REQUESTS'); ?>
     <div class="card">
         <div class="card-header">
             Pending - Attendance and Diary Delete Requests
@@ -71,8 +76,8 @@ if (!empty($deleteRequests['data'])) {
                                         <td>
                                             <form action="hodviewdelrequests.php" method="post" id="form<?= $request['id'] ?>">
                                                 <input type="hidden" name="request_id" value="<?= $request['id'] ?>">
-                                                <button type="button" onclick="confirmRequest('Approve', 'form<?= $request['id'] ?>')" class="btn btn-success btn-sm">Approve</button>
-                                                <button type="button" onclick="confirmRequest('Reject', 'form<?= $request['id'] ?>')" class="btn btn-danger btn-sm">Reject</button>
+                                                <button type="button" onclick="confirmRequest('Approve', 'form<?= $request['id'] ?>')" class="btn btn-success btn-sm" <?= \FeatureManager::isHodReadOnly('MOD_ATT_REQUESTS') ? 'disabled' : ''; ?>>Approve</button>
+                                                <button type="button" onclick="confirmRequest('Reject', 'form<?= $request['id'] ?>')" class="btn btn-danger btn-sm" <?= \FeatureManager::isHodReadOnly('MOD_ATT_REQUESTS') ? 'disabled' : ''; ?>>Reject</button>
                                             </form>
                                         </td>
                                     </tr>

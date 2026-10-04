@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CO_PO');
+
 $page_title = "Articulation Matrix";
 require_once("facheader.php"); // Ensure this handles faculty login checks
 require_once("faculty.class.php");
@@ -18,7 +21,7 @@ $poPsoItems = [];
 $currentMappings = [];
 $err = '';
 $succ = '';
-$matrix_mode = 'Add'; // Default to Add mode
+$matrix_mode = \FeatureManager::isFacultyReadOnly('MOD_CO_PO') ? 'View' : 'Add';
 
 // --- Handle POST request ---
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
@@ -33,8 +36,8 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
             $selected_sub_id = (int)$_POST['sub_id'];
 
             // --- Handle Saving Mappings (ONLY IF ADDING) ---
-            // Check if save button was clicked AND if we are conceptually in 'Add' mode (even though mode is re-checked later)
             if (isset($_POST['save_mappings']) && $selected_sub_id) {
+                \FeatureManager::requireWriteAccess('MOD_CO_PO');
                 // Fetch COs and POs/PSOs needed for saving
                 $cos_result_save = $coObj->getCOsBySubjectId($selected_sub_id);
                 $pops_result_save = $coObj->getRelevantPoPso($selected_sub_id);
@@ -123,6 +126,7 @@ require_once("facheader.php"); // Include faculty menu
 ?>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_CO_PO'); ?>
     <br />
     <?php // Display success/error messages
         if (!empty($err)) { echo '<div class="alert alert-danger">' . htmlspecialchars($err, ENT_QUOTES, 'UTF-8') . '</div>'; }

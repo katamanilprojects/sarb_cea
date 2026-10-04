@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -17,6 +20,7 @@ $maxInternalTest = (float)$settingsSvc->get('lab_cia_internal_test_marks', $subR
 
 // Handle form submission
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     unset($_SESSION['secretcode']);
     $sub_id = $_POST['sub_id'];
     $assessmentNumber = $_POST['assessment_number'];
@@ -91,6 +95,7 @@ require_once("facheader.php");
 					<strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>)
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <form action="faceditcialabmarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
@@ -121,17 +126,17 @@ require_once("facheader.php");
                                         <td>
                                             <input type="hidden" name="student_id[]" value="<?php echo $student['id']; ?>">
                                             <input type="hidden" name="marks_id[]" value="<?php echo $student['marks'] ? $student['marks']['id'] : ''; ?>"> 
-                                            <input type="text" name="day_to_day_marks[]" class="form-control" maxlength="5" value="<?php echo $subj; ?>" required>
+                                            <input type="text" name="day_to_day_marks[]" class="form-control" maxlength="5" value="<?php echo $subj; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                         <td>
-                                            <input type="text" name="internal_test_marks[]" class="form-control" maxlength="5" value="<?php echo $obj; ?>" required>
+                                            <input type="text" name="internal_test_marks[]" class="form-control" maxlength="5" value="<?php echo $obj; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
                             </tbody>
                         </table>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" name="submit_action" value="submit" class="btn btn-primary">Validate & Update Marks</button>
+                        <button type="submit" name="submit_action" value="submit" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Validate & Update Marks</button>
                     </form>
                 </div>
                 <div class="card-footer">

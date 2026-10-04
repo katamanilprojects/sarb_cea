@@ -93,16 +93,21 @@ DELETE FROM activity_logs WHERE timestamp < NOW() - INTERVAL 1 YEAR;
 
 At the beginning of a new academic semester:
 1. **SuperAdmin**:
+   - Register incoming graduation cohorts in `superadminbatches.php` (e.g., 2024–2028).
+   - Configure batch-specific Vision, Mission, PEOs, and PO-PEO articulation matrices in `superadminbatchobe.php`.
    - Create the new academic year entry in `superadminacademicyears.php` if transitioning to a new year.
    - Configure or review regulatory policy parameters (CIA theory best/worst weightages, attendance thresholds, attainment targets) in `superadminacademicsettings.php`.
-   - Generate new class sections in `superadminclasses.php` (supporting section letters/numbers, e.g., 'A', 'B').
+   - Generate new class sections in `superadminclasses.php` (supporting section letters/numbers, e.g., 'A', 'B') and bind them to their respective cohort batch.
    - Update class timing schedules in `class_timing_schedule` if semester class timings change.
-2. **Academic Section**:
+2. **Academic Section / Exam Cell**:
    - Maintain master syllabus curriculum courses in `academicsectioncurriculumsubjects.php`.
-   - Upload official regulation and syllabus documents.
+   - Publish semester examination notifications and import CSV results in `academicsectionresults.php`.
+   - Verify incoming student biographical profiles and Cloud Document Vault scans in `adminstudentprofiles.php`.
+   - Record physical certificate intake in the Original Certificates Custody Ledger (`admincustodyledger.php`).
 3. **Admin**:
    - Enroll incoming cohorts into classes (`adminenrollstudents.php`).
    - Create faculty accounts for new teaching appointments.
+   - Review custodial certificates and student statutory certificate requests.
 4. **HOD**:
    - Assign faculty to subjects (`hodmapfaculty.php`).
    - Map elective choices and laboratory batch divisions to students (`hodmapstudents.php`).
@@ -111,5 +116,7 @@ At the beginning of a new academic semester:
    - Formulate Course Outcomes in `facaddcos.php`.
    - Upload lecture lesson plans via CSV or form in `facaddlessonplan.php`.
    - Conduct classes with frictionless topic entry in `facaddattendance.php`.
+   - Auto-sync external examination marks from published results into `facseemarks.php` (Mode C).
    - At semester conclusion, execute end-of-course reconciliation and submit compliance audit in `faclessonplanreconciliation.php`.
+
 

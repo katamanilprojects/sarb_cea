@@ -386,6 +386,60 @@ trait COAttainmentTrait
             unset($r);
         }
 
+        // Mode B / Mode C fallback for SEE: if no question-level marks exist, use consolidated external_assessment_marks
+        $hasAnyAssessed = false;
+        foreach ($results as $chkR) {
+            if (!empty($chkR['is_assessed'])) {
+                $hasAnyAssessed = true;
+                break;
+            }
+        }
+        if (!$hasAnyAssessed && strcasecmp((string)$assessment_id, 'see') === 0) {
+            require_once __DIR__ . '/seeassessment.class.php';
+            $seeObj = new \SEEAssessment();
+            $seeRes = $seeObj->calculateSEECOAttainment($subject_id);
+            if (!empty($seeRes['status']) && !empty($seeRes['data'])) {
+                $newResults = [];
+                $coListQuery = "SELECT id, co_number, co_description FROM course_outcomes WHERE sub_id IN ({$in['sql']}) ORDER BY co_number";
+                $coList = $this->fetchAssoc($coListQuery, $in['params']);
+                if (empty($coList)) {
+                    $coListQuery = "SELECT co.id, co.co_number, co.co_description FROM course_outcomes co JOIN subjects s ON s.curr_sub_id = co.curr_sub_id WHERE s.id IN ({$in['sql']}) AND co.sub_id IS NULL ORDER BY co.co_number";
+                    $coList = $this->fetchAssoc($coListQuery, $in['params']);
+                }
+                foreach ($coList as $coItem) {
+                    $coNum = (int)$coItem['co_number'];
+                    $coData = $seeRes['data'][$coNum] ?? null;
+                    if ($coData) {
+                        $cohortPct = (float)$coData['cohort_percentage'];
+                        $newResults[] = [
+                            'co_id' => $coItem['id'],
+                            'co_number' => $coNum,
+                            'co_label' => 'CO' . $coNum,
+                            'co_description' => $coItem['co_description'] ?? '',
+                            'co_attainment_percentage' => $cohortPct,
+                            'attained_students_count' => (int)$coData['attained_students'],
+                            'total_students_count' => (int)$coData['total_students'],
+                            'is_assessed' => true
+                        ];
+                    } else {
+                        $newResults[] = [
+                            'co_id' => $coItem['id'],
+                            'co_number' => $coNum,
+                            'co_label' => 'CO' . $coNum,
+                            'co_description' => $coItem['co_description'] ?? '',
+                            'co_attainment_percentage' => null,
+                            'attained_students_count' => 0,
+                            'total_students_count' => 0,
+                            'is_assessed' => false
+                        ];
+                    }
+                }
+                if (!empty($newResults)) {
+                    $results = $newResults;
+                }
+            }
+        }
+
         // Suggestions based on dynamic threshold from centralized settings
         $targetThreshold = $this->getTargetAttainmentThreshold($subject_id);
         $suggestions = [];

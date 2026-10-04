@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_GROUPED_ATT');
+
 $page_title = "Grouped CIA Import";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -34,6 +37,7 @@ if ($is_post && !$is_valid_csrf) {
 
 // --- STATE 4: Process Import ---
 if ($is_valid_csrf && isset($_POST['submit_import'])) {
+    \FeatureManager::requireWriteAccess('MOD_GROUPED_ATT');
     $currentState = 4;
     $source_sub_id = (int)$_POST['source_sub_id'];
     $target_sub_ids = $_POST['target_sub_ids'] ?? [];
@@ -227,6 +231,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
             <h4><i class="bi bi-arrows-collapse me-2"></i>Smart Grouped CIA Import Tool</h4>
         </div>
         <div class="card-body">
+            <?= \FeatureManager::renderReadOnlyBanner('MOD_GROUPED_ATT'); ?>
 
             <?php if ($currentState == 1) : ?>
                 <form action="facgroupedcia.php" method="post">
@@ -350,7 +355,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 
                     <div class="mt-4">
                         <a href="facgroupedcia.php" class="btn btn-secondary">Start Over</a>
-                        <button type="submit" name="submit_import" class="btn btn-success"><i class="bi bi-download me-1"></i> Import Selected Items</button>
+                        <button type="submit" name="submit_import" class="btn btn-success" <?= \FeatureManager::isFacultyReadOnly('MOD_GROUPED_ATT') ? 'disabled' : ''; ?>><i class="bi bi-download me-1"></i> Import Selected Items</button>
                     </div>
 
                 </form>

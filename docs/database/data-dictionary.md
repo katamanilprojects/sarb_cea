@@ -267,4 +267,113 @@ Different degree levels and subject types store marks in dedicated specialized c
 - Empty string (`''`): Regular core subject attended by all students in the class.
 - Non-empty (e.g., `'A'`, `'B'`, `'1'`, `'2'`): Sub-batch division used for laboratory batches or student elective choice groups.
 
+---
+
+## 14. Feature Toggle Engine (`system_feature_modules`)
+
+### 14.1 Grounded Feature Modules
+The 15 system feature keys correspond strictly to verified functional modules:
+- `MOD_ATTENDANCE`: Daily Period Attendance Marking & Verification.
+- `MOD_ATT_REQUESTS`: Multi-step Attendance Deletion & Correction Requests.
+- `MOD_CLASS_DIARY`: Classroom Teaching Diary & Topic Delivery Tracking.
+- `MOD_GROUPED_ATT`: Grouped / Multi-Class Elective Attendance Marking.
+- `MOD_BATCH_GOVERNANCE`: Batch-Centric Governance, Vision/Mission, PEOs & Macro-Attainment.
+- `MOD_CO_PO`: Course Outcomes (CO1-CO6) Definition & CO-PO/PSO Articulation Matrix.
+- `MOD_OBE_ANALYSIS`: Direct/Indirect Attainment Calculations & NBA Dossier Export.
+- `MOD_RESULTS_PUBLISH`: Examination Results Publication & SEE Marks Auto-Sync.
+- `MOD_SEE_MARKS`: Semester End Examination (SEE) University Marks Entry.
+- `MOD_STUDENT_PROFILE`: Comprehensive Student Biographical Profile & Document Vault.
+- `MOD_CERTIFICATES`: Statutory Certificate Generation & Custody Movement Ledger.
+- `MOD_CIA_MARKS`: Continuous Internal Assessment (Mid-1, Mid-2, Lab, PG, Project) Marks Entry.
+- `MOD_CIA_METADATA`: CIA Assessment Components, Question-to-CO Mapping & File Attachments.
+- `MOD_LESSON_PLAN`: Unit-wise Lecture Plans & End-of-Course Delivery Reconciliation.
+- `MOD_FEEDBACK`: Student Feedback Surveys (Faculty Appraisal, CO Survey, Course End Survey).
+
+### 14.2 Module Categories (`system_feature_modules.category`)
+- `ATTENDANCE`: Attendance marking, grouped attendance, diary, deletion requests.
+- `OBE`: Batch governance, PEO-Mission mapping, CO-PO articulation, attainment analytics.
+- `EXAMINATION`: Official examination results publication, SEE marks ledger, auto-sync.
+- `PROFILE`: Student biographical profiles, entrance exam ranks, digital document vault.
+- `ADMINISTRATION`: Custodial certificate movement, TC, Bonafide, Study/Conduct certificates.
+- `CIA`: Internal assessment marks, assessment metadata, question paper rubrics.
+- `CURRICULUM`: Lesson plans, end-of-course syllabus reconciliation audits.
+- `FEEDBACK`: Multi-tier feedback surveys, CES ratings, faculty appraisals.
+
+### 14.3 Role Visibility Enum States
+- **Faculty / HOD Visibility (`faculty_visibility`, `hod_visibility`)**:
+  - `VISIBLE`: Module menu links and action buttons are fully displayed and active.
+  - `HIDDEN`: Module menu links and action buttons are suppressed from the interface.
+  - `READONLY`: Navigation remains visible, but write actions (POST submissions) are disabled with informational notices.
+- **Student Visibility (`student_visibility`)**:
+  - `VISIBLE`: Feature is accessible in the student portal (`jntuaceastudents/`).
+  - `HIDDEN`: Feature and associated menu links are completely suppressed in the student portal.
+
+---
+
+## 15. Batch-Centric Governance & OBE Articulation Semantics
+
+### 15.1 Student Cohort Batch (`student_batches`)
+- `batch_name`: Standard cohort title formatted as `<AdmissionYear>-<GraduationYear>` (e.g. `2025-2029`).
+- `admission_year`: Calendar year the cohort matriculated into the degree program.
+- `graduation_year`: Projected graduation year (typically $\text{admission\_year} + 4$ for B.Tech).
+- `is_active`: `1` = Active studying cohort; `0` = Graduated / archived cohort.
+
+### 15.2 Correlation Articulation Weights (`batch_peo_mission_mapping`, `batch_po_peo_mapping`)
+- `0`: No correlation / unmapped.
+- `1`: Low / slight correlation.
+- `2`: Medium / moderate correlation.
+- `3`: High / substantial correlation.
+
+### 15.3 Macro-Attainment Statuses
+- `ATTAINED`: Target threshold reached ($\ge 75\%$ attainment of target benchmark).
+- `PARTIAL`: Moderate progress ($50\% - 74.9\%$ attainment of target benchmark).
+- `ACHIEVED`: Institutional mission alignment satisfied.
+- `MODERATE`: Partial mission correlation satisfied.
+
+---
+
+## 16. Results Publication & Grade Point Conversion Scales
+
+### 16.1 UGC Standard 10-Point Grade Scale Mapping
+| Grade Letter | Grade Meaning | Grade Points | Pass / Fail Classification |
+|---|---|:---:|:---:|
+| `O` / `S` | Outstanding | 10 | PASS |
+| `A+` / `EX` | Excellent | 9 | PASS |
+| `A` | Very Good | 8 | PASS |
+| `B+` | Good | 7 | PASS |
+| `B` | Above Average | 6 | PASS |
+| `C` | Average | 5 | PASS |
+| `D` / `P` | Pass | 4 | PASS |
+| `F` | Fail | 0 | FAIL |
+| `AB` | Absent | 0 | ABSENT |
+| `WH` | Withheld | 0 | WITHHELD |
+
+### 16.2 Semester Grade Point Average (SGPA) Formula
+$$\text{SGPA} = \frac{\sum_{i=1}^{n} (C_i \times G_i)}{\sum_{i=1}^{n} C_i}$$
+Where $C_i$ represents registered credits for course $i$, and $G_i$ represents numerical grade points earned in course $i$.
+
+---
+
+## 17. Student Dossier, Vault, Custody & Statutory Certificates
+
+### 17.1 Physical Custody Statuses (`student_custodial_records.status`)
+- `IN_CUSTODY`: Original hardcopy certificate resides securely in the college vault.
+- `TEMPORARILY_RETURNED`: Original certificate temporarily checked out to student (e.g., passport, visa, higher education interview).
+- `PERMANENTLY_RETURNED`: Original certificate handed back permanently upon graduation or formal exit.
+
+### 17.2 Statutory Certificate Types (`student_certificate_requests.cert_type`)
+- `CUSTODIAL`: Certificate listing all physical original certificates currently deposited in university safe custody.
+- `BONAFIDE`: Official student bonafide certification for bank loans, scholarships, and bus/train concessions.
+- `STUDY_CONDUCT`: Study and conduct record indicating enrolled period and behavioral rating.
+- `TRANSFER_CERTIFICATE`: Formal institutional exit and transfer document (TC).
+- `NO_DUES`: Multi-department clearance verifying clearance of library, laboratory, hostel, and tuition dues.
+
+### 17.3 Certificate Request Processing Statuses (`student_certificate_requests.status`)
+- `REQUESTED`: Submitted by student, pending review by Academic Section.
+- `APPROVED`: Verified and approved by administrative staff.
+- `REJECTED`: Declined with recorded administrative justification remarks.
+- `GENERATED`: Official certificate issued with unique serial tracking number.
+- `ISSUED`: Physically handed over or downloaded.
+
+
 

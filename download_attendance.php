@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
 
 if (empty($_POST['sub_id']) || empty($_POST['secretcode']) || $_POST['secretcode'] != $_SESSION['secretcode']) {
     die("Invalid Request"); // Handle invalid requests

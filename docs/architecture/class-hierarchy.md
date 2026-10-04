@@ -161,6 +161,51 @@ classDiagram
         +set(regCode, key, value, userId, ip) array
     }
 
+    class FeatureManager {
+        -static instance: FeatureManager
+        +getInstance() FeatureManager
+        +loadModules() void
+        +getAllModules() array
+        +getModulesGroupedByCategory() array
+        +isModuleEnabled(moduleKey) bool
+        +canRoleAccess(moduleKey, role) bool
+        +updateModule(moduleKey, data) bool
+    }
+
+    class BatchOBEService {
+        -static instance: BatchOBEService
+        +getInstance() BatchOBEService
+        +getBatches(programId) array
+        +createBatch(data) array
+        +saveBatchVisionMission(data) array
+        +savePEO(data) array
+        +savePeoMissionMatrix(data) array
+        +savePoPeoMatrix(data) array
+        +getBatchMacroAttainment(batchId) array
+    }
+
+    class ExamResultsService {
+        -static instance: ExamResultsService
+        +getInstance() ExamResultsService
+        +getNotifications(academicYearId) array
+        +createNotification(data) array
+        +togglePublishStatus(id, status) bool
+        +importResultsCsv(notificationId, csvPath) array
+        +syncResultsToSeeMarks(notificationId, subjectId) array
+        +getStudentResults(rollNo, notificationId) array
+    }
+
+    class StudentProfileService {
+        -static instance: StudentProfileService
+        +getInstance() StudentProfileService
+        +getProfile(studentId) array
+        +saveProfile(studentId, data) bool
+        +uploadDocument(studentId, docType, file) array
+        +addCustodialRecord(studentId, data) array
+        +requestCertificate(studentId, data) array
+        +getCertificateRenderData(certificateId) array
+    }
+
     class EBluebookPDFService {
         +generateBluebook(sub_id, options) string
     }
@@ -186,6 +231,10 @@ classDiagram
     DBCredentials <|-- Programs
     DBCredentials <|-- Subject
     DBCredentials <|-- SettingsService
+    DBCredentials <|-- FeatureManager
+    DBCredentials <|-- BatchOBEService
+    DBCredentials <|-- ExamResultsService
+    DBCredentials <|-- StudentProfileService
 
     User <|-- SuperAdmin
     User <|-- Admin
@@ -206,6 +255,7 @@ classDiagram
     SuperAdmin *-- AttendanceRules
     Faculty ..> Subject : "delegates offering queries"
     HOD ..> Subject : "delegates offering queries"
+    Faculty ..> ExamResultsService : "auto-syncs external marks"
 ```
 
 ---
@@ -267,5 +317,12 @@ classDiagram
 - **`FeedbackService`** (`feedbackservice.class.php`): Multi-granularity analytical service for Course Outcome (CO) indirect surveys, Course End Surveys (CES), and Student Faculty Appraisals.
 - **`EnhancedPDFService`** (`services/EnhancedPDFService.php`): High-fidelity executive student feedback report generator.
 - **`FeedbackExcelService`** (`services/FeedbackExcelService.php`): Multi-tab analytical workbook generator powered by PhpSpreadsheet.
+
+### 3.6 Enterprise Modular & Accreditation Services
+- **`FeatureManager`** (`services/FeatureManager.php`): Singleton feature gatekeeper managing 15 system modules, category groupings, role overrides, and database activation states (`system_feature_modules` & `system_feature_role_overrides`). Controls feature visibility, read-only permissions, and prevents runtime execution of disabled modules.
+- **`BatchOBEService`** (`services/BatchOBEService.php`): Master OBE governance service managing institutional & departmental Vision/Mission (`vision_mission`), Program Educational Objectives (`peos`), PEO-to-Mission correlation matrices (`peo_mission_mapping`), PO/PSO-to-PEO articulation matrices (`po_peo_mapping`), student cohorts (`student_batches`), cohort target overrides (`batch_peo_targets`), and multi-tier macro-attainment rollups.
+- **`ExamResultsService`** (`services/ExamResultsService.php`): Autonomous examination publication engine managing notification registration (`exam_notifications`), bulk CSV examination result parsing, UGC 10-point scale grade point calculation (`exam_results`), student SGPA generation, and automated marks synchronization into faculty Semester End Examination (SEE) registers (`external_assessment_marks`).
+- **`StudentProfileService`** (`services/StudentProfileService.php`): Comprehensive student identity and record management service managing biographical dossiers (`student_profiles`), secure institutional cloud document vault uploads (`student_documents`), statutory physical certificates custody ledger (`student_custodial_records`), and self-service student certificate applications and generation (`student_certificate_requests`).
+
 
 

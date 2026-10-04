@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_OBE_ANALYSIS');
+
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -246,9 +249,11 @@ require_once("hodheader.php");
                 }
             }
         }
+        $isCiaEnabled = \FeatureManager::isModuleEnabled('MOD_CIA_MARKS');
+        $isSeeEnabled = \FeatureManager::isModuleEnabled('MOD_SEE_MARKS');
         if ($selected_sub_type === 'lab' || $selected_sub_type === 'dti') {
-            if (empty($selected_assessment_number) || $selected_assessment_number == '2') {
-                $selected_assessment_number = '1';
+            if ($selected_assessment_number == '2') {
+                $selected_assessment_number = $isCiaEnabled ? '1' : ($isSeeEnabled ? 'SEE' : null);
             }
         }
         ?>
@@ -262,12 +267,19 @@ require_once("hodheader.php");
                     <select name="assessment_number" id="assessment_number" class="form-select" required onchange="document.getElementById('assessmentForm').submit();">
                         <option value="">--Select Assessment --</option>
                         <?php
-                        if ($selected_sub_type === 'lab' || $selected_sub_type === 'dti') {
-                            $assessments = [1 => "Lab CIA"];
-                        } else {
-                            $assessments = [1 => "CIA 1", 2 => "CIA 2", 'all' => "Overall CIA"];
+                        $assessments = [];
+                        if ($isCiaEnabled) {
+                            if ($selected_sub_type === 'lab' || $selected_sub_type === 'dti') {
+                                $assessments[1] = "Lab CIA";
+                            } else {
+                                $assessments[1] = "CIA 1";
+                                $assessments[2] = "CIA 2";
+                                $assessments['all'] = "Overall CIA";
+                            }
                         }
-                        // $assessments['SEE'] = "Semester End Exam (SEE)"; // Hidden as requested
+                        if ($isSeeEnabled) {
+                            $assessments['SEE'] = "Semester End Exam (SEE)";
+                        }
                         foreach ($assessments as $num => $label):
                             $selected = (!empty($selected_assessment_number) && strcasecmp((string)$selected_assessment_number, (string)$num) === 0) ? 'selected' : '';
                         ?>

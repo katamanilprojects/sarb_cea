@@ -257,7 +257,14 @@ class SuperAdmin extends User
     {
         $res = ['status' => 0];
         try {
-            $stmt = $this->conn->prepare("SELECT c.id, c.acad_year, c.classname, c.yearsem, c.section, c.start_date, c.end_date, c.spec_id, c.timing_id, c.reg_id, r.regulation, r.regulation AS reg, c.status FROM classes c LEFT JOIN regulations r ON c.reg_id = r.id");
+            $stmt = $this->conn->prepare("
+                SELECT c.id, c.acad_year, c.classname, c.yearsem, c.section, c.start_date, c.end_date, 
+                       c.spec_id, c.timing_id, c.reg_id, c.batch_id, b.batch_name,
+                       r.regulation, r.regulation AS reg, c.status 
+                FROM classes c 
+                LEFT JOIN regulations r ON c.reg_id = r.id
+                LEFT JOIN student_batches b ON c.batch_id = b.id
+            ");
             $stmt->execute();
             $result = $stmt->get_result();
             $res['data'] = $result->fetch_all(MYSQLI_ASSOC);
@@ -279,17 +286,18 @@ class SuperAdmin extends User
         $start_date = $data['start_date'];
         $timing_id = (int) $data['timing_id'];
         $reg_id = !empty($data['reg_id']) ? (int) $data['reg_id'] : null;
+        $batch_id = !empty($data['batch_id']) ? (int) $data['batch_id'] : null;
         $end_date = $data['end_date'];
         $status = (int) $data['status'];
 
         try {
             if (!empty($data["id"])) {
                 $class_id = (int) $data["id"];
-                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, section = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, status = ? WHERE id = ?");
-                $stmt->bind_param("ssssissiiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status, $class_id);
+                $stmt = $this->conn->prepare("UPDATE classes SET acad_year=?, classname = ?, yearsem = ?, section = ?, spec_id = ?, start_date = ?, end_date = ?, timing_id = ?, reg_id = ?, batch_id = ?, status = ? WHERE id = ?");
+                $stmt->bind_param("ssssissiiiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $batch_id, $status, $class_id);
             } else {
-                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, section, spec_id, start_date, end_date, timing_id, reg_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
-                $stmt->bind_param("ssssissiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $status);
+                $stmt = $this->conn->prepare("INSERT INTO classes (acad_year, classname, yearsem, section, spec_id, start_date, end_date, timing_id, reg_id, batch_id, status) VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?)");
+                $stmt->bind_param("ssssissiiii", $acad_year, $classname, $yearsem, $section, $spec_id, $start_date, $end_date, $timing_id, $reg_id, $batch_id, $status);
             }
 
             if (!$stmt->execute()) {

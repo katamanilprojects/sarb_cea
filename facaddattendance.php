@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once("services/FeatureManager.php");
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
 
 $page_title = "Mark Attendance";
 require_once("facheader.php");
@@ -50,6 +52,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                 $studentsList = $facultyObj->getMappedStudents($selected_sub_id);
                 $unmarkedHours = $facultyObj->getUnmarkedHours($selected_sub_id, $selected_date);
             } elseif (!empty($_POST['hours']) && !empty($_POST['diary'])) {
+                \FeatureManager::requireWriteAccess('MOD_ATTENDANCE');
                 $stu_ids = isset($_POST['stu_ids']) ? $_POST['stu_ids'] : [];
                 $result = $facultyObj->markAttendance($_POST['hours'], $stu_ids, $selected_sub_id, $selected_date, $_POST['diary'], $faculty_id);
 
@@ -132,6 +135,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
             <div class="card">
                 <div class="card-header">Mark Attendance</div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_ATTENDANCE'); ?>
                     <form action="facaddattendance.php" method="post">
                         <div class="form-group">
                             <label for="sub_id">Subject:</label>
@@ -239,7 +243,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                         </div>
                         <br />
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" class="btn btn-outline-primary">Save Attendance</button>
+                        <button type="submit" class="btn btn-outline-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_ATTENDANCE') ? 'disabled' : ''; ?>>Save Attendance</button>
                         </form>
 
                         <script>

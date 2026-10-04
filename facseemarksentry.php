@@ -2,6 +2,9 @@
 // facseemarksentry.php
 ob_start();
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_SEE_MARKS');
+
 $page_title = "SEE Question-Wise Marks Entry";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -48,6 +51,7 @@ if (isset($_GET['download_csv'])) {
 
 // 2. Handle CSV Upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
+    \FeatureManager::requireWriteAccess('MOD_SEE_MARKS');
     if (!empty($_FILES['csv_file']['tmp_name']) && is_uploaded_file($_FILES['csv_file']['tmp_name'])) {
         $file = fopen($_FILES['csv_file']['tmp_name'], 'r');
         $header = fgetcsv($file);
@@ -82,6 +86,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
 
 // 3. Handle Web Grid Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_grid_marks'])) {
+    \FeatureManager::requireWriteAccess('MOD_SEE_MARKS');
     if (!empty($_POST['marks']) && is_array($_POST['marks'])) {
         foreach ($_POST['marks'] as $stuId => $qScores) {
             $stuIdInt = intval($stuId);
@@ -126,6 +131,7 @@ require_once("facheader.php");
             | <strong>Questions Configured:</strong> <?= count($questions); ?>
         </div>
         <div class="card-body">
+            <?= \FeatureManager::renderReadOnlyBanner('MOD_SEE_MARKS'); ?>
             <?php if (!empty($_SESSION['succ'])): ?><div class="alert alert-success alert-dismissible fade show"><?= $_SESSION['succ']; unset($_SESSION['succ']); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
             <?php if (!empty($_SESSION['err'])): ?><div class="alert alert-danger alert-dismissible fade show"><?= $_SESSION['err']; unset($_SESSION['err']); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
 
@@ -142,7 +148,7 @@ require_once("facheader.php");
                             <input type="file" name="csv_file" class="form-control form-control-sm" accept=".csv" required>
                         </div>
                         <div class="col-md-3">
-                            <button type="submit" name="upload_csv" class="btn btn-primary btn-sm w-100">
+                            <button type="submit" name="upload_csv" class="btn btn-primary btn-sm w-100" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                                 <i class="bi bi-file-earmark-arrow-up me-1"></i> Upload Marks CSV
                             </button>
                         </div>
@@ -179,7 +185,8 @@ require_once("facheader.php");
                                                    name="marks[<?= $stu['id']; ?>][<?= $q['id']; ?>]" 
                                                    value="<?= ($val !== false && $val !== null) ? $val : ''; ?>" 
                                                    class="form-control form-control-sm text-center p-1"
-                                                   style="font-size: 0.85rem;">
+                                                   style="font-size: 0.85rem;"
+                                                   <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'readonly' : ''; ?>>
                                         </td>
                                     <?php endforeach; ?>
                                 </tr>
@@ -192,10 +199,10 @@ require_once("facheader.php");
                         <i class="bi bi-arrow-left me-1"></i> Back to SEE Hub
                     </a>
                     <div>
-                        <button type="submit" name="submit_grid_marks" value="save" class="btn btn-primary px-4 me-2">
+                        <button type="submit" name="submit_grid_marks" value="save" class="btn btn-primary px-4 me-2" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                             <i class="bi bi-save me-1"></i> Save Question Scores
                         </button>
-                        <button type="submit" name="submit_grid_marks" value="proceed" class="btn btn-success px-4" onclick="this.form.action='facseemarksentry.php?sub_id=<?= $sub_id; ?>&component_id=<?= $component_id; ?>&proceed=1'">
+                        <button type="submit" name="submit_grid_marks" value="proceed" class="btn btn-success px-4" onclick="this.form.action='facseemarksentry.php?sub_id=<?= $sub_id; ?>&component_id=<?= $component_id; ?>&proceed=1'" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                             Save & Proceed to Review <i class="bi bi-arrow-right ms-1"></i>
                         </button>
                     </div>

@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
+
 $page_title = "Update Student Attendance";
 require_once("facheader.php");
 require_once("faculty.class.php");
@@ -144,6 +147,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['get_attendance'])) {
 }
 
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['update_attendance'])) {
+    \FeatureManager::requireWriteAccess('MOD_ATTENDANCE');
     $sub_id = $_POST['sub_id'];
     $date = $_POST['date'];
     $hour = $_POST['hour'];
@@ -191,6 +195,7 @@ if (!empty($succmsg)) {
             <div class="card">
                 <div class="card-header">Update Single Student Attendance</div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_ATTENDANCE'); ?>
                     <form action="facupdatestudentattendance.php" method="post">
                         <div class="form-group">
                             <label for="sub_id">Subject:</label>
@@ -319,7 +324,7 @@ if (!empty($succmsg)) {
                             <input type="hidden" name="hour" value="<?= $hour ?>">
                             <input type="hidden" name="stu_id" value="<?= $stu_id ?>">
                             <a href="facupdatestudentattendance.php" class="btn btn-outline-danger">Cancel</a>&nbsp;
-                            <button type="submit" name="update_attendance" class="btn btn-primary">Update Attendance</button>
+                            <button type="submit" name="update_attendance" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_ATTENDANCE') ? 'disabled' : ''; ?>>Update Attendance</button>
                         <?php endif; ?>
                     </form>
                     <br>

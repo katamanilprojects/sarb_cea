@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once("services/FeatureManager.php");
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "Edit";
 require_once("facheader.php");
 require_once("faculty.class.php");
@@ -32,6 +35,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
             <div class="card">
                 <div class="card-header">Continuous Internal Assessment Marks and their Related Attachments</div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <form action="facciamarks.php" method="post">
                         <div class="form-group">
                             <label for="sub_id">Subject:</label>

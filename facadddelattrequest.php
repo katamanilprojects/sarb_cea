@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATT_REQUESTS');
+
 $page_title = "Edit";
 require_once("facheader.php");
 require_once("faculty.class.php");
@@ -45,6 +48,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['get_details'])) {
 
 // Step 3: Handle request submission
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_request'])) {
+    \FeatureManager::requireWriteAccess('MOD_ATT_REQUESTS');
     $sub_id = $_POST['sub_id'];
     $date = $_POST['date'];
     $hour = $_POST['hour'];
@@ -79,6 +83,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 ?>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_ATT_REQUESTS'); ?>
     <br>
     <div class="row">
         <div class="col-sm-12">
@@ -193,7 +198,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                             <input type="hidden" name="hour" value="<?= $hour ?>">
                             <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode'] ?>">
                             <a href="facadddelattrequest.php" class="btn btn-outline-danger">Cancel Request</a>&nbsp;
-                            <button type="submit" name="submit_request" class="btn btn-primary">Submit Request</button>
+                            <button type="submit" name="submit_request" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_ATT_REQUESTS') ? 'disabled' : ''; ?>>Submit Request</button>
                         <?php endif; ?>
                     </form>
                     <br>

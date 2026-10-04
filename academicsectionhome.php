@@ -1,5 +1,7 @@
 <?php
-session_start();
+if (session_status() === PHP_SESSION_NONE) {
+    session_start();
+}
 $page_title = "Home";
 require_once("academicsectionheader.php");
 ?>
@@ -23,49 +25,52 @@ require_once("academicsectionheader.php");
 
     <div class="row g-3">
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
             <div class="card h-100 shadow-sm">
                 <div class="card-header">Academic Setup</div>
                 <div class="card-body">
                     <p class="mb-3">
                         Maintain the shared academic master data used across institutional workflows.
                     </p>
-                    <ul class="mb-3">
+                    <ul class="mb-3 small">
                         <li>Manage buildings and halls used in timetable and room allocation workflows.</li>
                         <li>View and manage regulations required for academic structure mapping.</li>
                         <li>Upload and maintain syllabus records in a structured and grouped format.</li>
                     </ul>
                     <div class="d-grid gap-2">
-                        <a href="academicsectionmanagebuildings.php" class="btn btn-outline-primary">
+                        <a href="academicsectionmanagebuildings.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-building me-1"></i> Buildings & Halls
                         </a>
-                        <a href="academicsectionregulations.php" class="btn btn-outline-primary">
+                        <a href="academicsectionregulations.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-diagram-3 me-1"></i> Regulations
                         </a>
-                        <a href="academicsectionsyllabus.php" class="btn btn-outline-primary">
+                        <a href="academicsectionsyllabus.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-file-earmark-text me-1"></i> Syllabus
+                        </a>
+                        <a href="academicsectioncurriculumsubjects.php" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-book me-1"></i> Curriculum Subjects
                         </a>
                     </div>
                 </div>
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
             <div class="card h-100 shadow-sm">
                 <div class="card-header">Academic Views</div>
                 <div class="card-body">
                     <p class="mb-3">
                         Access institution-level academic visibility tools for monitoring and reference.
                     </p>
-                    <ul class="mb-3">
+                    <ul class="mb-3 small">
                         <li>View class attendance reports across departments and classes.</li>
                         <li>View faculty-wise timetable across departments for academic monitoring and reference.</li>
                     </ul>
                     <div class="d-grid gap-2">
-                        <a href="academicsectionshowallclsattendance.php" class="btn btn-outline-primary">
+                        <a href="academicsectionshowallclsattendance.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-calendar-check me-1"></i> View Attendance
                         </a>
-                        <a href="faculty_weekly_timetable.php" class="btn btn-outline-primary">
+                        <a href="faculty_weekly_timetable.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-table me-1"></i> View Timetables
                         </a>
                     </div>
@@ -73,26 +78,53 @@ require_once("academicsectionheader.php");
             </div>
         </div>
 
-        <div class="col-md-4">
+        <div class="col-md-6 col-lg-3">
+            <div class="card h-100 shadow-sm">
+                <div class="card-header bg-primary text-white"><i class="bi bi-file-earmark-spreadsheet me-1"></i> Exams & Dossier</div>
+                <div class="card-body">
+                    <p class="mb-3">
+                        Publish examination results, manage student document vault, physical custody, and official certificates.
+                    </p>
+                    <ul class="mb-3 small">
+                        <li>Upload CSV results and publish student grade cards.</li>
+                        <li>Verify student biographical profiles and document vault.</li>
+                        <li>Track physical original certificates and generate certificates.</li>
+                    </ul>
+                    <div class="d-grid gap-2">
+                        <a href="academicsectionresults.php" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-file-earmark-arrow-up me-1"></i> Publish Results
+                        </a>
+                        <a href="adminstudentprofiles.php" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-person-badge me-1"></i> Student Profiles & Vault
+                        </a>
+                        <a href="admincustodyledger.php" class="btn btn-outline-primary btn-sm">
+                            <i class="bi bi-journal-bookmark me-1"></i> Custody & Certificates
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+
+        <div class="col-md-6 col-lg-3">
             <div class="card h-100 shadow-sm">
                 <div class="card-header">Account Support</div>
                 <div class="card-body">
                     <p class="mb-3">
                         Perform user support and account maintenance functions assigned to Academic Section.
                     </p>
-                    <ul class="mb-3">
+                    <ul class="mb-3 small">
                         <li>Reset student passwords when required.</li>
                         <li>Reset faculty passwords for operational support.</li>
                         <li>Update your own login password securely.</li>
                     </ul>
                     <div class="d-grid gap-2">
-                        <a href="academicsectionresetstudentpwd.php" class="btn btn-outline-primary">
+                        <a href="academicsectionresetstudentpwd.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-person me-1"></i> Reset Student Pwd
                         </a>
-                        <a href="academicsectionresetfacultypwd.php" class="btn btn-outline-primary">
+                        <a href="academicsectionresetfacultypwd.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-briefcase me-1"></i> Reset Faculty Pwd
                         </a>
-                        <a href="academicsectionchgpwd.php" class="btn btn-outline-primary">
+                        <a href="academicsectionchgpwd.php" class="btn btn-outline-primary btn-sm">
                             <i class="bi bi-shield-lock me-1"></i> Change Password
                         </a>
                     </div>

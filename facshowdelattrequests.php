@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATT_REQUESTS');
+
 $page_title = "Edit";
 require_once("facheader.php");
 require_once("faculty.class.php");

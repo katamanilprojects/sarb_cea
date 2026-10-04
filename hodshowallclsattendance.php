@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
 
 $page_title = "View Attendance";
 require_once("hod.class.php");

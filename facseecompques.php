@@ -2,6 +2,9 @@
 // facseecompques.php
 ob_start();
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_SEE_MARKS');
+
 $page_title = "Configure SEE Question Paper Metadata";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -41,6 +44,7 @@ $template = $templates[$template_id];
 
 // Handle Step 2: Form submission of question metadata
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['submit_see_metadata'])) {
+    \FeatureManager::requireWriteAccess('MOD_SEE_MARKS');
     if (empty($_POST['questions']) || !is_array($_POST['questions'])) {
         $_SESSION['err'] = "No questions received. Please try again.";
         header("Location: facseecompques.php?sub_id=$sub_id&component_id=$component_id&template_id=$template_id");
@@ -93,6 +97,7 @@ require_once("facheader.php");
             | <strong>Template:</strong> <?= htmlspecialchars($template['name']); ?>
         </div>
         <div class="card-body">
+            <?= \FeatureManager::renderReadOnlyBanner('MOD_SEE_MARKS'); ?>
             <?php if (!empty($_SESSION['err'])): ?>
                 <div class="alert alert-danger alert-dismissible fade show"><?= $_SESSION['err']; unset($_SESSION['err']); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div>
             <?php endif; ?>
@@ -165,7 +170,7 @@ require_once("facheader.php");
                         <a href="facseemarks.php?sub_id=<?= $sub_id; ?>" class="btn btn-secondary">
                             <i class="bi bi-x-circle me-1"></i> Cancel
                         </a>
-                        <button type="submit" name="step_subparts" value="1" class="btn btn-primary">
+                        <button type="submit" name="step_subparts" value="1" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                             Next: Define Marks, Bloom's & COs <i class="bi bi-arrow-right ms-1"></i>
                         </button>
                     </div>
@@ -301,7 +306,7 @@ require_once("facheader.php");
                         <a href="facseecompques.php?sub_id=<?= $sub_id; ?>&component_id=<?= $component_id; ?>&template_id=<?= $template_id; ?>" class="btn btn-secondary">
                             <i class="bi bi-arrow-left me-1"></i> Back to Subparts
                         </a>
-                        <button type="submit" name="submit_see_metadata" value="1" class="btn btn-success px-4" onclick="return confirm('Save question paper metadata? This will configure all sub-questions and CO mappings.');">
+                        <button type="submit" name="submit_see_metadata" value="1" class="btn btn-success px-4" onclick="return confirm('Save question paper metadata? This will configure all sub-questions and CO mappings.');" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                             <i class="bi bi-save me-1"></i> Save SEE Question Paper Metadata
                         </button>
                     </div>

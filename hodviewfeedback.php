@@ -14,6 +14,9 @@ if (empty($_SESSION['user']) || $_SESSION['role'] !== 'hod' || empty($_SESSION['
     exit();
 }
 
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_FEEDBACK');
+
 $dept_id = intval($_SESSION['dept_id']);
 
 // View level selection: 'class', 'faculty', 'subject'

@@ -19,6 +19,11 @@ if (!empty($_SESSION['facid']) || !empty($_SESSION['role'])) {
     $is_auth = true;
 }
 
+if (php_sapi_name() !== 'cli') {
+    require_once __DIR__ . '/services/FeatureManager.php';
+    \FeatureManager::requireAccess('MOD_OBE_ANALYSIS');
+}
+
 if (php_sapi_name() === 'cli') {
     $sub_id = !empty($argv[1]) ? intval($argv[1]) : 656;
 } elseif ($_SERVER['REQUEST_METHOD'] === 'POST') {

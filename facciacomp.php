@@ -3,6 +3,9 @@
 use Mpdf\Tag\Mark;
 
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_METADATA');
+
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -31,6 +34,10 @@ $subjectDetails = $facultyObj->getSubjectDetails($sub_id);
 $prg_res = $facultyObj->getPrgCodeBySubID($sub_id);
 
 // Handle Form Submission
+if ($_SERVER['REQUEST_METHOD'] === 'POST') {
+    \FeatureManager::requireWriteAccess('MOD_CIA_METADATA');
+}
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && !empty($_POST['component_type']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
     unset($_SESSION['secretcode']);
     $component_type = $_POST['component_type'];
@@ -129,6 +136,7 @@ $allMarksEntered = 1;
                     <strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>) - <?php echo $prg_res['classname']; ?>
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_METADATA'); ?>
                     <?php if (!empty($_SESSION["succ"])) { ?>
                         <div class="alert alert-success"><?php echo $_SESSION["succ"];
                                                             unset($_SESSION["succ"]); ?></div>
@@ -297,7 +305,7 @@ $allMarksEntered = 1;
                     if ($prg_res['sub_type'] == "lab") : ?>
                         <?php if (empty($ciaObj->isUGLabInternalAssessmentAdded($sub_id, $assessment_number))): ?>
                             <!-- Add New Day-to-Day Component Toggle Button and Form -->
-                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('d2dForm').style.display='block'; this.style.display='none';">
+                            <button type="button" class="btn btn-sm btn-outline-primary" onclick="document.getElementById('d2dForm').style.display='block'; this.style.display='none';" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA') ? 'disabled' : ''; ?>>
                                 Click here to Add New Day-to-Day Component <?php if (!empty($no_of_assignments)) {
                                                                                 echo "(Day-to-Day - " . $assessment_number . "." . ($no_of_assignments + 1) . ")";
                                                                             } ?>
@@ -308,7 +316,7 @@ $allMarksEntered = 1;
                                     <label for="d2d_date">Select Date for Day-to-Day Component:</label>
                                     <input type="date" name="d2d_date" id="d2d_date" class="form-control" required>
                                 </div>
-                                <button type="submit" class="btn btn-sm btn-primary">
+                                <button type="submit" class="btn btn-sm btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA') ? 'disabled' : ''; ?>>
                                     Confirm Add Day-to-Day Component
                                 </button>
                             </form>
@@ -326,7 +334,7 @@ $allMarksEntered = 1;
                             <!-- Add New Assignment Button -->
                             <form method="POST">
                                 <input type="hidden" name="add_activity" value="1">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">Click here Add New Activity <?php if (!empty($no_of_assignments)) {
+                                <button type="submit" class="btn btn-sm btn-outline-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA') ? 'disabled' : ''; ?>>Click here Add New Activity <?php if (!empty($no_of_assignments)) {
                                                                                                                                 echo "(Activity - " . ($no_of_assignments + 1) . "";                                                                                                          } ?></button>
                             </form>
                         <?php endif; ?>
@@ -346,7 +354,7 @@ $allMarksEntered = 1;
                             <!-- Add New Assignment Button -->
                             <form method="POST">
                                 <input type="hidden" name="add_assignment" value="1">
-                                <button type="submit" class="btn btn-sm btn-outline-primary">Click here Add New Assignment <?php if (!empty($no_of_assignments)) {
+                                <button type="submit" class="btn btn-sm btn-outline-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA') ? 'disabled' : ''; ?>>Click here Add New Assignment <?php if (!empty($no_of_assignments)) {
                                                                                                                                 echo "(Assignment - " . $assessment_number . "." . ($no_of_assignments + 1) . ")";
                                                                                                                             } ?></button>
                             </form>

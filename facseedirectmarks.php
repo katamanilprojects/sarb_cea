@@ -2,6 +2,8 @@
 // facseedirectmarks.php
 ob_start();
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_SEE_MARKS');
 $page_title = "Direct External Marks Entry";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -37,6 +39,7 @@ foreach ($savedMarks as $sm) {
 
 // Handle Direct Submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_direct_marks'])) {
+    \FeatureManager::requireWriteAccess('MOD_SEE_MARKS');
     if (!empty($_POST['direct_marks']) && is_array($_POST['direct_marks'])) {
         $res = $seeObj->saveDirectSEEMarks($sub_id, $_POST['direct_marks'], $maxMarks, $_SESSION['facid']);
         if ($res['status'] == 1) {
@@ -66,6 +69,7 @@ require_once("facheader.php");
             | <strong>Status:</strong> <?= $isSubmitted ? '<span class="badge bg-success">Recorded in Database</span>' : '<span class="badge bg-warning text-dark">Pending Entry</span>'; ?>
         </div>
         <div class="card-body">
+            <?= \FeatureManager::renderReadOnlyBanner('MOD_SEE_MARKS'); ?>
             <?php if (!empty($_SESSION['succ'])): ?><div class="alert alert-success alert-dismissible fade show"><?= $_SESSION['succ']; unset($_SESSION['succ']); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
             <?php if (!empty($_SESSION['err'])): ?><div class="alert alert-danger alert-dismissible fade show"><?= $_SESSION['err']; unset($_SESSION['err']); ?><button type="button" class="btn-close" data-bs-dismiss="alert"></button></div><?php endif; ?>
 
@@ -101,7 +105,8 @@ require_once("facheader.php");
                                                    name="direct_marks[<?= $stu['id']; ?>]" 
                                                    value="<?= ($current !== '') ? $current : ''; ?>" 
                                                    class="form-control form-control-sm text-center fw-bold" 
-                                                   placeholder="0 - <?= $maxMarks; ?>" required>
+                                                   placeholder="0 - <?= $maxMarks; ?>" 
+                                                   <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -114,7 +119,7 @@ require_once("facheader.php");
                         <i class="bi bi-arrow-left me-1"></i> Back to SEE Hub
                     </a>
                     <?php if (!empty($students)): ?>
-                        <button type="submit" name="save_direct_marks" class="btn btn-success px-4" onclick="return confirm('Submit direct university ledger marks?');">
+                        <button type="submit" name="save_direct_marks" class="btn btn-success px-4" onclick="return confirm('Submit direct university ledger marks?');" <?= \FeatureManager::isFacultyReadOnly('MOD_SEE_MARKS') ? 'disabled' : ''; ?>>
                             <i class="bi bi-save me-1"></i> Submit University Ledger Scores
                         </button>
                     <?php endif; ?>

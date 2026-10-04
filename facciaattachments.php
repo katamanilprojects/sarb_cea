@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_METADATA');
 
 if (!empty($_GET['sub_id']) && !empty($_GET['assessment_number'])) {
     $sub_id = $_GET['sub_id'];
@@ -18,6 +20,7 @@ $facultyObj = new Faculty();
 $ciaObj = new CIA();
 
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_METADATA');
     unset($_SESSION['secretcode']);
     $sub_id = $_POST['sub_id'];
     $assessmentNumber = $_POST['assessment_number'];
@@ -66,6 +69,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 
 <div class="container">
     <br />
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_METADATA'); ?>
     <div class="row">
         <div class="col-sm-12">
             <div class="card">
@@ -78,6 +82,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                 <?php
                 $attachments = $facultyObj->getCIAAttachments($sub_id, $assessmentNumber);
                 $components = $ciaObj->getAssessmentComponents($sub_id, $assessmentNumber);
+                $isReadOnly = \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA');
 
                 if ((!empty($attachments['count']) && $attachments['count'] > 0) || !empty($components['data'])) {
                     echo '<div class="card-header">Uploaded Attachments</div>';
@@ -87,13 +92,14 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                     $sno = 1;
                     $attachments_count = 0;
                     foreach ($attachments["files"] as $attachment) {
+                        $delBtnAttr = $isReadOnly ? 'disabled' : '';
                         echo '<tr><td>' . $sno . '</td><td>' . $attachment['file_title'] . '</td><td><a href="' . $attachment['file_path'] . '" target="_blank" download class="btn btn-sm btn-primary">Download</a></td><td>';
                         echo '<form action="' . $action_self . '" method="post" onsubmit=\'return confirm("Are you sure you want to delete the Attachment ? ");\'>
                         <input type="hidden" name="id" value="' . $attachment['id'] . '">
                         <input type="hidden" name="sub_id" value="' . $sub_id . '">
                         <input type="hidden" name="assessment_number" value="' . $assessmentNumber . '">
                         <input type="hidden" name="secretcode" value="' . $_SESSION['secretcode'] . '">
-                        <input type="submit" value="X" name="submitbtn" class="btn btn-sm btn-danger"></form>';
+                        <input type="submit" value="X" name="submitbtn" class="btn btn-sm btn-danger" ' . $delBtnAttr . '></form>';
                         echo '</td></tr>';
                         $sno++;
                         $attachments_count++;
@@ -128,8 +134,8 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
         </div>
     </div>
     <br>
-    <button id="showaddnewdiv" class="btn btn-success" <?php if (!empty($attachments_count) && $attachments_count > 5) {
-                                                            echo 'readonly disabled';
+    <button id="showaddnewdiv" class="btn btn-success" <?php if ((!empty($attachments_count) && $attachments_count > 5) || \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA')) {
+                                                            echo 'disabled';
                                                         } ?>>Add New Attachment</button>
     <?php if (!empty($succ)) echo '<br><div class="alert alert-success">' . $succ . '</div>'; ?>
     <?php if (!empty($err)) echo '<br><div class="alert alert-danger">' . $err . '</div>'; ?>
@@ -152,7 +158,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                             <input type="file" name="attachment" id="attachment" class="form-control" accept=".pdf,.docx,.jpg,.png,.xlsx,.xls,.csv,.doc" />
                         </div>
                         <br>
-                        <button type="submit" class="btn btn-success">Submit</button>
+                        <button type="submit" class="btn btn-success" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_METADATA') ? 'disabled' : ''; ?>>Submit</button>
                     </form>
                 </div>
                 <div class="card-footer">

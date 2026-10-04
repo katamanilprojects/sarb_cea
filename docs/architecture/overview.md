@@ -28,7 +28,12 @@ The application follows a **Hybrid Page-Controller / Domain-Service** architectu
    - Core administrative models: `User`, `Admin`, `Faculty`, `HOD`, `AcademicSection`, `SuperAdmin`.
    - Course and offering models: `Subject` (offerings, elective groups, batch divisions), `CurriculumSubject` (master catalog).
    - Assessment & OBE models: `CIA`, `CIAMarks`, `AssessmentStructure`, `COAttainment`, `CourseOutcome`, `SEEAssessment`, `LearningAnalytics`, `Timetable`, `AttendanceRules`, `FacCIAAnalysis2`.
-   - Dedicated business services: `SettingsService` (autonomous policy rules), `LessonPlanService` (lecture delivery and reconciliation), `EBluebookPDFService` (accreditation Bluebook generation), `OBEAnalysisPDFService` (NBA attainment reports), `EnhancedPDFService`, and `FeedbackExcelService`.
+   - Enterprise accreditation & governance services:
+     - `FeatureManager`: Dynamic 15-module system gatekeeper, role-override enforcer, and category manager.
+     - `BatchOBEService`: Full multi-year cohort OBE hierarchy (Vision/Mission &rarr; PEOs &rarr; POs/PSOs &rarr; Macro-Attainment).
+     - `ExamResultsService`: Autonomous notification publisher, CSV parser, UGC 10-point scale engine, and SEE marks auto-synchronizer.
+     - `StudentProfileService`: Student biographical dossier, Cloud Document Vault, original certificates custody ledger, and statutory certificate generator.
+   - Dedicated reporting & policy services: `SettingsService` (autonomous policy rules), `LessonPlanService` (lecture delivery and reconciliation), `EBluebookPDFService` (accreditation Bluebook generation), `OBEAnalysisPDFService` (NBA attainment reports), `EnhancedPDFService`, and `FeedbackExcelService`.
    - Return structured associative arrays indicating status and payloads (e.g., `['status' => 1, 'data' => ...]`).
 
 3. **AJAX Endpoints**:

@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 require_once "faculty.class.php";
 require_once "cia.class.php";
 
@@ -52,6 +55,7 @@ if (!empty($all_components['data'])) {
 
 // POST: manual form submission
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['marks']) && is_array($_POST['marks'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     $added = [];
     $skipped = [];
     foreach ($_POST['marks'] as $comp_id => $stu_marks) {
@@ -92,6 +96,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['marks']) && is_array(
 
 // POST: CSV upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     if (!empty($_FILES['csv_file']['tmp_name'])) {
         // Build map using strict d-m-Y format as key
         $col_map = [];
@@ -180,6 +185,7 @@ require_once "facheader.php";
                     (<?php echo htmlspecialchars($subjectDetails['data']['subcode']); ?>) — <?php echo htmlspecialchars($prg_res['classname']); ?>
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <?php if (!empty($_SESSION['succ'])): ?>
                         <div class="alert alert-success"><?php echo $_SESSION['succ']; unset($_SESSION['succ']); ?></div>
                     <?php endif; ?>
@@ -198,7 +204,7 @@ require_once "facheader.php";
                             <a href="facbulkd2dmarks.php?<?php echo $url_get_data; ?>&download_csv=1" class="btn btn-success">Download CSV Template</a>
                             <form method="post" enctype="multipart/form-data" class="mt-3">
                                 <input type="file" name="csv_file" accept=".csv" required>
-                                <button type="submit" name="upload_csv" class="btn btn-primary ms-2">Upload CSV</button>
+                                <button type="submit" name="upload_csv" class="btn btn-primary ms-2" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Upload CSV</button>
                             </form>
                         </div>
                     </div>
@@ -255,7 +261,7 @@ require_once "facheader.php";
                                                     <input type="number"
                                                         name="marks[<?php echo $dc['id']; ?>][<?php echo $st['id']; ?>]"
                                                         min="0" max="<?php echo $dc['max_marks']; ?>"
-                                                        step="0.5" class="form-control form-control-sm" style="min-width:70px;" required>
+                                                        step="0.5" class="form-control form-control-sm" style="min-width:70px;" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                                     <?php else: ?>
                                                     <span class="text-muted">—</span>
                                                     <?php endif; ?>
@@ -266,7 +272,7 @@ require_once "facheader.php";
                                         </tbody>
                                     </table>
                                 </div>
-                                <button type="submit" class="btn btn-primary">Save Selected Marks</button>
+                                <button type="submit" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Save Selected Marks</button>
                                 <a href="facciacomp.php?<?php echo $url_get_data; ?>" class="btn btn-secondary ms-2">Back</a>
                             </form>
                         </div>

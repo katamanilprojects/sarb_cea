@@ -14,11 +14,14 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[Coding Standards & Conventions](./architecture/coding-standards.md)**: PHPDoc conventions, standardized method return arrays, database transaction patterns, and MySQLi prepared statements.
 
 ### 2. [Database Documentation](./database/)
-- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 55 tables, organized by 9 functional domains.
-- **[Entity-Relationship Diagrams & Keys](./database/relationships.md)**: Mermaid ER diagrams, 71 explicit foreign keys, and exact table join mechanisms (`users.username` joins, mapping tables).
-- **[Data Dictionary](./database/data-dictionary.md)**: Status flags, enumeration values (`assessment_components`), criteria operators, Bloom's taxonomy definitions, and academic settings categories.
+- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 66 tables, organized by 10 functional domains.
+- **[Entity-Relationship Diagrams & Keys](./database/relationships.md)**: Mermaid ER diagrams, explicit foreign keys, and exact table join mechanisms (`users.username` joins, mapping tables).
+- **[Data Dictionary](./database/data-dictionary.md)**: Status flags, enumeration values (`assessment_components`), criteria operators, Bloom's taxonomy definitions, 15 feature toggle states, academic settings categories, grade scales, and custody statuses.
 
 ### 3. [Workflows & Business Logic](./workflows/)
+- **[Batch-Centric Governance & Full-Cycle OBE Hierarchy](./workflows/batch-obe-governance.md)**: Permanent student cohorts, Vision & Mission, PEOs, dual articulation mapping (PEO-Mission & PO-PEO), and multi-tier macro-attainment backtracking.
+- **[Results Publication & Automated SEE Marks Ingestion](./workflows/results-publication.md)**: Exam notifications, bulk CSV results upload, automatic grade points conversion, student grade cards, dynamic SGPA, and 1-click auto-syncing of external exam marks.
+- **[Student Profile, Document Vault, Custody Ledger & Certificates](./workflows/student-profile-and-certificates.md)**: Student biographical dossier, digital document vault, physical original certificate tracking, and statutory certificate generation (Custodial, TC, Study & Conduct, Bonafide, No Dues).
 - **[Attendance Marking & Diary Workflow](./workflows/attendance-marking.md)**: Subject selection via `Subject` class, hour validation, frictionless daily topic logging, and atomic database transactions.
 - **[Lesson Planning, Reconciliation & Compliance Workflow](./workflows/lesson-plan-and-compliance.md)**: Lecture syllabus planning, bulk CSV upload, end-of-course daily topic reconciliation, and NBA Criterion 2.2 course completion compliance audits.
 - **[Attendance Deletion & Approval Lifecycle](./workflows/attendance-deletion.md)**: Faculty deletion requests, reason tracking, and HOD review/approval lifecycle.
@@ -28,7 +31,8 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[Student Feedback & Institutional Surveys](./workflows/feedback-surveys.md)**: Course Outcomes indirect feedback, 5-domain Course End Surveys (CES), faculty appraisals, strict anonymity safeguards, and PDF/Excel exports.
 
 ### 4. [Roles & Permissions](./roles-and-permissions/)
-- **[Role Permission Matrix](./roles-and-permissions/matrix.md)**: Cross-cutting feature and page access matrix across all five active administrative roles (`superadmin`, `admin`, `academic_section`, `hod`, `faculty`).
+- **[Master User, Feature, File & Database Table Mapping](./roles-and-permissions/user_feature_file_table_mapping.md)**: Exhaustive ground-truth mapping across all 6 roles, all 15 feature modules, 198 physical PHP controllers/views/services, and 66 read/write database tables.
+- **[Role Permission Matrix](./roles-and-permissions/matrix.md)**: Cross-cutting feature and page access matrix across all six roles (`superadmin`, `admin`, `academic_section`, `hod`, `faculty`, `student`).
 - **[Role Guides](./roles-and-permissions/role-guides.md)**: Comprehensive guide detailing responsibilities, script entrypoints, and underlying class methods for each role.
 
 ### 5. [Deployment & Operations](./deployment/)
@@ -46,7 +50,8 @@ graph TD
     Client[Web Browser / Mobile Client] --> Apache[Apache HTTP Server / XAMPP]
     Apache --> Router[Session Guard & Page Controllers]
     Router --> Auth[Authentication & Brute Force Guard: user.class.php]
-    Router --> Domain[Domain Service Classes]
+    Router --> FeatureGuard[Feature Toggle Engine: services/FeatureManager.php]
+    FeatureGuard --> Domain[Domain Service Classes]
     
     subgraph Domain Models & Services
         Admin[admin.class.php]
@@ -57,6 +62,9 @@ graph TD
         Subject[subject.class.php]
         CIA[cia.class.php / ciamarks.class.php]
         OBE[coattainment.class.php]
+        BatchOBE[services/BatchOBEService.php]
+        ExamResults[services/ExamResultsService.php]
+        StudentProfile[services/StudentProfileService.php]
         LessonPlan[services/LessonPlanService.php]
         Settings[services/SettingsService.php]
         Timetable[timetable.class.php]
@@ -65,7 +73,7 @@ graph TD
     
     Domain --> BaseUser[User Class: user.class.php]
     BaseUser --> BaseDB[DBCredentials Class: dbcredentials.class.php]
-    BaseDB --> MariaDB[(MariaDB / MySQL Database)]
+    BaseDB --> MariaDB[(MariaDB / MySQL Database - 66 Tables)]
     BaseDB --> Logs[Dual Logging: logs/ & DB tables]
 ```
 

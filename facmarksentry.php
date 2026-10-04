@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 require_once "faculty.class.php";
 require_once "cia.class.php";
 
@@ -26,6 +29,7 @@ $students = $facultyObj->getMappedStudents($sub_id);
 $questions = $ciaObj->getQuestionsByComponent($component_id);
 // Handle form submission
 if (isset($_POST['marks']) && is_array($_POST['marks']) && count($_POST['marks'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     foreach ($_POST['marks'] as $stu_id => $stu_marks) {
         foreach ($stu_marks as $question_id => $marks) {
             $marks_obtained = floatval($marks);
@@ -82,6 +86,7 @@ if (isset($_GET['download_csv'])) {
 
 // Handle CSV Upload
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     if (!empty($_FILES['csv_file']['tmp_name'])) {
         $file = fopen($_FILES['csv_file']['tmp_name'], 'r');
         $headers = fgetcsv($file); // Read the first row (question labels)
@@ -129,6 +134,7 @@ require_once "facheader.php";
 ?>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
     <div class="card">
         <div class="card-header">
             <strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>)
@@ -155,7 +161,7 @@ require_once "facheader.php";
 
             <form method="post" enctype="multipart/form-data" style="margin-top: 20px;">
                 <input type="file" name="csv_file" accept=".csv" required>
-                <button type="submit" name="upload_csv" class="btn btn-primary">Upload CSV</button>
+                <button type="submit" name="upload_csv" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Upload CSV</button>
             </form>
         </div>
     </div>
@@ -216,14 +222,14 @@ require_once "facheader.php";
                                     <td style='min-width: 80px;'>
                                         <input type="number" name="marks[<?php echo $student['id']; ?>][<?php echo $question['id']; ?>]"
                                             min="0" max="<?php echo $question['marks']; ?>"
-                                            class="form-control" value="" step="0.5" required>
+                                            class="form-control" value="" step="0.5" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                     </td>
                                 <?php } ?>
                             </tr>
                         <?php } ?>
                     </tbody>
                 </table>
-                <input type="submit" name="submit_marks" class="btn btn-primary" value="Save Marks" />
+                <input type="submit" name="submit_marks" class="btn btn-primary" value="Save Marks" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?> />
             </form>
         </div>
     </div>

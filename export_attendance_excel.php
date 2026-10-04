@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
 
 if (empty($_SESSION['user']) || !in_array($_SESSION['role'], ['faculty','hod','admin','superadmin'])) {
 	header('Location: ./');

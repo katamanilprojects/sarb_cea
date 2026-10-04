@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_ATTENDANCE');
 
 $page_title = "Add Exceptional Attendance";
 require_once("facheader.php");
@@ -81,6 +83,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['get_unmarked_students'
 
 // Step 3: Handle submission of exceptional attendance
 if ($_SERVER["REQUEST_METHOD"] == "POST" && isset($_POST['submit_exceptional_attendance'])) {
+    \FeatureManager::requireWriteAccess('MOD_ATTENDANCE');
     // Validate secret code for CSRF protection
     if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
         unset($_SESSION['secretcode']);
@@ -135,6 +138,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
             <div class="card">
                 <div class="card-header">Add Attendance (For Exceptional Cases like Lateral Entry students)</div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_ATTENDANCE'); ?>
                     <?php if ($errmsg): ?>
                         <div class="alert alert-danger"><?= $errmsg ?></div>
                     <?php endif; ?>
@@ -250,7 +254,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                                 </div>
                                 <br />
                                 <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode'] ?>">
-                                <button type="submit" name="submit_exceptional_attendance" class="btn btn-primary">Mark Selected Students as Present</button>
+                                <button type="submit" name="submit_exceptional_attendance" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_ATTENDANCE') ? 'disabled' : ''; ?>>Mark Selected Students as Present</button>
                             <?php else: ?>
                                 <div class="alert alert-info">All students are already marked for this hour.</div>
                                 <a href="facexceptionalattendance.php" class="btn btn-outline-primary">Back to Selection</a>

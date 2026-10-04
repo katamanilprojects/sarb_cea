@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_FEEDBACK');
 
 $page_title = "Admin - View Feedback Reports";
 

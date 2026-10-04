@@ -13,6 +13,9 @@ if (empty($_SESSION['facid'])) {
     exit();
 }
 
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_FEEDBACK');
+
 $selected_fac_id = $_SESSION['facid'];
 $facultySubjects = $facultyObj->getSubjectsByFacultyId($selected_fac_id);
 $assignedYears = $feedbackService->getFacultyAssignedYears($selected_fac_id);
@@ -105,7 +108,7 @@ require_once("facheader.php");
                             <div class="col-md-3">
                                 <label for="view_level" class="form-label fw-bold">Feedback Report Type:</label>
                                 <select name="view_level" id="view_level" class="form-select border-primary" onchange="this.form.submit()">
-                                    <option value="subject" <?= ($view_level === 'subject') ? 'selected' : '' ?>>Subject-wise CO Feedback</option>
+                                    <option value="subject" <?= ($view_level === 'subject') ? 'selected' : '' ?>>Subject-wise Feedback</option>
                                     <option value="faculty" <?= ($view_level === 'faculty') ? 'selected' : '' ?>>Faculty Self-Appraisal (Comprehensive)</option>
                                 </select>
                             </div>
@@ -157,7 +160,7 @@ require_once("facheader.php");
 
             <?php
             // Hide the redundant raw Course Outcomes Breakdown in faculty self-appraisal view,
-            // as faculty inspect comprehensive CO indirect attainment under "Subject-wise CO Feedback".
+            // as faculty inspect comprehensive CO indirect attainment under "Subject-wise Feedback".
             $hideFacultyCOBreakdown = true;
             require_once("modulefeedback.php");
             ?>

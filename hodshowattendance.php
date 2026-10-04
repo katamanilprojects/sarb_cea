@@ -1,14 +1,20 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
 $page_title = "View Attendance";
 require_once("hodheader.php");
 
+$showAtt = \FeatureManager::isHodVisible('MOD_ATTENDANCE');
+$showRequests = \FeatureManager::isHodVisible('MOD_ATT_REQUESTS');
+$showObe = \FeatureManager::isHodVisible('MOD_OBE_ANALYSIS');
+$showFeedback = \FeatureManager::isHodVisible('MOD_FEEDBACK');
+$showAnalysisReports = $showObe || $showFeedback;
 ?>
 <div class="container">
 	<br />
 
+    <?php if ($showAtt): ?>
 	<div class="row">
-
 		<br>
 		<div class="col-md-6 mb-4">
 			<!-- Subject-Wise Attendance -->
@@ -43,8 +49,10 @@ require_once("hodheader.php");
 			</div>
 		</div>
 	</div>
+    <?php endif; ?>
+
 	<div class="row">
-		<br>
+        <?php if ($showAtt): ?>
 		<div class="col-md-6 mb-4">
 			<!-- Add Attendance -->
 			<div class="card h-100">
@@ -58,7 +66,9 @@ require_once("hodheader.php");
 				</div>
 			</div>
 		</div>
-		<br>
+        <?php endif; ?>
+
+        <?php if ($showRequests): ?>
 		<div class="col-md-6 mb-4">
 			<!-- Delete Attendance -->
 			<div class="card h-100">
@@ -72,28 +82,36 @@ require_once("hodheader.php");
 				</div>
 			</div>
 		</div>
+        <?php endif; ?>
 	</div>
+
 	<div class="row">
-		<br>
+        <?php if ($showAnalysisReports): ?>
 		<div class="col-md-6 mb-4">
 			<!-- Analysis & Reports -->
 			<div class="card h-100">
 				<div class="card-header fw-semibold bg-light">Analysis & Reports</div>
 				<div class="card-body">
+                    <?php if ($showObe): ?>
 					<div class="gap-2 mb-2">
 						<a href="hodciaanalysis2.php" class="btn btn-info">
 							<i class="bi bi-graph-up me-1"></i> Course-wise CIA Analysis
 						</a>
 					</div>
+                    <?php endif; ?>
+                    <?php if ($showFeedback): ?>
 					<div class="gap-2">
 						<a href="hodviewfeedback.php" class="btn btn-info">
 							<i class="bi bi-chat-dots me-1"></i> Course-wise Feedback
 						</a>
 					</div>
+                    <?php endif; ?>
 				</div>
 			</div>
 		</div>
-		<br>
+        <?php endif; ?>
+
+        <?php if ($showAtt): ?>
 		<div class="col-md-6 mb-4">
 			<!-- Special Permission -->
 			<div class="card h-100">
@@ -108,6 +126,7 @@ require_once("hodheader.php");
 				</div>
 			</div>
 		</div>
+        <?php endif; ?>
 	</div>
 </div>
 

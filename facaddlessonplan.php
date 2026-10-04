@@ -9,6 +9,9 @@ if (empty($_SESSION["user"]) || empty($_SESSION["role"]) || $_SESSION['role'] !=
     exit();
 }
 
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_LESSON_PLAN');
+
 require_once("faculty.class.php");
 require_once("courseoutcome.class.php");
 require_once("services/LessonPlanService.php");
@@ -73,6 +76,7 @@ if (isset($_GET['download_template']) && $selected_sub_id) {
 // 2. Handle Single Lecture Plan Addition / Update
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_lecture']) && $selected_sub_id) {
+    \FeatureManager::requireWriteAccess('MOD_LESSON_PLAN');
     $data = [
         'sub_id' => $selected_sub_id,
         'unit_number' => (int)($_POST['unit_number'] ?? 1),
@@ -101,6 +105,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['save_lecture']) && $s
 // 3. Handle Single Lecture Delete
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_lecture_id']) && $selected_sub_id) {
+    \FeatureManager::requireWriteAccess('MOD_LESSON_PLAN');
     $delId = (int)$_POST['delete_lecture_id'];
     $delRes = $lpService->deleteLecturePlan($delId, $selected_sub_id);
     if ($delRes['status'] == 1) {
@@ -114,6 +119,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['delete_lecture_id']) 
 // 4. Handle Clear All Lectures
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clear_all_lectures']) && $selected_sub_id) {
+    \FeatureManager::requireWriteAccess('MOD_LESSON_PLAN');
     $clearRes = $lpService->clearPlanBySubject($selected_sub_id);
     if ($clearRes['status'] == 1) {
         $msg = "All scheduled lecture plans for this course have been cleared.";
@@ -126,6 +132,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['clear_all_lectures'])
 // 5. Handle Bulk CSV Upload (Robust Parser)
 // =========================================================================
 if ($_SERVER['REQUEST_METHOD'] === 'POST' && isset($_POST['upload_csv']) && $selected_sub_id) {
+    \FeatureManager::requireWriteAccess('MOD_LESSON_PLAN');
     if (!empty($_FILES['csv_file']['tmp_name']) && (is_uploaded_file($_FILES['csv_file']['tmp_name']) || (php_sapi_name() === 'cli' && file_exists($_FILES['csv_file']['tmp_name'])))) {
         $cosRes = $coObj->getCOsBySubjectId($selected_sub_id);
         $coNumToId = [];
@@ -242,6 +249,7 @@ require_once("facheader.php");
 ?>
 
 <div class="container my-4">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_LESSON_PLAN'); ?>
     <div class="card shadow-sm mb-4">
         <div class="card-header bg-primary text-white d-flex justify-content-between align-items-center">
             <h5 class="mb-0"><i class="bi bi-calendar-check me-2"></i>Course Delivery Plan / Lesson Plan (Estimated Diary)</h5>

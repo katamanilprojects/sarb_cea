@@ -2,6 +2,9 @@
 // facseemarkscondensed.php
 ob_start();
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_SEE_MARKS');
+
 $page_title = "SEE Condensed Marks Review";
 require_once("faculty.class.php");
 require_once("cia.class.php");

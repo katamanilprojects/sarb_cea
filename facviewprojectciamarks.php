@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
+
 $page_title = "View Project CIA Marks";
 require_once("facheader.php");
 require_once("faculty.class.php");

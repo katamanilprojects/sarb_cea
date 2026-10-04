@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_GROUPED_ATT');
 
 $page_title = "Mark Grouped Attendance";
 require_once("facheader.php");
@@ -121,6 +123,7 @@ if ($_SERVER["REQUEST_METHOD"] == "POST") {
                     }
 
                 } elseif (!empty($_POST['hours']) && !empty($_POST['diary'])) {
+                    \FeatureManager::requireWriteAccess('MOD_GROUPED_ATT');
                     // "Save Attendance" logic
                     $stu_ids = isset($_POST['stu_ids']) ? $_POST['stu_ids'] : [];
                     $hours = $_POST['hours'];
@@ -238,6 +241,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
             <div class="card">
                 <div class="card-header">Mark Grouped Attendance (e.g., Open Electives)</div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_GROUPED_ATT'); ?>
                     <form action="facaddgroupedattendance.php" method="post">
                         <div class="form-group">
                             <label for="sub_id">Subject(s): (Hold Ctrl/Cmd to select multiple)</label>
@@ -347,7 +351,7 @@ $_SESSION['secretcode'] = bin2hex(random_bytes(32));
                         </div>
                         <br />
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" class="btn btn-outline-primary">Save Grouped Attendance</button>
+                        <button type="submit" class="btn btn-outline-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_GROUPED_ATT') ? 'disabled' : ''; ?>>Save Grouped Attendance</button>
                         </form>
 
                     </div>

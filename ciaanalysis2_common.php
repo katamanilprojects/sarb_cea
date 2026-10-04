@@ -17,27 +17,34 @@ function renderAccordionItem($id, $title, $formula) {
 }
 
 function renderAccordion() {
+    require_once __DIR__ . '/services/FeatureManager.php';
+    $showCia = \Services\FeatureManager::getInstance()->isModuleEnabled('MOD_CIA_MARKS');
+    $showSee = \Services\FeatureManager::getInstance()->isModuleEnabled('MOD_SEE_MARKS');
+
     // Note the double backslashes (\\_) used to safely pass literal \_ to MathJax through PHP strings
-    $items = [
-        [1, "Assessment Performance Snapshot (AssessmentChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{obtained\\_marks}}{\\sum \\text{effective\\_max\\_marks}} \\right) \\times 100 $$</p><p class='small text-muted'>* For Theory subjects with choice questions (Q1/Q2, Q3/Q4, Q5/Q6), effective marks use the answered choice pair max: \\(\\sum \\max(Q_{2i-1}, Q_{2i})\\) with total 30M maximum instead of doubling the denominator to 60M. For Lab subjects, reflects the formal Internal Exam (15M).</p>"],
-        [2, "Component-wise Performance (ComponentChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{component\\_obtained}}{\\sum \\text{component\\_effective\\_max}} \\right) \\times 100 $$</p><p class='small text-muted'>* Subjective either/or choice pairs are resolved to student pair max score over pair max marks.</p>"],
-        [3, "CO Attainment Analysis (COChart)", "<p>CO Attainment %:</p><p>$$ \\text{CO Attainment %} = \\left( \\frac{\\sum \\text{CO\\_obtained\\_marks}}{\\sum \\text{CO\\_effective\\_marks}} \\right) \\times 100 $$</p><p class='small text-muted'>* When either/or choice questions map to the target CO, attainment is calculated from the attempted question pair rather than penalizing unanswered choices.</p>"],
-        [4, "PO Attainment Analysis (POChart)", "<p>PO Attainment %:</p><p>$$ \\text{PO Attainment %} = \\frac{\\sum (\\text{CO\\_Attainment\\%} \\times \\text{Weightage})}{\\sum \\text{Weightage}} $$</p>"],
-        [5, "Bloom's Taxonomy Performance (BloomsChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{Blooms\\_obtained\\_marks}}{\\sum \\text{Blooms\\_effective\\_marks}} \\right) \\times 100 $$</p>"],
-        [6, "Student-wise CO Distribution (COSpreadChart)", "<p>Avg Student-wise CO Distribution %:</p><p>$$ \\text{Avg CO Distribution %} = \\text{CO Attainment \\%} $$</p>"],
-        [7, "Question Difficulty Overview (QuestionDifficultyTable)", <<<HTML
-            <p><strong>Average Difficulty %:</strong></p>
-            <p>$$ \\text{Avg Difficulty %} = \\text{AVG}\\left( \\frac{\\text{student\\_marks\\_obtained}}{\\text{question\\_total\\_marks}} \\times 100 \\right) $$</p>
-            <p><strong>Standard Deviation (Population):</strong></p>
-            <p>$$ \\sigma = \\sqrt{ \\frac{ \\sum (x_i - \\mu)^2 }{ N } } $$</p>
-            <ul>
-                <li><strong>\( x_i \)</strong> = Individual student's marks obtained for the question</li>
-                <li><strong>\( \mu \)</strong> = Average marks obtained for the question</li>
-                <li><strong>\( N \)</strong> = Total number of students</li>
-            </ul>
-        HTML],
-        /*
-        [8, "Comprehensive Direct & Overall Attainment (NBA/NAAC Compliance)", <<<HTML
+    $items = [];
+    if ($showCia) {
+        $items[] = [1, "Assessment Performance Snapshot (AssessmentChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{obtained\\_marks}}{\\sum \\text{effective\\_max\\_marks}} \\right) \\times 100 $$</p><p class='small text-muted'>* For Theory subjects with choice questions (Q1/Q2, Q3/Q4, Q5/Q6), effective marks use the answered choice pair max: \\(\\sum \\max(Q_{2i-1}, Q_{2i})\\) with total 30M maximum instead of doubling the denominator to 60M. For Lab subjects, reflects the formal Internal Exam (15M).</p>"];
+        $items[] = [2, "Component-wise Performance (ComponentChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{component\\_obtained}}{\\sum \\text{component\\_effective\\_max}} \\right) \\times 100 $$</p><p class='small text-muted'>* Subjective either/or choice pairs are resolved to student pair max score over pair max marks.</p>"];
+    }
+    $items[] = [3, "CO Attainment Analysis (COChart)", "<p>CO Attainment %:</p><p>$$ \\text{CO Attainment %} = \\left( \\frac{\\sum \\text{CO\\_obtained\\_marks}}{\\sum \\text{CO\\_effective\\_marks}} \\right) \\times 100 $$</p><p class='small text-muted'>* When either/or choice questions map to the target CO, attainment is calculated from the attempted question pair rather than penalizing unanswered choices.</p>"];
+    $items[] = [4, "PO Attainment Analysis (POChart)", "<p>PO Attainment %:</p><p>$$ \\text{PO Attainment %} = \\frac{\\sum (\\text{CO\\_Attainment\\%} \\times \\text{Weightage})}{\\sum \\text{Weightage}} $$</p>"];
+    $items[] = [5, "Bloom's Taxonomy Performance (BloomsChart)", "<p>Attainment %:</p><p>$$ \\text{Attainment %} = \\left( \\frac{\\sum \\text{Blooms\\_obtained\\_marks}}{\\sum \\text{Blooms\\_effective\\_marks}} \\right) \\times 100 $$</p>"];
+    $items[] = [6, "Student-wise CO Distribution (COSpreadChart)", "<p>Avg Student-wise CO Distribution %:</p><p>$$ \\text{Avg CO Distribution %} = \\text{CO Attainment \\%} $$</p>"];
+    $items[] = [7, "Question Difficulty Overview (QuestionDifficultyTable)", <<<HTML
+        <p><strong>Average Difficulty %:</strong></p>
+        <p>$$ \\text{Avg Difficulty %} = \\text{AVG}\\left( \\frac{\\text{student\\_marks\\_obtained}}{\\text{question\\_total\\_marks}} \\times 100 \\right) $$</p>
+        <p><strong>Standard Deviation (Population):</strong></p>
+        <p>$$ \\sigma = \\sqrt{ \\frac{ \\sum (x_i - \\mu)^2 }{ N } } $$</p>
+        <ul>
+            <li><strong>\( x_i \)</strong> = Individual student's marks obtained for the question</li>
+            <li><strong>\( \mu \)</strong> = Average marks obtained for the question</li>
+            <li><strong>\( N \)</strong> = Total number of students</li>
+        </ul>
+    HTML];
+
+    if ($showSee) {
+        $items[] = [8, "Comprehensive Direct & Overall Attainment (NBA/NAAC Compliance)", <<<HTML
             <p><strong>1. Direct Course Outcome Attainment:</strong></p>
             <p>$$ \\text{Direct Level} = (w_{\\text{cia}} \\times \\text{CIA Level}) + (w_{\\text{see}} \\times \\text{SEE Level}) $$</p>
             <p><strong>2. Overall Course Outcome Attainment:</strong></p>
@@ -45,9 +52,9 @@ function renderAccordion() {
             <p><strong>3. Overall Program Outcome (PO / PSO) Attainment:</strong></p>
             <p>$$ \\text{PO Level} = \\frac{\\sum (\\text{Overall CO Level} \\times \\text{Weightage})}{\\sum \\text{Weightage}} $$</p>
             <p class='small text-muted'>* Default institutional weights under autonomous regulations: 30% CIA + 70% SEE for Direct Attainment; 80% Direct + 20% Indirect Student Feedback for Overall Attainment.</p>
-        HTML]
-        */
-    ];
+        HTML];
+    }
+
 
     $output = "<div class=\"accordion\" id=\"formulaAccordion\">";
     foreach ($items as $item) {

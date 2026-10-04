@@ -5,6 +5,20 @@ require_once("facheader.php");
 ?>
 <div class="container">
 	<br />
+    <?php if (!empty($_SESSION['err'])): ?>
+        <div class="alert alert-danger alert-dismissible fade show" role="alert">
+            <i class="bi bi-exclamation-triangle-fill me-2"></i><?= htmlspecialchars($_SESSION['err']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <?php unset($_SESSION['err']); ?>
+    <?php endif; ?>
+    <?php if (!empty($_SESSION['succ'])): ?>
+        <div class="alert alert-success alert-dismissible fade show" role="alert">
+            <i class="bi bi-check-circle-fill me-2"></i><?= htmlspecialchars($_SESSION['succ']); ?>
+            <button type="button" class="btn-close" data-bs-dismiss="alert" aria-label="Close"></button>
+        </div>
+        <?php unset($_SESSION['succ']); ?>
+    <?php endif; ?>
 	<div class="card">
 		<div class="card-header d-flex justify-content-between align-items-center">
 			<span><i class="bi bi-info-circle me-2"></i> Instructions</span>

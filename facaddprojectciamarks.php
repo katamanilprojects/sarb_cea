@@ -4,6 +4,9 @@ $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
 require_once __DIR__ . "/services/SettingsService.php";
+require_once __DIR__ . "/services/FeatureManager.php";
+
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
 
 $facultyObj = new Faculty();
 $ciaObj = new CIA();
@@ -17,6 +20,7 @@ $totalInternal = (float)($projStructure['internal_marks'] ?? 60.0);
 $maxComp = $totalInternal / 2; // Equal split for Supervisor and PRC
 
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode'] && !empty($_POST['submit_action'])) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     unset($_SESSION['secretcode']);
     $sub_id = $_POST['sub_id'];
     $assessmentNumber = $_POST['assessment_number'];
@@ -78,6 +82,7 @@ require_once("facheader.php");
                     <strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>)
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <form action="facaddprojectciamarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
@@ -94,8 +99,8 @@ require_once("facheader.php");
                                 <?php foreach ($studentList as $student) : ?>
                                     <tr>
                                         <td><?php echo htmlspecialchars($student['username'], ENT_QUOTES, 'UTF-8'); ?><br /><?php echo htmlspecialchars($student['name'], ENT_QUOTES, 'UTF-8'); ?><input type="hidden" name="student_id[]" value="<?php echo htmlspecialchars($student['id'], ENT_QUOTES, 'UTF-8'); ?>"></td>
-                                        <td><input type="text" name="component1_marks[]" class="form-control comp-input" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['component1_marks'] : ''; ?>" /></td>
-                                        <td><input type="text" name="component2_marks[]" class="form-control comp-input" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['component2_marks'] : ''; ?>" /></td>
+                                        <td><input type="text" name="component1_marks[]" class="form-control comp-input" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['component1_marks'] : ''; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : ''; ?> /></td>
+                                        <td><input type="text" name="component2_marks[]" class="form-control comp-input" maxlength="5" value="<?php echo isset($tempMarks[$student['id']]) ? $tempMarks[$student['id']]['component2_marks'] : ''; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : ''; ?> /></td>
                                         <td class="row-total">-</td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -103,8 +108,8 @@ require_once("facheader.php");
                         </table>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
                         <div class="d-flex justify-content-between">
-                            <button type="submit" name="submit_action" value="submit" class="pull-left btn btn-primary">Validate & Submit Marks</button>
-                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary">Save without Submitting</button>
+                            <button type="submit" name="submit_action" value="submit" class="pull-left btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Validate & Submit Marks</button>
+                            <button type="submit" name="submit_action" value="save" class="text-end btn btn-secondary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Save without Submitting</button>
                         </div>
                     </form>
                 </div>

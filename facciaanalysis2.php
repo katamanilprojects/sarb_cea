@@ -1,5 +1,7 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_OBE_ANALYSIS');
 // Assuming faculty.class.php and cia.class.php are included via autoloader or header
 require_once("faculty.class.php"); // Make sure path is correct
 require_once("cia.class.php");      // Make sure path is correct
@@ -303,12 +305,21 @@ require_once("facheader.php"); // Make sure path is correct
                         <?php if ($selected_sub_id): // Only enable if subject is selected 
                         ?>
                             <?php
-                            if ($selected_sub_type === 'lab' || $selected_sub_type === 'dti') {
-                                $assessments = [1 => "Lab CIA"];
-                            } else {
-                                $assessments = [1 => "CIA 1", 2 => "CIA 2", 'all' => "Overall CIA"];
+                            $isCiaEnabled = \FeatureManager::isModuleEnabled('MOD_CIA_MARKS');
+                            $isSeeEnabled = \FeatureManager::isModuleEnabled('MOD_SEE_MARKS');
+                            $assessments = [];
+                            if ($isCiaEnabled) {
+                                if ($selected_sub_type === 'lab' || $selected_sub_type === 'dti') {
+                                    $assessments[1] = "Lab CIA";
+                                } else {
+                                    $assessments[1] = "CIA 1";
+                                    $assessments[2] = "CIA 2";
+                                    $assessments['all'] = "Overall CIA";
+                                }
                             }
-                            // $assessments['SEE'] = "Semester End Exam (SEE)"; // Hidden as requested
+                            if ($isSeeEnabled) {
+                                $assessments['SEE'] = "Semester End Exam (SEE)";
+                            }
                             foreach ($assessments as $num => $label):
                                 $selected = (strcasecmp((string)$selected_assessment_number, (string)$num) === 0) ? 'selected' : '';
                             ?>

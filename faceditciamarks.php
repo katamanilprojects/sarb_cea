@@ -1,6 +1,8 @@
 <?php
 session_start();
 $page_title = "Edit";
+require_once __DIR__ . "/services/FeatureManager.php";
+\FeatureManager::requireAccess('MOD_CIA_MARKS');
 require_once("faculty.class.php");
 require_once("cia.class.php");
 require_once __DIR__ . "/services/SettingsService.php";
@@ -18,6 +20,7 @@ $maxAssignment = (float)$settingsSvc->get('theory_assignment_marks', $subReg, 5.
 
 // Handle form submission
 if (!empty($_POST['sub_id']) && !empty($_POST['assessment_number']) && !empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
+    \FeatureManager::requireWriteAccess('MOD_CIA_MARKS');
     unset($_SESSION['secretcode']);
     $sub_id = $_POST['sub_id'];
     $assessmentNumber = $_POST['assessment_number'];
@@ -94,6 +97,7 @@ require_once("facheader.php");
 					<strong>Subject :</strong> <?php echo $subjectDetails['data']['sub_fullname']; ?> (<?php echo $subjectDetails['data']['subcode']; ?>)
                 </div>
                 <div class="card-body">
+                    <?= \FeatureManager::renderReadOnlyBanner('MOD_CIA_MARKS'); ?>
                     <form action="faceditciamarks.php" method="post">
                         <input type="hidden" name="sub_id" value="<?php echo $sub_id; ?>">
                         <input type="hidden" name="assessment_number" value="<?php echo $assessmentNumber; ?>">
@@ -128,15 +132,15 @@ require_once("facheader.php");
                                     <tr>
                                         <td><?php echo $student['username']; ?><br /><?php echo $student['name']; ?></td>
                                         <td>
-                                            <input type="number" step="any" min="0" max="<?= $maxAssignment ?>" name="assignment_marks[]" class="form-control" value="<?php echo $assgn; ?>" required>
+                                            <input type="number" step="any" min="0" max="<?= $maxAssignment ?>" name="assignment_marks[]" class="form-control" value="<?php echo $assgn; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                         <td>
-                                            <input type="number" step="any" min="0" max="<?= $maxObjective ?>" name="objective_marks[]" class="form-control" value="<?php echo $obj; ?>" required>
+                                            <input type="number" step="any" min="0" max="<?= $maxObjective ?>" name="objective_marks[]" class="form-control" value="<?php echo $obj; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                         <td>
                                             <input type="hidden" name="student_id[]" value="<?php echo $student['id']; ?>">
                                             <input type="hidden" name="marks_id[]" value="<?php echo $student['marks'] ? $student['marks']['id'] : ''; ?>"> 
-                                            <input type="number" step="any" min="0" max="<?= $maxSubjective ?>" name="subjective_marks[]" class="form-control" value="<?php echo $subj; ?>" required>
+                                            <input type="number" step="any" min="0" max="<?= $maxSubjective ?>" name="subjective_marks[]" class="form-control" value="<?php echo $subj; ?>" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'readonly' : 'required'; ?>>
                                         </td>
                                     </tr>
                                 <?php endforeach; ?>
@@ -144,7 +148,7 @@ require_once("facheader.php");
                         </table>
                         </div>
                         <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" name="submit_action" value="submit" class="btn btn-primary">Validate & Update Marks</button>
+                        <button type="submit" name="submit_action" value="submit" class="btn btn-primary" <?= \FeatureManager::isFacultyReadOnly('MOD_CIA_MARKS') ? 'disabled' : ''; ?>>Validate & Update Marks</button>
                     </form>
                 </div>
                 <div class="card-footer">

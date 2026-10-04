@@ -1,5 +1,8 @@
 <?php
 session_start();
+require_once __DIR__ . '/services/FeatureManager.php';
+\FeatureManager::requireAccess('MOD_CO_PO');
+
 $page_title = "Edit";
 require_once("faculty.class.php");
 require_once("cia.class.php");
@@ -18,6 +21,7 @@ if (!empty($_POST['sub_id'])) {
 }
 
 if (isset($_POST['submit_cos'])) {
+    \FeatureManager::requireWriteAccess('MOD_CO_PO');
     foreach ($_POST as $k => $v) {
         $a = substr($k, 0, 2);
         $b = substr($k, 2);
@@ -30,6 +34,7 @@ if (isset($_POST['submit_cos'])) {
 
 // Handle BOS Master CO Import
 if (!empty($_POST['import_bos_cos']) && !empty($selected_sub_id)) {
+    \FeatureManager::requireWriteAccess('MOD_CO_PO');
     if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
         unset($_SESSION['secretcode']);
         $importRes = $coObj->importMasterCOsToSubject((int)$selected_sub_id);
@@ -47,6 +52,7 @@ if (!empty($_POST['import_bos_cos']) && !empty($selected_sub_id)) {
 
 // Handle CO insertion
 if (!empty($_POST['add_co']) && !empty($_POST['co_number']) && !empty($_POST['co_description']) && !empty($selected_sub_id)) {
+    \FeatureManager::requireWriteAccess('MOD_CO_PO');
     if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcode']) {
         unset($_SESSION['secretcode']);
         $co_description = trim($_POST['co_description']);
@@ -99,6 +105,7 @@ require_once("facheader.php");
 ?>
 
 <div class="container">
+    <?= \FeatureManager::renderReadOnlyBanner('MOD_CO_PO'); ?>
     <br />
     <div class="row">
         <div class="col-sm-12">
