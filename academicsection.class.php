@@ -132,7 +132,8 @@ class AcademicSection extends User
                         if (!empty($remarks)) {
                             $details .= " | Remarks: " . $remarks;
                         }
-                        $this->dbActivityLog($_SESSION['userid'], "Password Reset", $details, "");
+                        $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($acadId, "RESET_STUDENT_PASSWORD", $details, "academic_section", "STUDENT", $username);
                     } else {
                         $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                     }
@@ -189,7 +190,8 @@ class AcademicSection extends User
                                 if (!empty($remarks)) {
                                     $details .= " | Remarks: " . $remarks;
                                 }
-                                $this->dbActivityLog($_SESSION['userid'], "Password Reset", $details, "");
+                                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                                $this->dbActivityLog($acadId, "RESET_FACULTY_PASSWORD", $details, "academic_section", "FACULTY", (string)$faculty_id);
                             } else {
                                 $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                             }
@@ -235,6 +237,9 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Building added successfully";
+                $buildingId = $this->conn->insert_id;
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "ADD_BUILDING", "Added building: $building_name", "academic_section", "BUILDING", (string)$buildingId);
             }
             $stmt->close();
         } catch (Exception $e) {
@@ -253,6 +258,8 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Building updated successfully";
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "UPDATE_BUILDING", "Updated building ID $id: $building_name (Status: $status)", "academic_section", "BUILDING", (string)$id);
             }
             $stmt->close();
         } catch (Exception $e) {
@@ -271,6 +278,8 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Building deleted successfully";
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "DELETE_BUILDING", "Deleted building ID $id", "academic_section", "BUILDING", (string)$id);
             }
             $stmt->close();
         } catch (Exception $e) {
@@ -309,6 +318,9 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Hall added successfully";
+                $hallId = $this->conn->insert_id;
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "ADD_HALL", "Added hall $hall_name to building ID $building_id", "academic_section", "HALL", (string)$hallId);
             }
             $stmt->close();
         } catch (Exception $e) {
@@ -327,6 +339,8 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Hall updated successfully";
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "UPDATE_HALL", "Updated hall ID $id: $hall_name (Status: $status)", "academic_section", "HALL", (string)$id);
             }
             $stmt->close();
         } catch (Exception $e) {
@@ -345,6 +359,8 @@ class AcademicSection extends User
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Hall deleted successfully";
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "DELETE_HALL", "Deleted hall ID $id", "academic_section", "HALL", (string)$id);
             }
             $stmt->close();
         } catch (Exception $e) {

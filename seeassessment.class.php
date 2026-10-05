@@ -344,6 +344,7 @@ trait SEEAssessmentTrait
             }
             $stmt->close();
             $this->conn->commit();
+            $this->dbActivityLog($_SESSION['userid'] ?? $faculty_id, "SAVE_SEE_MARKS_CONSOLIDATED", "Saved consolidated Mode A SEE marks for Subject ID $sub_id (" . count($marksData) . " students)", "faculty", "SEE_MARKS", (string)$sub_id);
             return ['status' => 1, 'msg' => 'SEE Marks consolidated and committed successfully.'];
         } catch (Exception $e) {
             $this->conn->rollback();
@@ -385,6 +386,7 @@ trait SEEAssessmentTrait
             }
             $stmt->close();
             $this->conn->commit();
+            $this->dbActivityLog($_SESSION['userid'] ?? $faculty_id, "SAVE_SEE_MARKS_DIRECT", "Saved direct Mode B SEE marks for Subject ID $sub_id (" . count($studentMarks) . " students)", "faculty", "SEE_MARKS", (string)$sub_id);
             return ['status' => 1, 'msg' => 'Direct SEE Marks recorded successfully.'];
         } catch (Exception $e) {
             $this->conn->rollback();

@@ -290,9 +290,8 @@ class Syllabus extends User
             $stmt->close();
 
             $this->logs->activityLog($myname . "Syllabus added for prog_id: $progId, spec_id: $specId, reg_id: $regId, yearsem: $yearsem");
-            if (!empty($uploadedBy)) {
-                $this->dbActivityLog($uploadedBy, "Insert", "Syllabus added for spec_id $specId and yearsem $yearsem");
-            }
+            $uploaderId = !empty($uploadedBy) ? $uploadedBy : ($_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0));
+            $this->dbActivityLog($uploaderId, "UPLOAD_SYLLABUS", "Syllabus added for prog_id: $progId, spec_id: $specId, reg_id: $regId, yearsem: $yearsem", "academic_section", "SYLLABUS", (string)$specId);
 
             $res['status'] = 1;
             $res['message'] = 'Syllabus uploaded successfully.';

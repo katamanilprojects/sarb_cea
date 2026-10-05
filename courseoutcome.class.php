@@ -121,6 +121,8 @@ trait CourseOutcomeTrait
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['insert_id'] = $this->conn->insert_id;
+                $facultyId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($facultyId, "SAVE_COURSE_OUTCOME", "Saved Course Outcome CO$co_number for Subject ID $sub_id", "faculty", "COURSE_OUTCOME", (string)$sub_id);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -265,6 +267,8 @@ trait CourseOutcomeTrait
 
             if ($stmt->execute()) {
                 $stmt->close();
+                $facultyId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($facultyId, "SAVE_CO_PO_MAPPING", "Updated CO-PO mapping: CO ID $co_id to PO ID $po_pso_id with weight $weightage", "faculty", "CO_PO_MAPPING", (string)$co_id);
                 return true;
             } else {
                 $this->logs->errLog($myname . "Execute failed: " . $stmt->error);

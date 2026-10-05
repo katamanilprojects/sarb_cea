@@ -492,6 +492,7 @@ class HOD extends User
                 $stmt->close();
                 $this->conn->commit();
                 $res['status'] = 1;
+                $this->dbActivityLog($hod_id, "BULK_GRANT_PERMISSIONS", "Granted " . count($permissions_data) . " student permissions", "hod", "PERMISSION");
             }
         } catch (Exception $e) {
             if ($this->conn) $this->conn->rollback();
@@ -683,6 +684,7 @@ class HOD extends User
                     $stmt->bind_param("issssi", $data['subject_sno'], $data['subcode'], $data['sub_shortname'], $data['sub_fullname'], $data['sub_type'], $data['class_id']);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_SUBJECT", "Added Subject " . ($data['subcode'] ?? '') . " (" . ($data['sub_shortname'] ?? '') . ") for Class ID: " . ($data['class_id'] ?? ''), "hod", "SUBJECT", (string)($data['subcode'] ?? ''));
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -730,6 +732,7 @@ class HOD extends User
                     $stmt->bind_param("i", $subject_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_SUBJECT", "Deleted Subject ID $subject_id", "hod", "SUBJECT", (string)$subject_id);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -853,6 +856,7 @@ class HOD extends User
                     $stmt->bind_param("ii", $faculty_id, $sub_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "MAP_FACULTY_SUBJECT", "Mapped Faculty ID $faculty_id to Subject ID $sub_id", "hod", "FACULTY_SUBJECT", (string)$sub_id, $faculty_id);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -881,6 +885,7 @@ class HOD extends User
                     $stmt->bind_param("i", $map_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "UNMAP_FACULTY_SUBJECT", "Unmapped Faculty Subject Mapping ID $map_id", "hod", "FACULTY_SUBJECT", (string)$map_id);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -999,6 +1004,7 @@ class HOD extends User
                     $stmt->bind_param("ii", $stu_id, $sub_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "MAP_STUDENT_SUBJECT", "Mapped Student ID $stu_id to Subject ID $sub_id", "hod", "STUDENT_SUBJECT", (string)$sub_id, $stu_id);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1027,6 +1033,7 @@ class HOD extends User
                     $stmt->bind_param("ii", $stu_id, $sub_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $this->dbActivityLog($_SESSION['userid'] ?? 0, "UNMAP_STUDENT_SUBJECT", "Unmapped Student ID $stu_id from Subject ID $sub_id", "hod", "STUDENT_SUBJECT", (string)$sub_id, $stu_id);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1197,12 +1204,22 @@ class HOD extends User
         ");
             $stmt->bind_param("si", $action, $request_id);
 
-            if ($stmt->execute() && $action == 'Approved') {
-                // If approved, delete the related attendance and diary entries
-                $this->deleteAttendanceAndDiaryEntries($request_id);
+            if ($stmt->execute()) {
                 $res['status'] = 1;
-            } elseif ($stmt->execute()) {
-                $res['status'] = 1; // Successfully updated status
+                $hodUserId = $_SESSION['userid'] ?? 0;
+                $auditAction = ($action === 'Approved') ? 'APPROVE_ATTENDANCE_DELETE' : 'REJECT_ATTENDANCE_DELETE';
+                $this->dbActivityLog(
+                    $hodUserId,
+                    $auditAction,
+                    "HOD processed attendance delete request #$request_id with decision: $action",
+                    "hod",
+                    "ATTENDANCE_REQUEST",
+                    (string)$request_id
+                );
+                if ($action == 'Approved') {
+                    // If approved, delete the related attendance and diary entries
+                    $this->deleteAttendanceAndDiaryEntries($request_id);
+                }
             } else {
                 $this->logs->errLog($myname . "Execution failed: " . $this->conn->error);
             }
@@ -1244,6 +1261,16 @@ class HOD extends User
             $stmt->bind_param("isi", $subject_id, $date, $hour);
             $stmt->execute();
             $stmt->close();
+
+            // Log permanent purge to audit_logs
+            $this->dbActivityLog(
+                $_SESSION['userid'] ?? 0,
+                "PURGE_ATTENDANCE_ENTRIES",
+                "Permanently purged attendance and diary entries for Subject ID: $subject_id, Date: $date, Hour: $hour following approved request #$request_id",
+                "hod",
+                "ATTENDANCE",
+                (string)$subject_id
+            );
         } catch (Exception $e) {
             $this->logs->errLog($myname . "Error deleting entries for request $request_id: " . $e->getMessage());
         }
@@ -1582,7 +1609,7 @@ class HOD extends User
                     SELECT s.id, s.subject_sno, s.subcode, s.sub_shortname, s.sub_fullname, s.sub_type,
                            t.building_name, t.class_hall_name
                     FROM subjects s
-                    LEFT JOIN timetable_csv_dump t ON s.id = t.subject_id AND t.class_id = ?
+                    LEFT JOIN class_timetables t ON s.id = t.subject_id AND t.class_id = ?
                     WHERE s.class_id = ?
                     GROUP BY s.id
                     ORDER BY s.subject_sno + 0, s.subcode
@@ -1624,7 +1651,7 @@ class HOD extends User
 
         try {
             if (!empty($this->conn)) {
-                $stmt = $this->conn->prepare("UPDATE timetable_csv_dump SET building_name = ?, class_hall_name = ? WHERE subject_id = ? AND class_id = ?");
+                $stmt = $this->conn->prepare("UPDATE class_timetables SET building_name = ?, class_hall_name = ? WHERE subject_id = ? AND class_id = ?");
                 $stmt->bind_param("ssii", $building_name, $hall_name, $subject_id, $class_id);
 
                 if ($stmt->execute()) {

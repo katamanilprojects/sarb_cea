@@ -124,6 +124,7 @@ class ExamResultsService extends \DBCredentials
         if ($stmt->execute()) {
             $notifId = $this->conn->insert_id;
             $this->logs->actLog($userId, "CREATE_EXAM_NOTIFICATION", "Created exam notification: $title (Code: $code)");
+            $this->dbActivityLog($userId, "CREATE_EXAM_NOTIFICATION", "Created exam notification: $title (Code: $code)", "admin", "EXAM_NOTIFICATION", (string)$notifId);
             return ['status' => 1, 'id' => $notifId, 'notification_id' => $notifId, 'msg' => 'Exam notification created successfully.'];
         }
 
@@ -140,6 +141,7 @@ class ExamResultsService extends \DBCredentials
         if ($stmt->execute()) {
             $word = $status ? "published" : "hidden";
             $this->logs->actLog($userId, "TOGGLE_EXAM_NOTIFICATION", "Notification ID $id $word");
+            $this->dbActivityLog($userId, "TOGGLE_EXAM_NOTIFICATION", "Notification ID $id $word", "admin", "EXAM_NOTIFICATION", (string)$id);
             return ['status' => 1, 'msg' => "Notification successfully $word."];
         }
         return ['status' => 0, 'err' => $this->conn->error ?: 'Failed to update status.'];
@@ -300,6 +302,7 @@ class ExamResultsService extends \DBCredentials
         fclose($handle);
 
         $this->logs->actLog($userId, "IMPORT_EXAM_RESULTS", "Imported $imported results for notification ID: $notificationId");
+        $this->dbActivityLog($userId, "IMPORT_EXAM_RESULTS", "Imported $imported results for notification ID: $notificationId", "admin", "EXAM_RESULTS", (string)$notificationId);
 
         return [
             'status' => 1,
@@ -387,6 +390,7 @@ class ExamResultsService extends \DBCredentials
         }
 
         $this->logs->actLog($userId, "AUTO_SYNC_SEE_MARKS", "Auto-synced $syncedCount SEE marks for subject ID $subjectId from published results");
+        $this->dbActivityLog($userId, "AUTO_SYNC_SEE_MARKS", "Auto-synced $syncedCount SEE marks for subject ID $subjectId from published results", "faculty", "SEE_MARKS", (string)$subjectId);
 
         return [
             'status' => 1,

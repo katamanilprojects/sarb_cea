@@ -80,10 +80,15 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
 
     // Delete Timetable Entry
     if (!empty($_POST['whattodo']) && $_POST['whattodo'] == "deleteentry") {
-        $weekday = trim($_POST['weekday']);
-        $hour = intval($_POST['hour']);
+        $entry_id = !empty($_POST['entry_id']) ? intval($_POST['entry_id']) : 0;
+        if ($entry_id > 0) {
+            $result = $timetableObj->deleteTimetableEntryById($entry_id);
+        } else {
+            $weekday = trim($_POST['weekday']);
+            $hour = intval($_POST['hour']);
+            $result = $timetableObj->deleteTimetableEntry($class_id, $weekday, $hour);
+        }
 
-        $result = $timetableObj->deleteTimetableEntry($class_id, $weekday, $hour);
         if ($result['status'] === 1) {
             $msg = $result['message'];
             $msg_type = 'success';
@@ -214,6 +219,7 @@ foreach ($timetableEntries as $entry) {
             ];
         }
         $subjectView[$subKey]['schedules'][] = [
+            'id' => $entry['id'] ?? 0,
             'weekday' => $entry['weekday'],
             'hour' => $entry['Hour'],
             'hour_desc' => $entry['hour_desc'],
@@ -231,6 +237,7 @@ foreach ($timetableEntries as $entry) {
             ];
         }
         $activityView[$actKey]['schedules'][] = [
+            'id' => $entry['id'] ?? 0,
             'weekday' => $entry['weekday'],
             'hour' => $entry['Hour'],
             'hour_desc' => $entry['hour_desc'],
@@ -823,6 +830,7 @@ usort($subjectView, function ($a, $b) {
                                                         <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode'] ?>">
                                                         <input type="hidden" name="weekday" value="<?= htmlspecialchars($schedule['weekday']) ?>">
                                                         <input type="hidden" name="hour" value="<?= $schedule['hour'] ?>">
+                                                        <input type="hidden" name="entry_id" value="<?= $schedule['id'] ?? '' ?>">
                                                         <input type="hidden" name="whattodo" value="deleteentry">
                                                         <button type="submit" class="btn btn-sm btn-outline-danger">
                                                             <i class="bi bi-trash-fill"></i>
@@ -878,6 +886,7 @@ usort($subjectView, function ($a, $b) {
                                                             <input type="hidden" name="secretcode" value="<?= $_SESSION['secretcode'] ?>">
                                                             <input type="hidden" name="weekday" value="<?= htmlspecialchars($schedule['weekday']) ?>">
                                                             <input type="hidden" name="hour" value="<?= $schedule['hour'] ?>">
+                                                            <input type="hidden" name="entry_id" value="<?= $schedule['id'] ?? '' ?>">
                                                             <input type="hidden" name="whattodo" value="deleteentry">
                                                             <button type="submit" class="btn btn-sm btn-outline-danger">
                                                                 <i class="bi bi-trash-fill"></i>

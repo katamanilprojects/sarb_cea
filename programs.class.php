@@ -89,6 +89,9 @@ class Programs extends DBCredentials
             }
 
             $this->logs->activityLog("Program '$prog_fullname' added/updated.");
+            $action = !empty($data['id']) ? "UPDATE_PROGRAM" : "ADD_PROGRAM";
+            $progId = !empty($data['id']) ? (string)$data['id'] : (string)$this->conn->insert_id;
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, $action, "Program '$prog_fullname' ($prog_shortname, $program_code) saved", "superadmin", "PROGRAM", $progId);
             return ['status' => 1, 'message' => 'Program saved successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in addOrUpdateProgram: " . $e->getMessage());
@@ -108,6 +111,7 @@ class Programs extends DBCredentials
             }
 
             $this->logs->activityLog("Program ID $id deleted.");
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_PROGRAM", "Deleted program ID $id", "superadmin", "PROGRAM", (string)$id);
             return ['status' => 1, 'message' => 'Program deleted successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in deleteProgram: " . $e->getMessage());

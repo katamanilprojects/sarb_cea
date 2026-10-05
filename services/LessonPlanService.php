@@ -73,6 +73,8 @@ class LessonPlanService extends \DBCredentials {
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Lecture plan saved successfully.";
+                $facultyId = $_SESSION['faculty_id'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($facultyId, "SAVE_LECTURE_PLAN", "Saved lecture plan for subject ID " . $data['sub_id'] . ", lecture #" . $data['lecture_number'], "Faculty", "LESSON_PLAN", (string)$data['sub_id']);
             } else {
                 throw new \Exception($stmt->error);
             }
@@ -94,6 +96,8 @@ class LessonPlanService extends \DBCredentials {
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "Lecture plan deleted successfully.";
+                $facultyId = $_SESSION['faculty_id'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($facultyId, "DELETE_LECTURE_PLAN", "Deleted lecture plan item #$id for subject ID $sub_id", "Faculty", "LESSON_PLAN", (string)$id);
             } else {
                 throw new \Exception($stmt->error);
             }
@@ -177,6 +181,8 @@ class LessonPlanService extends \DBCredentials {
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = "All lecture plans cleared.";
+                $facultyId = $_SESSION['faculty_id'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($facultyId, "CLEAR_LECTURE_PLANS", "Cleared all lecture plans for subject ID $sub_id", "Faculty", "LESSON_PLAN", (string)$sub_id);
             } else {
                 throw new \Exception($stmt->error);
             }
@@ -353,6 +359,8 @@ class LessonPlanService extends \DBCredentials {
             $res['status'] = 1;
             $res['updated_count'] = $updated;
             $res['message'] = "Diary mappings saved successfully ({$updated} classes updated).";
+            $facultyId = $_SESSION['faculty_id'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($facultyId, "MAP_DIARY_LESSON_PLAN", "Mapped $updated diary entries for subject ID $sub_id", "Faculty", "LESSON_PLAN", (string)$sub_id);
         } catch (\Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("LessonPlanService::saveDiaryLessonPlanMappings error: " . $e->getMessage());
@@ -441,6 +449,8 @@ class LessonPlanService extends \DBCredentials {
                 $res['message'] = ($signoff_status === 'SUBMITTED') 
                     ? "Course delivery compliance submitted successfully to HOD." 
                     : "Course reconciliation audit draft saved successfully.";
+                $action = ($signoff_status === 'SUBMITTED') ? "SUBMIT_COURSE_COMPLIANCE" : "SAVE_COURSE_COMPLIANCE_DRAFT";
+                $this->dbActivityLog($faculty_id, $action, "Course delivery compliance ($signoff_status) for subject ID $sub_id (Completion: {$pct}%)", "Faculty", "COURSE_COMPLIANCE", (string)$sub_id);
             } else {
                 throw new \Exception($stmt->error);
             }

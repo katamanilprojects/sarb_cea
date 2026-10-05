@@ -192,7 +192,10 @@ class StudentProfileService extends \DBCredentials
 
         $ok = $stmt->execute();
         if ($ok) {
-            $this->logs->actLog($verifiedBy ?? 0, "SAVE_STUDENT_PROFILE", "Saved profile for student roll no: $rollNo");
+            $actorId = $verifiedBy ?? ($_SESSION['user_id'] ?? ($_SESSION['userid'] ?? 0));
+            $role = ($verifiedBy !== null && $verifiedBy > 0) ? "academic_section" : "Student";
+            $this->logs->actLog($actorId, "SAVE_STUDENT_PROFILE", "Saved profile for student roll no: $rollNo");
+            $this->dbActivityLog($actorId, "SAVE_STUDENT_PROFILE", "Saved profile for student roll no: $rollNo", $role, "STUDENT_PROFILE", $rollNo);
         }
         return $ok;
     }
@@ -211,6 +214,7 @@ class StudentProfileService extends \DBCredentials
         $ok = $stmt->execute();
         if ($ok) {
             $this->logs->actLog($verifiedBy, "VERIFY_STUDENT_PROFILE", "Verified profile for student roll no: $rollNo");
+            $this->dbActivityLog($verifiedBy, "VERIFY_STUDENT_PROFILE", "Verified profile for student roll no: $rollNo", "academic_section", "STUDENT_PROFILE", $rollNo);
         }
         return $ok;
     }
@@ -329,7 +333,10 @@ class StudentProfileService extends \DBCredentials
             );
         }
 
-        $this->logs->actLog($userId ?? 0, "UPLOAD_STUDENT_DOC", "Uploaded $docType for roll no $rollNo (Doc ID: $docId)");
+        $actorId = $userId ?? ($_SESSION['user_id'] ?? ($_SESSION['userid'] ?? 0));
+        $role = $_SESSION['role'] ?? 'academic_section';
+        $this->logs->actLog($actorId, "UPLOAD_STUDENT_DOC", "Uploaded $docType for roll no $rollNo (Doc ID: $docId)");
+        $this->dbActivityLog($actorId, "UPLOAD_STUDENT_DOC", "Uploaded $docType for roll no $rollNo (Doc ID: $docId)", $role, "STUDENT_DOCUMENT", (string)$docId);
 
         return [
             'status' => 1,
@@ -374,7 +381,13 @@ class StudentProfileService extends \DBCredentials
 
         $delStmt = $this->conn->prepare("DELETE FROM student_documents WHERE id = ?");
         $delStmt->bind_param("i", $docId);
-        return $delStmt->execute();
+        $ok = $delStmt->execute();
+        if ($ok) {
+            $actorId = $_SESSION['user_id'] ?? ($_SESSION['userid'] ?? 0);
+            $role = $isAdmin ? "admin" : "academic_section";
+            $this->dbActivityLog($actorId, "DELETE_STUDENT_DOC", "Deleted student document ID $docId for roll no $rollNo", $role, "STUDENT_DOCUMENT", (string)$docId);
+        }
+        return $ok;
     }
 
     /**
@@ -388,7 +401,11 @@ class StudentProfileService extends \DBCredentials
             WHERE id = ?
         ");
         $stmt->bind_param("isi", $verifiedBy, $remarks, $docId);
-        return $stmt->execute();
+        $ok = $stmt->execute();
+        if ($ok) {
+            $this->dbActivityLog($verifiedBy, "VERIFY_STUDENT_DOC", "Verified student document ID $docId", "academic_section", "STUDENT_DOCUMENT", (string)$docId);
+        }
+        return $ok;
     }
 
     // =========================================================================
@@ -498,6 +515,7 @@ class StudentProfileService extends \DBCredentials
         $recId = $stmt->insert_id;
 
         $this->logs->actLog($receivedBy, "ADD_CUSTODY_RECORD", "Received original $docName into safe custody for roll no: $rollNo");
+        $this->dbActivityLog($receivedBy, "ADD_CUSTODY_RECORD", "Received original $docName into safe custody for roll no: $rollNo", "academic_section", "CUSTODIAL_RECORD", (string)$recId);
         return $recId;
     }
 
@@ -525,6 +543,7 @@ class StudentProfileService extends \DBCredentials
         $ok = $stmt->execute();
         if ($ok) {
             $this->logs->actLog($userId, "TEMP_RETURN_CERTIFICATE", "Temporarily issued custody record #$recordId for purpose: $purpose");
+            $this->dbActivityLog($userId, "TEMP_RETURN_CERTIFICATE", "Temporarily issued custody record #$recordId for purpose: $purpose", "academic_section", "CUSTODIAL_RECORD", (string)$recordId);
         }
         return $ok;
     }
@@ -549,6 +568,7 @@ class StudentProfileService extends \DBCredentials
         $ok = $stmt->execute();
         if ($ok) {
             $this->logs->actLog($userId, "RETURN_CERTIFICATE_CUSTODY", "Document record #$recordId returned to safe custody on $actualReturnedDate");
+            $this->dbActivityLog($userId, "RETURN_CERTIFICATE_CUSTODY", "Document record #$recordId returned to safe custody on $actualReturnedDate", "academic_section", "CUSTODIAL_RECORD", (string)$recordId);
         }
         return $ok;
     }
@@ -573,6 +593,7 @@ class StudentProfileService extends \DBCredentials
         $ok = $stmt->execute();
         if ($ok) {
             $this->logs->actLog($userId, "PERM_RETURN_CERTIFICATE", "Document record #$recordId permanently returned to student on $issuedDate");
+            $this->dbActivityLog($userId, "PERM_RETURN_CERTIFICATE", "Document record #$recordId permanently returned to student on $issuedDate", "academic_section", "CUSTODIAL_RECORD", (string)$recordId);
         }
         return $ok;
     }
@@ -683,7 +704,9 @@ class StudentProfileService extends \DBCredentials
         }
 
         $reqId = $stmt->insert_id;
-        $this->logs->actLog(0, "REQUEST_CERTIFICATE", "Student $rollNo requested certificate $certType (Cert No: $certNo)");
+        $actorId = $_SESSION['user_id'] ?? ($_SESSION['userid'] ?? 0);
+        $this->logs->actLog($actorId, "REQUEST_CERTIFICATE", "Student $rollNo requested certificate $certType (Cert No: $certNo)");
+        $this->dbActivityLog($actorId, "REQUEST_CERTIFICATE", "Student $rollNo requested certificate $certType (Cert No: $certNo)", "Student", "CERTIFICATE_REQUEST", (string)$reqId);
 
         return [
             'status' => 1,
@@ -724,6 +747,7 @@ class StudentProfileService extends \DBCredentials
         $ok = $stmt->execute();
         if ($ok) {
             $this->logs->actLog($userId, "UPDATE_CERT_STATUS", "Certificate request #$requestId updated to $status");
+            $this->dbActivityLog($userId, "UPDATE_CERT_STATUS", "Certificate request #$requestId updated to $status", "academic_section", "CERTIFICATE_REQUEST", (string)$requestId);
         }
         return $ok;
     }

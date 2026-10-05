@@ -106,6 +106,9 @@ class Departments extends DBCredentials
 
             $this->conn->commit();
             $this->logs->activityLog("Department '$dept_fullname' and HOD '$username' created/updated.");
+            $action = !empty($data['id']) ? "UPDATE_DEPARTMENT" : "ADD_DEPARTMENT";
+            $deptId = !empty($data['id']) ? (string)$data['id'] : (string)$this->conn->insert_id;
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, $action, "Department '$dept_fullname' ($dept_shortname) and HOD '$username' saved", "superadmin", "DEPARTMENT", $deptId);
             return ['status' => 1, 'message' => 'Department saved successfully.'];
         } catch (Exception $e) {
             $this->conn->rollback();
@@ -136,6 +139,7 @@ class Departments extends DBCredentials
 
             $this->conn->commit();
             $this->logs->activityLog("Department ID $id deleted.");
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_DEPARTMENT", "Deleted department ID $id", "superadmin", "DEPARTMENT", (string)$id);
             return ['status' => 1, 'message' => 'Department deleted successfully.'];
         } catch (Exception $e) {
             $this->conn->rollback();

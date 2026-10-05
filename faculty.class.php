@@ -232,7 +232,7 @@ class Faculty extends User
 			} else {
 				$sub_code = $sub_id;
 			}
-			$this->dbActivityLog($faculty_id, "Attendance", "Marked for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "Faculty");
+			$this->dbActivityLog($faculty_id, "Attendance", "Marked for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "faculty", "ATTENDANCE", (string)$sub_id);
 			$this->conn->commit(); // Commit transaction
 		} catch (Exception $e) {
 			$this->conn->rollback(); // Rollback on exception
@@ -367,7 +367,7 @@ class Faculty extends User
 					} else {
 						$sub_code = $sub_id;
 					}
-					$this->dbActivityLog($faculty_id, "Attendance", "Updated for Stu:" . $stu_id . " Subj:" . $sub_code . " Dt." . $date . " Hr." . $hour . " Status:" . $new_status, "Faculty");
+					$this->dbActivityLog($faculty_id, "Attendance Update", "Updated for Stu:" . $stu_id . " Subj:" . $sub_code . " Dt." . $date . " Hr." . $hour . " Status:" . $new_status, "faculty", "ATTENDANCE", (string)$sub_id, $stu_id);
 				} else {
 					$res['err'] = "No attendance record updated. Please verify the selected student and attendance details.";
 				}
@@ -697,12 +697,8 @@ class Faculty extends User
 			$stmt->close();
 			$hours1 = implode(",", $hours);
 			$sub_res = $this->getSubjectDetails($sub_id);
-			if (!empty($sub_res["data"]["subcode"])) {
-				$sub_code = $sub_res["data"]["subcode"];
-			} else {
-				$sub_code = $sub_id;
-			}
-			$this->dbActivityLog($faculty_id, "Dairy", "Added Dairy for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "Faculty");
+			$sub_code = !empty($sub_res["data"]["subcode"]) ? $sub_res["data"]["subcode"] : $sub_id;
+			$this->dbActivityLog($faculty_id, "Diary", "Added Diary for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "faculty", "DIARY", (string)$sub_id);
 			$this->conn->commit(); // Commit transaction
 			$res['status'] = 1;
 		} catch (Exception $e) {
@@ -996,6 +992,7 @@ class Faculty extends User
 			$stmt->bind_param("iisis", $faculty_id, $sub_id, $date, $hour, $reason);
 			if ($stmt->execute()) {
 				$res['status'] = 1;
+				$this->dbActivityLog($faculty_id, "REQUEST_ATTENDANCE_DELETE", "Requested attendance deletion for Subject ID: $sub_id, Date: $date, Hour: $hour, Reason: $reason", "faculty", "ATTENDANCE_REQUEST", (string)$sub_id);
 			}
 			$stmt->close();
 		} catch (Exception $e) {
@@ -1154,6 +1151,7 @@ class Faculty extends User
 			$stmt->bind_param("iiss", $subjectId, $assessmentNumber, $fileTitle, $filePath);
 			if ($stmt->execute()) {
 				$res['status'] = 1; // Marks added successfully
+				$this->dbActivityLog($_SESSION['userid'] ?? 0, "UPLOAD_CIA_ATTACHMENT", "Uploaded CIA Attachment: $fileTitle for Subject ID: $subjectId, Mid: $assessmentNumber", "faculty", "CIA_ATTACHMENT", (string)$subjectId);
 			} else {
 				$this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
 			}
@@ -1246,6 +1244,7 @@ class Faculty extends User
 			$stmt->bind_param("iii", $id, $subjectId, $assessmentNumber);
 			if ($stmt->execute()) {
 				$res['status'] = 1; // Marks added successfully
+				$this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_CIA_ATTACHMENT", "Deleted CIA Attachment ID: $id for Subject ID: $subjectId, Mid: $assessmentNumber", "faculty", "CIA_ATTACHMENT", (string)$id);
 			} else {
 				$this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
 			}
@@ -1317,7 +1316,7 @@ class Faculty extends User
 			if ($stmt->execute()) {
 				$res['status'] = 1;
 				// Log the activity
-				$this->dbActivityLog($_SESSION['userid'], "Add Questionnaire Question", "Added Question " . $questionNumber . " for Subject ID: " . $subjectId, "Faculty");
+				$this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_QUESTIONNAIRE_QUESTION", "Added Question " . $questionNumber . " for Subject ID: " . $subjectId, "faculty", "QUESTIONNAIRE", (string)$subjectId);
 			} else {
 				$this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
 				$res['err'] = "Failed to add questionnaire question.";
@@ -1461,7 +1460,7 @@ class Faculty extends User
 			} else {
 				$sub_code = $sub_id;
 			}
-			$this->dbActivityLog($faculty_id, "Attendance", "Marked for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "Faculty");
+			$this->dbActivityLog($faculty_id, "Exceptional Attendance", "Marked exceptional attendance for Subj: " . $sub_code . " Dt." . $date . " Hr." . $hours1, "faculty", "ATTENDANCE", (string)$sub_id);
 			$this->conn->commit(); // Commit transaction
 		} catch (Exception $e) {
 			$this->conn->rollback(); // Rollback on exception

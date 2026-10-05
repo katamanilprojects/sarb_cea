@@ -58,6 +58,10 @@ class AcademicYears extends DBCredentials
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = 'Academic year saved successfully.';
+                $acadYearId = !empty($data['id']) ? $data['id'] : $this->conn->insert_id;
+                $action = !empty($data['id']) ? "UPDATE_ACADEMIC_YEAR" : "ADD_ACADEMIC_YEAR";
+                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($adminId, $action, "Saved academic year: {$data['acad_year']}", "superadmin", "ACADEMIC_YEAR", (string)$acadYearId);
             } else {
                 throw new Exception("Statement execution failed: " . $stmt->error);
             }
@@ -78,6 +82,9 @@ class AcademicYears extends DBCredentials
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['message'] = 'Academic year status updated successfully.';
+                $statusText = $status ? "Active" : "Inactive";
+                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($adminId, "TOGGLE_ACADEMIC_YEAR_STATUS", "Set academic year ID $id status to $statusText", "superadmin", "ACADEMIC_YEAR", (string)$id);
             } else {
                 throw new Exception("Statement execution failed: " . $stmt->error);
             }

@@ -469,6 +469,7 @@ class FeatureManager extends \DBCredentials
 
             $this->refreshCache();
             $this->logs->activityLog("Feature module {$moduleKey} updated by user ID {$updatedBy}");
+            $this->dbActivityLog($updatedBy ?? 0, "TOGGLE_FEATURE_MODULE", "Feature module '{$moduleKey}' updated", "superadmin", "FEATURE_MODULE", $moduleKey);
 
             $res['status'] = 1;
             $res['msg'] = "Feature '{$moduleKey}' updated successfully.";
@@ -521,6 +522,7 @@ class FeatureManager extends \DBCredentials
 
             $this->refreshCache();
             $this->logs->activityLog("Batch feature modules updated ({$updatedCount} modules) by user ID {$updatedBy}");
+            $this->dbActivityLog($updatedBy ?? 0, "BATCH_UPDATE_FEATURE_MODULES", "Batch feature modules updated ({$updatedCount} modules)", "superadmin", "FEATURE_MODULE");
 
             $res['status'] = 1;
             $res['updated_count'] = $updatedCount;

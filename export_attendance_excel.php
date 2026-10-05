@@ -111,7 +111,7 @@ if ($_POST['report_type'] == 'overall' || $_POST['report_type'] == 'enhanced') {
             if (!in_array($subject['subject_sno'], $sub_sno_array)) {
                 array_push($sub_sno_array, $subject['subject_sno']);
             }
-            $temp_attendanceData = $facultyObj->getDetailedAttendanceBySubject($subject['id'], $start_date, $end_date);
+            $temp_attendanceData = $hodObj->getDetailedAttendanceBySubjectExcludingPermissions($subject['id'], $start_date, $end_date);
             $subject_max_classes[$subject['subcode']] = 0;
             if (!empty($temp_attendanceData['data'])) {
                 foreach ($temp_attendanceData['data'] as $student) {
@@ -266,7 +266,7 @@ if ($_POST['report_type'] == 'overall' || $_POST['report_type'] == 'enhanced') {
             if (!in_array($subject['subject_sno'], $sub_sno_array)) {
                 array_push($sub_sno_array, $subject['subject_sno']);
             }
-            $temp_attendanceData = $facultyObj->getDetailedAttendanceBySubject($subject['id'], $start_date, $end_date);
+            $temp_attendanceData = $hodObj->getDetailedAttendanceBySubjectExcludingPermissions($subject['id'], $start_date, $end_date);
             $subject_max_classes[$subject['subcode']] = 0;
             if (!empty($temp_attendanceData['data'])) {
                 foreach ($temp_attendanceData['data'] as $student) {

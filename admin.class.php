@@ -136,7 +136,8 @@ class Admin extends User
                         if (!empty($remarks)) {
                             $details .= " | Remarks: " . $remarks;
                         }
-                        $this->dbActivityLog($_SESSION['userid'], "Password Reset", $details, "");
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "RESET_STUDENT_PASSWORD", $details, "admin", "STUDENT", $username);
                     } else {
                         $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                     }
@@ -193,7 +194,8 @@ class Admin extends User
                                 if (!empty($remarks)) {
                                     $details .= " | Remarks: " . $remarks;
                                 }
-                                $this->dbActivityLog($_SESSION['userid'], "Password Reset", $details, "");
+                                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                                $this->dbActivityLog($adminId, "RESET_FACULTY_PASSWORD", $details, "admin", "FACULTY", (string)$faculty_id);
                             } else {
                                 $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                             }
@@ -360,6 +362,8 @@ class Admin extends User
                             if ($stmt2->execute()) {
                                 $this->conn->commit();
                                 $res['status'] = 1;
+                                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                                $this->dbActivityLog($adminId, "ADD_FACULTY", "Added faculty {$data['name']} ({$data['username']})", "admin", "FACULTY", (string)$facultyid);
                             } else {
                                 $this->logs->errLog($myname . "Faculty insertion failed: " . $this->conn->error);
                                 $this->conn->rollback();
@@ -406,6 +410,8 @@ class Admin extends User
                     $stmt->bind_param("ssssii", $data['name'], $data['email'], $data['mobile'], $data['designation'], $data['status'], $faculty_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "UPDATE_FACULTY", "Updated faculty ID $faculty_id ({$data['name']})", "admin", "FACULTY", (string)$faculty_id);
                     } else {
                         $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                     }
@@ -456,6 +462,8 @@ class Admin extends User
                             $stmt->bind_param("si", $new_password, $faculty_id);
                             if ($stmt->execute()) {
                                 $res['status'] = 1;
+                                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                                $this->dbActivityLog($adminId, "RESET_FACULTY_PASSWORD", "Reset password for faculty ID $faculty_id", "admin", "FACULTY", (string)$faculty_id);
                             } else {
                                 $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                             }
@@ -539,6 +547,8 @@ class Admin extends User
                     $stmt->bind_param("sssii", $data['name'], $data['email'], $data['mobile'], $data['status'], $dept_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "UPDATE_HOD", "Updated HOD for dept ID $dept_id ({$data['name']})", "admin", "HOD", (string)$dept_id);
                     } else {
                         $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                     }
@@ -589,6 +599,8 @@ class Admin extends User
                             $stmt->bind_param("si", $new_password, $dept_id);
                             if ($stmt->execute()) {
                                 $res['status'] = 1;
+                                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                                $this->dbActivityLog($adminId, "RESET_HOD_PASSWORD", "Reset HOD password for dept ID $dept_id", "admin", "HOD", (string)$dept_id);
                             } else {
                                 $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
                             }
@@ -812,6 +824,8 @@ class Admin extends User
             }
             if ($stmt->execute()) {
                 $res['status'] = 1; // Update successful
+                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($adminId, "UPDATE_STUDENT", "Updated student details for student ID $student_id ($roll_number, $name)", "admin", "STUDENT", (string)$student_id);
             }
         } catch (Exception $e) {
             $this->logs->errLog("Error updating student details: " . $e->getMessage());
@@ -833,6 +847,9 @@ class Admin extends User
                     $stmt->bind_param("sss", $username, $dept_shortname, $dept_fullname);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $deptId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "ADD_DEPARTMENT", "Added department $dept_shortname ($dept_fullname)", "admin", "DEPARTMENT", (string)$deptId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -895,6 +912,9 @@ class Admin extends User
                     $stmt->bind_param("sss", $program_code, $prog_shortname, $prog_fullname);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $progId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "ADD_PROGRAM", "Added program $prog_shortname ($program_code)", "admin", "PROGRAM", (string)$progId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -974,6 +994,9 @@ class Admin extends User
                     $stmt2->bind_param("sssssss", $program_code, $data['spec_code'], $data['spec_shortname'], $data['spec_fullname'], $data['dept_id'], $data['prog_id'], $data['regulation']);
                     if ($stmt2->execute()) {
                         $res['status'] = 1;
+                        $specId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "ADD_SPECIALIZATION", "Added specialization {$data['spec_shortname']} ({$data['spec_code']})", "admin", "SPECIALIZATION", (string)$specId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1089,6 +1112,9 @@ class Admin extends User
                     $stmt->bind_param("ssi", $acad_year, $classname, $spec_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $classId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "ADD_CLASS", "Added class $classname ($acad_year)", "admin", "CLASS", (string)$classId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1157,6 +1183,9 @@ class Admin extends User
                     $stmt->bind_param("issssi", $data['subject_sno'], $data['subcode'], $data['sub_shortname'], $data['sub_fullname'], $data['sub_type'], $data['class_id']);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $subId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "ADD_SUBJECT", "Added subject {$data['sub_fullname']} ({$data['subcode']}) for class ID {$data['class_id']}", "admin", "SUBJECT", (string)$subId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1228,6 +1257,9 @@ class Admin extends User
                     $stmt->bind_param("ii", $faculty_id, $sub_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $mapId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "MAP_FACULTY_SUBJECT", "Mapped faculty ID $faculty_id to subject ID $sub_id", "admin", "FACULTY_SUBJECT", (string)$mapId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1426,6 +1458,9 @@ class Admin extends User
                     $stmt->bind_param("ii", $stu_id, $sub_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $mapId = $this->conn->insert_id;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "MAP_STUDENT_SUBJECT", "Mapped student ID $stu_id to subject ID $sub_id", "admin", "STUDENT_SUBJECT", (string)$mapId);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1509,6 +1544,8 @@ class Admin extends User
 
                 // Set success status only if both queries executed successfully (if needed)
                 $res['status'] = 1;
+                $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($adminId, "ADD_STUDENT", "Added student $rollno ($name) to class ID $class_id", "admin", "STUDENT", $rollno);
             } else {
                 $this->logs->errLog($myname . "Mysqli Error or else");
             }
@@ -1531,6 +1568,8 @@ class Admin extends User
                     $stmt->bind_param("si", $stroll, $class_id);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
+                        $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                        $this->dbActivityLog($adminId, "UNENROLL_STUDENT", "Un-enrolled student $stroll from class ID $class_id", "admin", "STUDENT", $stroll);
                     } else {
                         $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
                     }
@@ -1559,6 +1598,9 @@ class Admin extends User
                 $stmt->bind_param("isi", $status, $rollno, $class_id);
                 if ($stmt->execute()) {
                     $res['status'] = 1;
+                    $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                    $statusText = $status ? "Active" : "Inactive";
+                    $this->dbActivityLog($adminId, "SET_STUDENT_STATUS", "Set student $rollno status to $statusText in class ID $class_id", "admin", "STUDENT", $rollno);
                 } else {
                     $this->logs->errLog($myname . "Update statement not executed: " . $this->conn->error);
                 }
@@ -1586,6 +1628,8 @@ class Admin extends User
                 $stmt->bind_param("ss", $new_password, $rollno);
                 if ($stmt->execute()) {
                     $res['status'] = 1;
+                    $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                    $this->dbActivityLog($adminId, "RESET_STUDENT_PASSWORD", "Reset password for student $rollno", "admin", "STUDENT", $rollno);
                 } else {
                     $this->logs->errLog($myname . "Update statement not executed: " . $this->conn->error);
                 }

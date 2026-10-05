@@ -25,6 +25,7 @@ trait CIAMarksTrait
             $stmt->bind_param("iiiddd", $studentId, $subjectId, $assessmentNumber, $subjectiveMarks, $objectiveMarks, $assignmentMarks);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_CIA_MARKS", "Added CIA marks for Student ID: $studentId, Subject ID: $subjectId, Assessment #$assessmentNumber", "faculty", "INTERNAL_MARKS", (string)$subjectId, $studentId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -76,6 +77,7 @@ trait CIAMarksTrait
             $stmt->bind_param("dddi", $subjectiveMarks, $objectiveMarks, $assignmentMarks, $marksId);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "UPDATE_CIA_MARKS", "Updated CIA marks Record ID: $marksId", "faculty", "INTERNAL_MARKS", (string)$marksId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -124,6 +126,7 @@ trait CIAMarksTrait
             if ($stmt->execute()) {
                 $res['status'] = 1;
                 $res['deleted_rows'] = $stmt->affected_rows;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_CIA_COMPONENT_MARKS", "Deleted " . $res['deleted_rows'] . " student marks for Component ID: $componentId", "faculty", "INTERNAL_MARKS", (string)$componentId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -236,6 +239,7 @@ trait CIAMarksTrait
             $stmt->bind_param("iiid", $studentId, $subjectId, $assessmentNumber, $marks);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_PG_CIA_MARKS", "Added PG CIA marks for Student ID: $studentId, Subject ID: $subjectId, Mid: $assessmentNumber", "faculty", "INTERNAL_MARKS", (string)$subjectId, $studentId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -287,6 +291,7 @@ trait CIAMarksTrait
             $stmt->bind_param("di", $marks, $marksId);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "UPDATE_PG_CIA_MARKS", "Updated PG CIA marks Record ID: $marksId (Marks: $marks)", "faculty", "INTERNAL_MARKS", (string)$marksId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -397,6 +402,7 @@ trait CIAMarksTrait
             $stmt->bind_param("iiidd", $studentId, $subjectId, $assessmentNumber, $day_to_day_marks, $internal_test_marks);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_UG_LAB_CIA_MARKS", "Added UG Lab CIA marks for Student ID: $studentId, Subject ID: $subjectId, Mid: $assessmentNumber", "faculty", "INTERNAL_MARKS", (string)$subjectId, $studentId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -448,6 +454,7 @@ trait CIAMarksTrait
             $stmt->bind_param("ddi", $day_to_day_marks, $internal_test_marks, $marksId);
             if ($stmt->execute()) {
                 $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "UPDATE_UG_LAB_CIA_MARKS", "Updated UG Lab CIA marks Record ID: $marksId (D2D: $day_to_day_marks, Test: $internal_test_marks)", "faculty", "INTERNAL_MARKS", (string)$marksId);
             } else {
                 $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
             }
@@ -553,8 +560,12 @@ trait CIAMarksTrait
             $stmt = $this->conn->prepare("INSERT INTO `ugproject_internal_assessment_marks` (`student_id`, `subject_id`, `assessment_number`, `component1_marks`, `component2_marks`) VALUES (?, ?, ?, ?, ?)");
             if (!$stmt) throw new Exception("Failed to prepare statement: " . $this->conn->error);
             $stmt->bind_param("iiidd", $studentId, $subjectId, $assessmentNumber, $component1_marks, $component2_marks);
-            if ($stmt->execute()) $res['status'] = 1;
-            else $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
+            if ($stmt->execute()) {
+                $res['status'] = 1;
+                $this->dbActivityLog($_SESSION['userid'] ?? 0, "ADD_UG_PROJECT_CIA_MARKS", "Added UG Project CIA marks for Student ID: $studentId, Subject ID: $subjectId, Review: $assessmentNumber", "faculty", "INTERNAL_MARKS", (string)$subjectId, $studentId);
+            } else {
+                $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
+            }
             $stmt->close();
         } catch (Exception $e) {
             $this->logs->errLog($myname . "Exception: " . $e->getMessage());

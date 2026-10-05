@@ -391,6 +391,8 @@ class CurriculumSubject extends User
                 $stmt->close();
                 $res['status'] = 1;
                 $res['message'] = 'Curriculum subject updated successfully.';
+                $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                $this->dbActivityLog($acadId, "UPDATE_CURRICULUM_SUBJECT", "Updated curriculum subject ID $id: $subcode ($subFullname)", "academic_section", "CURRICULUM_SUBJECT", (string)$id);
             } else {
                 // Check if already exists for this context
                 $checkSql = "SELECT id FROM curriculum_subjects WHERE reg_id = ? AND spec_id = ? AND yearsem = ? AND subcode = ?";
@@ -412,6 +414,8 @@ class CurriculumSubject extends User
                     $uStmt->close();
                     $res['status'] = 1;
                     $res['message'] = 'Curriculum subject already existed for this course and was updated successfully.';
+                    $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                    $this->dbActivityLog($acadId, "UPDATE_CURRICULUM_SUBJECT", "Updated existing curriculum subject ID $existingId: $subcode ($subFullname)", "academic_section", "CURRICULUM_SUBJECT", (string)$existingId);
                 } else {
                     $checkStmt->close();
                     // Insert
@@ -426,9 +430,12 @@ class CurriculumSubject extends User
                     if (!$stmt->execute()) {
                         throw new Exception("Execute failed: " . $stmt->error);
                     }
+                    $newSubId = $this->conn->insert_id;
                     $stmt->close();
                     $res['status'] = 1;
                     $res['message'] = 'Curriculum subject added successfully.';
+                    $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                    $this->dbActivityLog($acadId, "ADD_CURRICULUM_SUBJECT", "Added curriculum subject $subcode ($subFullname)", "academic_section", "CURRICULUM_SUBJECT", (string)$newSubId);
                 }
             }
         } catch (Exception $e) {
@@ -472,6 +479,8 @@ class CurriculumSubject extends User
 
             $res['status'] = 1;
             $res['message'] = 'Subject status updated successfully.';
+            $acadId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($acadId, "TOGGLE_CURRICULUM_SUBJECT_STATUS", "Curriculum subject ID $id status updated to " . ($newStatus !== null ? $newStatus : 'toggled'), "academic_section", "CURRICULUM_SUBJECT", (string)$id);
         } catch (Exception $e) {
             $res['error'] = 'Failed to update subject status.';
             $this->logs->errLog($myname . $e->getMessage());

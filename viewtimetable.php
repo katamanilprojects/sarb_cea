@@ -77,7 +77,7 @@ $departments = $adminObj->getAllDepartments();
 function getCurrentTimeSlot($conn, $current_time, $acad_year): ?array {
     $query = "SELECT DISTINCT ct.start_time, ct.end_time, ct.hour_desc 
               FROM class_timings ct
-              INNER JOIN timetable_csv_dump t ON ct.id = t.Hour
+              INNER JOIN class_timetables t ON ct.id = t.Hour
               INNER JOIN classes c ON t.class_id = c.id
               WHERE ? BETWEEN ct.start_time AND ct.end_time
                 AND c.acad_year = ?
@@ -104,7 +104,7 @@ function getAllActiveTimeSlots($conn, $acad_year): array {
     $query = "SELECT DISTINCT ct.start_time, ct.end_time, 
               MIN(ct.hour_desc) as hour_desc
               FROM class_timings ct
-              INNER JOIN timetable_csv_dump t ON ct.id = t.Hour
+              INNER JOIN class_timetables t ON ct.id = t.Hour
               INNER JOIN classes c ON t.class_id = c.id
               WHERE c.acad_year = ?
                 AND c.status = 1
@@ -158,7 +158,7 @@ function getOngoingClassesByTime($conn, $time_slot, $weekday, $acad_year, $dept_
                 d.id as dept_id, d.dept_shortname, d.dept_fullname,
                 sp.spec_shortname, sp.spec_fullname,
                 u.name as faculty_name, f.designation, f.username as faculty_username
-              FROM timetable_csv_dump t
+              FROM class_timetables t
               INNER JOIN classes c ON t.class_id = c.id
               LEFT JOIN subjects s ON t.subject_id = s.id
               INNER JOIN class_timings ct ON t.Hour = ct.id AND ct.timing_id = c.timing_id

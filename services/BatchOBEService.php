@@ -131,6 +131,7 @@ class BatchOBEService extends \DBCredentials
         if ($stmt->execute()) {
             $batchId = $this->conn->insert_id;
             $this->logs->actLog($userId, "CREATE_BATCH", "Created student batch: $batchName (ID: $batchId)");
+            $this->dbActivityLog($userId, "CREATE_BATCH", "Created student batch: $batchName (ID: $batchId)", "superadmin", "BATCH", (string)$batchId);
             return ['status' => 1, 'batch_id' => $batchId, 'msg' => 'Student batch created successfully.'];
         }
 
@@ -162,6 +163,7 @@ class BatchOBEService extends \DBCredentials
 
         if ($stmt->execute()) {
             $this->logs->actLog($userId, "UPDATE_BATCH", "Updated student batch ID: $batchId ($batchName)");
+            $this->dbActivityLog($userId, "UPDATE_BATCH", "Updated student batch ID: $batchId ($batchName)", "superadmin", "BATCH", (string)$batchId);
             return ['status' => 1, 'msg' => 'Student batch updated successfully.'];
         }
 
@@ -310,6 +312,7 @@ class BatchOBEService extends \DBCredentials
         if ($stmt->execute()) {
             $scope = $deptId ? "Department $deptId" : "Institutional";
             $this->logs->actLog($userId, "SAVE_VISION_MISSION", "Saved Master $scope Vision & Mission (Effective: $effectiveYear)");
+            $this->dbActivityLog($userId, "SAVE_VISION_MISSION", "Saved Master $scope Vision & Mission (Effective: $effectiveYear)", "superadmin", "VISION_MISSION");
             return ['status' => 1, 'msg' => "Master $scope Vision & Mission saved successfully."];
         }
 
@@ -459,6 +462,7 @@ class BatchOBEService extends \DBCredentials
         $stmt->bind_param("iid", $batchId, $peoId, $targetScore);
         if ($stmt->execute()) {
             $this->logs->actLog($userId, "SAVE_BATCH_PEO_TARGET", "Set target score $targetScore for Batch ID $batchId, PEO ID $peoId");
+            $this->dbActivityLog($userId, "SAVE_BATCH_PEO_TARGET", "Set target score $targetScore for Batch ID $batchId, PEO ID $peoId", "superadmin", "BATCH_TARGET", (string)$batchId);
             return ['status' => 1, 'msg' => 'Cohort PEO target updated successfully.'];
         }
         return ['status' => 0, 'err' => $this->conn->error ?: 'Failed to update target score.'];
@@ -560,6 +564,7 @@ class BatchOBEService extends \DBCredentials
         }
 
         $this->logs->actLog($userId, "SAVE_PEO_MISSION_MATRIX", "Updated Master PEO-Mission matrix for Department $deptId ($count cells)");
+        $this->dbActivityLog($userId, "SAVE_PEO_MISSION_MATRIX", "Updated Master PEO-Mission matrix for Department $deptId ($count cells)", "superadmin", "PEO_MISSION", (string)$deptId);
         return ['status' => 1, 'msg' => 'Master PEO to Mission articulation matrix saved successfully.'];
     }
 
@@ -669,6 +674,7 @@ class BatchOBEService extends \DBCredentials
         }
 
         $this->logs->actLog($userId, "SAVE_PO_PEO_MATRIX", "Updated Master PO-PEO matrix for Department $deptId ($count cells)");
+        $this->dbActivityLog($userId, "SAVE_PO_PEO_MATRIX", "Updated Master PO-PEO matrix for Department $deptId ($count cells)", "superadmin", "PO_PEO", (string)$deptId);
         return ['status' => 1, 'msg' => 'Master PO/PSO to PEO articulation matrix saved successfully.'];
     }
 

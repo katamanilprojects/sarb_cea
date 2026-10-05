@@ -313,6 +313,9 @@ class SuperAdmin extends User
             }
 
             $this->logs->activityLog("Class '$classname' added/updated.");
+            $action = !empty($data["id"]) ? "UPDATE_CLASS" : "ADD_CLASS";
+            $superAdminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($superAdminId, $action, "Class '$classname' ($acad_year) saved", "superadmin", "CLASS", (string)$class_id);
             return ['status' => 1, 'message' => 'Class saved successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in addOrUpdateClass: " . $e->getMessage());
@@ -389,6 +392,8 @@ class SuperAdmin extends User
 
             $this->conn->commit();
             $this->logs->activityLog("Timing schedule saved for class ID $class_id from $from_date with template $timing_id.");
+            $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($adminId, "SAVE_CLASS_TIMING_SCHEDULE", "Timing schedule saved for class ID $class_id from $from_date with template $timing_id", "superadmin", "CLASS", (string)$class_id);
             $res['status'] = 1;
             $res['message'] = 'Class timing schedule saved successfully.';
         } catch (Exception $e) {
@@ -416,6 +421,8 @@ class SuperAdmin extends User
                 }
             }
             $this->logs->activityLog("Bulk timing schedule saved for program ID $prog_id, academic year $acad_year, year-sem $yearsem from $from_date with template $timing_id.");
+            $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($adminId, "SAVE_BULK_CLASS_TIMING_SCHEDULE", "Bulk timing schedule saved for program ID $prog_id, academic year $acad_year, year-sem $yearsem from $from_date with template $timing_id", "superadmin", "CLASS_TIMING");
             $res['status'] = 1;
             $res['message'] = 'Class timing schedule saved successfully for the selected group.';
         } catch (Exception $e) {
@@ -439,6 +446,8 @@ class SuperAdmin extends User
                 throw new Exception("Failed to delete class. Error: " . $stmt->error);
             }
             $this->logs->activityLog("Class ID $id deleted.");
+            $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($adminId, "DELETE_CLASS", "Deleted class ID $id", "superadmin", "CLASS", (string)$id);
             return ['status' => 1, 'message' => 'Class deleted successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in deleteClass: " . $e->getMessage());
@@ -613,6 +622,8 @@ class SuperAdmin extends User
                 $stmt->bind_param("issss", $timing_id, $hour_val, $hour_desc, $start_time, $end_time);
                 $stmt->execute();
             }
+            $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($adminId, "SAVE_TIMING_TEMPLATE", "Saved timing template ID $timing_id with " . count($hours) . " slots", "superadmin", "TIMING_TEMPLATE", (string)$timing_id);
             return ['status' => 1];
         } catch (Exception $e) {
             $this->logs->errLog("Exception in saveTimingTemplate: " . $e->getMessage());
@@ -626,6 +637,8 @@ class SuperAdmin extends User
             $stmt = $this->conn->prepare("DELETE FROM class_timings WHERE timing_id = ?");
             $stmt->bind_param("i", $timing_id);
             $stmt->execute();
+            $adminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($adminId, "DELETE_TIMING_TEMPLATE", "Deleted timing template ID $timing_id", "superadmin", "TIMING_TEMPLATE", (string)$timing_id);
             return ['status' => 1];
         } catch (Exception $e) {
             $this->logs->errLog("Exception in deleteTimingTemplate: " . $e->getMessage());
@@ -710,6 +723,10 @@ class SuperAdmin extends User
 
             $this->conn->commit();
             $this->logs->activityLog("Admin '$name' ($username) created/updated.");
+            $action = !empty($data['id']) ? "UPDATE_ADMIN" : "ADD_ADMIN";
+            $adminEntityId = !empty($data['id']) ? (string)$data['id'] : (string)$this->conn->insert_id;
+            $superAdminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($superAdminId, $action, "Admin '$name' ($username) created/updated", "superadmin", "ADMIN", $adminEntityId);
             return ['status' => 1, 'message' => 'Admin saved successfully.'];
         } catch (Exception $e) {
             $this->conn->rollback();
@@ -729,6 +746,9 @@ class SuperAdmin extends User
             }
 
             $this->logs->activityLog("Admin ID $id status updated to $status.");
+            $superAdminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $statusText = $status ? "Active" : "Inactive";
+            $this->dbActivityLog($superAdminId, "TOGGLE_ADMIN_STATUS", "Set admin ID $id status to $statusText", "superadmin", "ADMIN", (string)$id);
             return ['status' => 1, 'message' => 'Admin status updated successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in toggleAdminStatus: " . $e->getMessage());
@@ -759,6 +779,8 @@ class SuperAdmin extends User
             }
 
             $this->logs->activityLog("Admin ID $id password reset.");
+            $superAdminId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+            $this->dbActivityLog($superAdminId, "RESET_ADMIN_PASSWORD", "Reset password for admin ID $id ($username)", "superadmin", "ADMIN", (string)$id);
             return ['status' => 1, 'message' => 'Admin password reset successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in resetAdminPassword: " . $e->getMessage());

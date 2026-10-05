@@ -450,7 +450,7 @@ Effective date schedules binding classes to specific class timing templates over
 
 > **Foreign Keys**: `class_id` &rarr; `classes(id)`, `timing_id` &rarr; `class_timings(timing_id)`
 
-### 5.3 `timetable_csv_dump`
+### 5.3 `class_timetables`
 Staging dump table for bulk CSV timetable imports.
 
 | Column | Type | Nullable | Key | Default | Description |

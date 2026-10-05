@@ -1,5 +1,13 @@
 <?php
 @session_start();
+if (!empty($_SESSION['userid'])) {
+    require_once __DIR__ . "/dbcredentials.class.php";
+    $dbCreds = new DBCredentials();
+    $userId = $_SESSION['userid'] ?? 0;
+    $username = $_SESSION['user'] ?? '';
+    $role = $_SESSION['role'] ?? 'user';
+    $dbCreds->dbActivityLog($userId, "Logout", "User $username logged out", $role, "AUTH", (string)$userId);
+}
 if(!empty($_SESSION['user'])){
     unset($_SESSION['user']);
 }

@@ -77,12 +77,12 @@ class Timetable extends User
         try {
             if (!empty($this->conn)) {
                 $stmt = $this->conn->prepare(
-                    "SELECT t.class_id, t.weekday, t.Hour, t.subject_code, t.subject_id,
+                    "SELECT t.id, t.class_id, t.weekday, t.Hour, t.subject_code, t.subject_id,
                             t.building_name, t.class_hall_name,
                             s.subcode, s.sub_shortname as subshortname, s.sub_fullname as subfullname, s.sub_type as subtype,
                             ct.hour_desc, ct.start_time, ct.end_time,
                             c.timing_id
-                     FROM timetable_csv_dump t
+                     FROM class_timetables t
                      LEFT JOIN subjects s ON t.subject_id = s.id
                      LEFT JOIN classes c ON t.class_id = c.id
                      LEFT JOIN class_timings ct ON ct.id = t.Hour
@@ -184,7 +184,7 @@ class Timetable extends User
                 }
 
                 $stmt = $this->conn->prepare(
-                    "INSERT INTO timetable_csv_dump (class_id, weekday, Hour, subject_code, subject_id, building_name, class_hall_name)
+                    "INSERT INTO class_timetables (class_id, weekday, Hour, subject_code, subject_id, building_name, class_hall_name)
                      VALUES (?, ?, ?, ?, ?, ?, ?)"
                 );
 
@@ -214,21 +214,68 @@ class Timetable extends User
     }
 
     /**
+     * Delete timetable entry by specific ID
+     */
+    public function deleteTimetableEntryById($id)
+    {
+        $myname = $this->classname . " - deleteTimetableEntryById - ";
+        $res = ['status' => 0, 'message' => ''];
+
+        try {
+            if (!empty($this->conn)) {
+                $stmt = $this->conn->prepare("DELETE FROM class_timetables WHERE id = ?");
+                if ($stmt) {
+                    $stmt->bind_param("i", $id);
+                    if ($stmt->execute()) {
+                        $res['status'] = 1;
+                        $res['message'] = "Timetable entry deleted successfully";
+                    } else {
+                        $this->logs->errLog($myname . "Statement execution failed: " . $this->conn->error);
+                        $res['message'] = "Failed to delete timetable entry: " . $this->conn->error;
+                    }
+                    $stmt->close();
+                } else {
+                    $this->logs->errLog($myname . "Preparation failed: " . $this->conn->error);
+                    $res['message'] = "Failed to prepare statement: " . $this->conn->error;
+                }
+            } else {
+                $res['message'] = "Database connection not available";
+            }
+        } catch (Exception $e) {
+            $this->logs->errLog($myname . "Exception: " . $e->getMessage());
+            $res['message'] = "Error: " . $e->getMessage();
+        }
+
+        return $res;
+    }
+
+    /**
      * Delete timetable entry
      */
-    public function deleteTimetableEntry($class_id, $weekday, $hour)
+    public function deleteTimetableEntry($class_id, $weekday, $hour, $subject_id = null)
     {
         $myname = $this->classname . " - deleteTimetableEntry - ";
         $res = ['status' => 0, 'message' => ''];
 
         try {
             if (!empty($this->conn)) {
-                $stmt = $this->conn->prepare(
-                    "DELETE FROM timetable_csv_dump WHERE class_id = ? AND weekday = ? AND Hour = ?"
-                );
+                if (!empty($subject_id)) {
+                    $stmt = $this->conn->prepare(
+                        "DELETE FROM class_timetables WHERE class_id = ? AND weekday = ? AND Hour = ? AND subject_id = ?"
+                    );
+                    if ($stmt) {
+                        $stmt->bind_param("isii", $class_id, $weekday, $hour, $subject_id);
+                    }
+                } else {
+                    $stmt = $this->conn->prepare(
+                        "DELETE FROM class_timetables WHERE class_id = ? AND weekday = ? AND Hour = ?"
+                    );
+                    if ($stmt) {
+                        $stmt->bind_param("isi", $class_id, $weekday, $hour);
+                    }
+                }
 
                 if ($stmt) {
-                    $stmt->bind_param("isi", $class_id, $weekday, $hour);
                     if ($stmt->execute()) {
                         $res['status'] = 1;
                         $res['message'] = "Timetable entry deleted successfully";
@@ -264,7 +311,7 @@ class Timetable extends User
             if (!empty($this->conn)) {
                 $stmt = $this->conn->prepare(
                     "SELECT t.class_id, c.classname, t.subject_code
-                     FROM timetable_csv_dump t
+                     FROM class_timetables t
                      JOIN classes c ON t.class_id = c.id
                      WHERE t.weekday = ? AND t.Hour = ?
                      AND t.building_name = ? AND t.class_hall_name = ?
@@ -308,7 +355,7 @@ class Timetable extends User
             if (!empty($this->conn)) {
                 $stmt = $this->conn->prepare(
                     "SELECT subject_code, building_name, class_hall_name
-                     FROM timetable_csv_dump
+                     FROM class_timetables
                      WHERE class_id = ? AND weekday = ? AND Hour = ?"
                 );
 
@@ -419,7 +466,7 @@ class Timetable extends User
 					ct.end_time,
 					ct.id as hour_id,
 					u.name as faculty_name
-				FROM timetable_csv_dump t
+				FROM class_timetables t
 				LEFT JOIN subjects s ON t.subject_id = s.id
 				LEFT JOIN classes c ON t.class_id = c.id
 				LEFT JOIN class_timings ct ON ct.id = t.Hour
@@ -535,7 +582,7 @@ class Timetable extends User
 						ct.hour_desc,
 						ct.start_time,
 						ct.end_time
-					FROM timetable_csv_dump t
+					FROM class_timetables t
 					LEFT JOIN subjects s ON t.subject_id = s.id
 					LEFT JOIN classes c ON t.class_id = c.id
 					LEFT JOIN class_timings ct ON ct.id = t.Hour
@@ -664,7 +711,7 @@ class Timetable extends User
                                 ct.hour_desc,
                                 ct.start_time,
                                 ct.end_time
-                            FROM timetable_csv_dump t
+                            FROM class_timetables t
                             LEFT JOIN subjects s ON t.subject_id = s.id
                             LEFT JOIN class_timings ct ON t.Hour = ct.id
                             WHERE t.class_id = ? AND t.weekday = ? AND t.Hour = ?
@@ -798,7 +845,7 @@ class Timetable extends User
                     ct.start_time,
                     ct.end_time,
                     c.classname
-                FROM timetable_csv_dump t
+                FROM class_timetables t
                 LEFT JOIN subjects s ON t.subject_id = s.id
                 LEFT JOIN class_timings ct ON t.Hour = ct.id
                 LEFT JOIN classes c ON t.class_id = c.id
@@ -970,7 +1017,7 @@ class Timetable extends User
                     ct.start_time,
                     ct.end_time,
                     ct.timing_id
-                FROM timetable_csv_dump t
+                FROM class_timetables t
                 INNER JOIN faculty_sub fs ON t.subject_id = fs.sub_id
                 LEFT JOIN subjects s ON t.subject_id = s.id
                 LEFT JOIN classes c ON t.class_id = c.id
@@ -1102,7 +1149,7 @@ class Timetable extends User
                 // Get all timing_ids used by classes this faculty teaches
                 $stmt = $this->conn->prepare("
                 SELECT DISTINCT c.timing_id
-                FROM timetable_csv_dump t
+                FROM class_timetables t
                 INNER JOIN faculty_sub fs ON t.subject_id = fs.sub_id
                 INNER JOIN classes c ON t.class_id = c.id
                 WHERE fs.faculty_id = ? 
@@ -1179,7 +1226,7 @@ class Timetable extends User
                     c.classname,
                     ct.start_time,
                     ct.end_time
-                FROM timetable_csv_dump t
+                FROM class_timetables t
                 INNER JOIN faculty_sub fs ON t.subject_id = fs.sub_id
                 LEFT JOIN subjects s ON t.subject_id = s.id
                 LEFT JOIN classes c ON t.class_id = c.id
@@ -1233,7 +1280,7 @@ class Timetable extends User
             if (!empty($this->conn)) {
                 $stmt = $this->conn->prepare("
                 SELECT COUNT(*) as total
-                FROM timetable_csv_dump t
+                FROM class_timetables t
                 INNER JOIN faculty_sub fs ON t.subject_id = fs.sub_id
                 WHERE fs.faculty_id = ?
             ");

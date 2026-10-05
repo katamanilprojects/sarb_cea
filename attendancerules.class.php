@@ -137,6 +137,9 @@ class AttendanceRules extends User
             }
 
             $this->logs->activityLog("Attendance rule for reg_id '$reg_id' added/updated.");
+            $action = !empty($data['id']) ? "UPDATE_ATTENDANCE_RULE" : "ADD_ATTENDANCE_RULE";
+            $ruleId = !empty($data['id']) ? (string)$data['id'] : (string)$this->conn->insert_id;
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, $action, "Attendance rule for Reg ID $reg_id ($criteria: $operator1 $value1 $operator2 $value2) saved", "superadmin", "ATTENDANCE_RULE", $ruleId);
             return ['status' => 1, 'message' => 'Attendance rule saved successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in addOrUpdateAttendanceRule: " . $e->getMessage());
@@ -155,6 +158,7 @@ class AttendanceRules extends User
             }
 
             $this->logs->activityLog("Attendance rule ID $id deleted.");
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_ATTENDANCE_RULE", "Deleted attendance rule ID $id", "superadmin", "ATTENDANCE_RULE", (string)$id);
             return ['status' => 1, 'message' => 'Attendance rule deleted successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in deleteAttendanceRule: " . $e->getMessage());

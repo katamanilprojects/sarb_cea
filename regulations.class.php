@@ -45,6 +45,9 @@ class Regulations extends User
             }
 
             $this->logs->activityLog("Regulation '$regulation' added/updated.");
+            $action = !empty($data['id']) ? "UPDATE_REGULATION" : "ADD_REGULATION";
+            $regId = !empty($data['id']) ? (string)$data['id'] : (string)$this->conn->insert_id;
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, $action, "Regulation '$regulation' (Prog ID: $prog_id) saved", "superadmin", "REGULATION", $regId);
             return ['status' => 1, 'message' => 'Regulation saved successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in addOrUpdateRegulation: " . $e->getMessage());
@@ -63,6 +66,7 @@ class Regulations extends User
             }
 
             $this->logs->activityLog("Regulation ID $id deleted.");
+            $this->dbActivityLog($_SESSION['userid'] ?? 0, "DELETE_REGULATION", "Deleted regulation ID $id", "superadmin", "REGULATION", (string)$id);
             return ['status' => 1, 'message' => 'Regulation deleted successfully.'];
         } catch (Exception $e) {
             $this->logs->errLog("Exception occurred in deleteRegulation: " . $e->getMessage());

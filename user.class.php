@@ -59,14 +59,16 @@ class User extends DBCredentials
 
 				if ($isValid) {
 					$this->logs->activityLog("User $username successfully logged in.");
-					$this->dbActivityLog($this->id, "Login", "Logged in Successfully");
+					$this->dbActivityLog($this->id, "Login", "Logged in Successfully", $this->role, "AUTH", (string)$this->id);
 					return true; // Return a new user object
 				} else {
 					$this->logs->errLog("Failed login attempt for user $username (invalid password).");
+					$this->dbActivityLog($this->id, "Login Failed", "Failed login attempt (invalid password)", $this->role, "AUTH", (string)$this->id, null, 'FAILED');
 				}
 			} else {
 				$stmt->close();
 				$this->logs->errLog("Failed login attempt for user $username (user not found or inactive).");
+				$this->dbActivityLog(0, "Login Failed", "Failed login attempt for user $username (user not found or inactive)", "guest", "AUTH", null, null, 'FAILED');
 			}
 		} catch (Exception $e) {
 			$this->logs->errLog("Error during authentication for user $username: " . $e->getMessage());
