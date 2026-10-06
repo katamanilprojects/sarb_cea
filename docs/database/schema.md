@@ -643,15 +643,15 @@ Final Consolidated and Direct Semester End Examination (SEE) marks storage for d
 NBA compliance framework: Course Outcomes, Program Outcomes (POs/PSOs), Blooms taxonomy tagging, and question-level marks.
 
 ### 7.1 `course_outcomes`
-Course Outcomes (CO1 through CO6) formulated per subject offering or tied to master BOS curriculum subjects in Outcome-Based Education (OBE).
+Course Outcomes (CO1 through CO6) formulated per subject offering or tied to master curriculum subjects in Outcome-Based Education (OBE).
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Course Outcome ID |
-| `sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing subjects.id (NULL if BOS master CO) |
+| `sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing subjects.id (NULL if curriculum master CO) |
 | `co_number` | `int(11)` | No | - | - | CO sequence numeral (1 to 6) |
 | `co_description` | `text` | No | - | - | Detailed learning outcome statement |
-| `curr_sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing curriculum_subjects.id (for BOS master COs) |
+| `curr_sub_id` | `int(11)` | Yes | MUL | NULL | Foreign key referencing curriculum_subjects.id (for curriculum master COs) |
 | `bloom_level` | `varchar(20)` | No | - | L3-Apply | Target Bloom taxonomy level (L1 to L6) |
 | `target_threshold_percent` | `decimal(5,2)` | No | - | 60.00 | Attainment benchmark threshold percentage (typically 60%) |
 

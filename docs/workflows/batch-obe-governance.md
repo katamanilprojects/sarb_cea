@@ -16,7 +16,7 @@ In university accreditation governance, confusion often arises when tying Progra
 Institutional curriculum guidelines dictate:
 1. **Master Definitions Stored Once**: Vision, Mission, PEOs, POs, and PSOs are defined at the Institution, Department, or Program level. They do not change arbitrarily each year and must not be redundantly stored per cohort.
 2. **Cohort Inheritance**: When a student cohort is created (e.g. `2021-2025`, `2025-2029`), it **inherits** the active master Vision, Mission, PEOs, POs/PSOs, and articulation matrices matching its academic department and entry year.
-3. **NBA / Curriculum Revisions**: If NBA or Board of Studies (BOS) redefines POs or PEOs in a given year (e.g., 2025), a new version is created in the master tables with `effective_from_year = 2025`. Prior batches retain their original standards, while newly admitted cohorts inherit the revised standards.
+3. **NBA / Curriculum Revisions**: If NBA or Academic Authorities redefine POs or PEOs in a given year (e.g., 2025), a new version is created in the master tables with `effective_from_year = 2025`. Prior batches retain their original standards, while newly admitted cohorts inherit the revised standards.
 4. **Macro-Attainment Rollup**: Final program attainment can only be calculated once a batch completes its entire degree timeline (Semesters 1 through 8 for B.Tech). The batch-centric architecture allows seamless tracking of a cohort across all 4 years regardless of intervening calendar shifts.
 
 ---

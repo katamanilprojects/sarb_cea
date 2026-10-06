@@ -132,11 +132,8 @@ class User extends DBCredentials
 				throw new Exception("Failed to execute password update query: " . $this->conn->error);
 			}
 			if ($stmt->affected_rows > 0) {
-				if (!empty($_SESSION['userid']) && $_SESSION['userid'] == $userId) {
-					$this->dbActivityLog($userId, "Update", "Password updated");
-				} else {
-					$this->dbActivityLog($userId, "Update", $role . " Password updated for user Id: " . $userId);
-				}
+				$logRole = !empty($role) ? $role : (!empty($_SESSION['role']) ? $_SESSION['role'] : "user");
+				$this->dbActivityLog($userId, "CHANGE_PASSWORD", "Password updated for " . $logRole . " ID: " . $userId, $logRole, "AUTH", (string)$userId);
 				$res['status'] = 1; // Password updated successfully
 			}
 

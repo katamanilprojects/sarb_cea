@@ -105,28 +105,38 @@ trait CourseOutcomeTrait
         $myname = $this->coClassname . " - addCO - ";
 
         try {
-            $stmt = $this->conn->prepare("
-                INSERT INTO `course_outcomes` (`sub_id`, `co_number`, `co_description`, `bloom_level`, `target_threshold_percent`) 
-                VALUES (?, ?, ?, ?, ?)
-                ON DUPLICATE KEY UPDATE 
-                    co_description = VALUES(co_description),
-                    bloom_level = VALUES(bloom_level),
-                    target_threshold_percent = VALUES(target_threshold_percent)
-            ");
-            if (!$stmt) {
-                throw new Exception("Failed to prepare addCO statement: " . $this->conn->error);
-            }
+            require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+            $syncRes = CourseOutcomeSyncService::getInstance()->syncOfferingCOToMasterAndSiblings(
+                (int)$sub_id,
+                (int)$co_number,
+                $co_description,
+                $bloom_level,
+                (float)$target_threshold
+            );
 
-            $stmt->bind_param("iissd", $sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
-            if ($stmt->execute()) {
+            if (!empty($syncRes['status'])) {
                 $res['status'] = 1;
-                $res['insert_id'] = $this->conn->insert_id;
+                $res['sync'] = $syncRes;
                 $facultyId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
-                $this->dbActivityLog($facultyId, "SAVE_COURSE_OUTCOME", "Saved Course Outcome CO$co_number for Subject ID $sub_id", "faculty", "COURSE_OUTCOME", (string)$sub_id);
+                $this->dbActivityLog($facultyId, "SAVE_COURSE_OUTCOME", "Saved Course Outcome CO$co_number for Subject ID $sub_id (Dual-synced)", "faculty", "COURSE_OUTCOME", (string)$sub_id);
             } else {
-                $this->logs->errLog($myname . "Statement not executed: " . $this->conn->error);
+                // Fallback to direct insertion if sync returned an error
+                $stmt = $this->conn->prepare("
+                    INSERT INTO `course_outcomes` (`sub_id`, `co_number`, `co_description`, `bloom_level`, `target_threshold_percent`) 
+                    VALUES (?, ?, ?, ?, ?)
+                    ON DUPLICATE KEY UPDATE 
+                        co_description = VALUES(co_description),
+                        bloom_level = VALUES(bloom_level),
+                        target_threshold_percent = VALUES(target_threshold_percent)
+                ");
+                if ($stmt) {
+                    $stmt->bind_param("iissd", $sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
+                    if ($stmt->execute()) {
+                        $res['status'] = 1;
+                    }
+                    $stmt->close();
+                }
             }
-            $stmt->close();
         } catch (Exception $e) {
             $this->logs->errLog($myname . "Exception: " . $e->getMessage());
         }
@@ -251,7 +261,7 @@ trait CourseOutcomeTrait
     /**
      * Adds or updates a single CO-PO/PSO mapping with specific weightage (1, 2, or 3)
      */
-    public function addUpdateCoPoMapping($co_id, $po_pso_id, $weightage)
+    public function addUpdateCoPoMapping($co_id, $po_pso_id, $weightage, $sub_id = null)
     {
         if (!in_array($weightage, [1, 2, 3])) {
             $this->logs->warningLog("Invalid weightage value ($weightage) provided for CO_ID $co_id, PO_ID $po_pso_id.");
@@ -260,6 +270,32 @@ trait CourseOutcomeTrait
 
         $myname = $this->coClassname . " - addUpdateCoPoMapping - ";
         try {
+            if (!$sub_id) {
+                $subStmt = $this->conn->prepare("SELECT sub_id FROM course_outcomes WHERE id = ?");
+                if ($subStmt) {
+                    $subStmt->bind_param("i", $co_id);
+                    $subStmt->execute();
+                    $sub_id = $subStmt->get_result()->fetch_assoc()['sub_id'] ?? null;
+                    $subStmt->close();
+                }
+            }
+
+            if ($sub_id) {
+                require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                $syncRes = CourseOutcomeSyncService::getInstance()->syncOfferingMappingToMasterAndSiblings(
+                    (int)$sub_id,
+                    (int)$co_id,
+                    (int)$po_pso_id,
+                    (int)$weightage
+                );
+                if (!empty($syncRes['status'])) {
+                    $facultyId = $_SESSION['userid'] ?? ($_SESSION['user_id'] ?? 0);
+                    $this->dbActivityLog($facultyId, "SAVE_CO_PO_MAPPING", "Updated CO-PO mapping: CO ID $co_id to PO ID $po_pso_id with weight $weightage (Dual-synced)", "faculty", "CO_PO_MAPPING", (string)$co_id);
+                    return true;
+                }
+            }
+
+            // Fallback direct update
             $stmt = $this->conn->prepare("INSERT INTO co_po_mapping (co_id, po_id, weightage) VALUES (?, ?, ?) ON DUPLICATE KEY UPDATE weightage = ?");
             if (!$stmt) { throw new Exception("Prepare failed: " . $this->conn->error); }
 

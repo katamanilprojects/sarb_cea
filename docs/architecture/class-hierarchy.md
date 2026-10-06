@@ -296,7 +296,7 @@ classDiagram
 - **`CIA`** (`cia.class.php`): Handles Continuous Internal Assessment marks entry, calculations, condensed reports, and grade thresholds for UG, PG, Lab, and Project subjects.
 - **`CIAMarks`** (`ciamarks.class.php`): Modular CIA scoring engine managing question-level entries and validation.
 - **`AssessmentStructure`** (`assessmentstructure.class.php`): Configures assessment question components, Bloom taxonomy mapping, and max marks.
-- **`CourseOutcome`** (`courseoutcome.class.php`): Manages Course Outcome definitions, BOS master linking (`curr_sub_id`), and cognitive level targets.
+- **`CourseOutcome`** (`courseoutcome.class.php`): Manages Course Outcome definitions, curriculum master linking (`curr_sub_id`), and cognitive level targets.
 - **`COAttainment`** (`coattainment.class.php`): Computes direct and indirect CO attainment, threshold adherence, and PO-PSO attainment articulation matrices.
 - **`SEEAssessment`** (`seeassessment.class.php`): Handles Semester End Examination assessment structures, detailed question-level entries, direct ledger marks, and external attainment calculation.
 - **`LearningAnalytics`** (`learninganalytics.class.php`): Computes OBE learning progression, score distributions, and accreditation metrics.

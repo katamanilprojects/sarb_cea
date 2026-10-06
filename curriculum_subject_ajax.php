@@ -88,5 +88,30 @@ if ($action === 'delete_master_co') {
     exit();
 }
 
+if ($action === 'get_master_matrix') {
+    $currSubId = (int)($_GET['curr_sub_id'] ?? ($_POST['curr_sub_id'] ?? 0));
+    if ($currSubId <= 0) {
+        echo json_encode(['status' => 0, 'error' => 'Curriculum Subject ID is required.']);
+        exit();
+    }
+    $res = $obj->getMasterArticulationMatrix($currSubId);
+    echo json_encode($res);
+    exit();
+}
+
+if ($action === 'save_master_matrix') {
+    $currSubId = (int)($_POST['curr_sub_id'] ?? 0);
+    $mappings = $_POST['mapping'] ?? [];
+
+    if ($currSubId <= 0) {
+        echo json_encode(['status' => 0, 'error' => 'Curriculum Subject ID is required.']);
+        exit();
+    }
+
+    $res = $obj->saveMasterArticulationMatrix($currSubId, $mappings);
+    echo json_encode($res);
+    exit();
+}
+
 echo json_encode(['status' => 0, 'error' => 'Invalid action.']);
 exit();

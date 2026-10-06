@@ -508,6 +508,31 @@ class CurriculumSubject extends User
             $stmt->bind_param("i", $curr_sub_id);
             $stmt->execute();
             $res['data'] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            // If empty, auto-discover from sibling curriculum subjects or offering subjects sharing same subcode & reg_id
+            if (empty($res['data'])) {
+                require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                $sync = CourseOutcomeSyncService::getInstance();
+                $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
+                if ($cSub && !empty($cSub['subcode']) && !empty($cSub['reg_id'])) {
+                    $sourceDefs = $sync->getSourceCoDefinitions(trim($cSub['subcode']), (int)$cSub['reg_id']);
+                    if (!empty($sourceDefs)) {
+                        $sync->ensureMasterCOsExist($curr_sub_id, $sourceDefs);
+                        $stmt2 = $this->conn->prepare("
+                            SELECT id, curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent
+                            FROM course_outcomes 
+                            WHERE curr_sub_id = ? AND sub_id IS NULL 
+                            ORDER BY co_number ASC
+                        ");
+                        $stmt2->bind_param("i", $curr_sub_id);
+                        $stmt2->execute();
+                        $res['data'] = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
+                        $stmt2->close();
+                    }
+                }
+            }
+
             $res['status'] = 1;
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
@@ -520,37 +545,22 @@ class CurriculumSubject extends User
     {
         $res = ['status' => 0, 'error' => ''];
         try {
-            // Check if a master CO (sub_id IS NULL) already exists for this curriculum subject + co_number
-            $checkStmt = $this->conn->prepare(
-                "SELECT id FROM course_outcomes WHERE curr_sub_id = ? AND co_number = ? AND sub_id IS NULL LIMIT 1"
+            require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+            $syncRes = CourseOutcomeSyncService::getInstance()->syncMasterCOToOfferings(
+                $curr_sub_id,
+                $co_number,
+                $co_description,
+                $bloom_level,
+                $target_threshold
             );
-            $checkStmt->bind_param("ii", $curr_sub_id, $co_number);
-            $checkStmt->execute();
-            $existingId = $checkStmt->get_result()->fetch_assoc()['id'] ?? null;
-            $checkStmt->close();
 
-            if ($existingId) {
-                // UPDATE existing master CO
-                $stmt = $this->conn->prepare(
-                    "UPDATE course_outcomes SET co_description = ?, bloom_level = ?, target_threshold_percent = ? WHERE id = ?"
-                );
-                $stmt->bind_param("ssdi", $co_description, $bloom_level, $target_threshold, $existingId);
-            } else {
-                // INSERT new master CO
-                $stmt = $this->conn->prepare(
-                    "INSERT INTO course_outcomes (curr_sub_id, sub_id, co_number, co_description, bloom_level, target_threshold_percent)
-                     VALUES (?, NULL, ?, ?, ?, ?)"
-                );
-                $stmt->bind_param("iissd", $curr_sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
-            }
-
-            if ($stmt->execute()) {
+            if (!empty($syncRes['status'])) {
                 $res['status'] = 1;
-                $res['message'] = "Master Course Outcome saved successfully.";
+                $res['message'] = "Master Course Outcome saved successfully. " . 
+                    ($syncRes['offerings_updated'] > 0 ? "Cascaded to {$syncRes['offerings_updated']} active offering(s)." : "");
             } else {
-                throw new Exception($stmt->error);
+                throw new Exception($syncRes['error'] ?? "Failed to save master CO");
             }
-            $stmt->close();
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("CurriculumSubject::addOrUpdateMasterCO Error: " . $e->getMessage());
@@ -573,6 +583,189 @@ class CurriculumSubject extends User
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("CurriculumSubject::deleteMasterCO Error: " . $e->getMessage());
+        }
+        return $res;
+    }
+
+    /**
+     * Resolves POs and PSOs for a curriculum subject
+     */
+    public function getRelevantPoPsoForCurriculum(int $curr_sub_id): array
+    {
+        $res = [];
+        try {
+            $stmt = $this->conn->prepare("
+                SELECT cs.reg_id, cs.spec_id, cs.prog_id, r.regulation, sp.dept_id
+                FROM curriculum_subjects cs
+                JOIN regulations r ON cs.reg_id = r.id
+                LEFT JOIN specialization sp ON cs.spec_id = sp.id
+                WHERE cs.id = ?
+            ");
+            $stmt->bind_param("i", $curr_sub_id);
+            $stmt->execute();
+            $cs = $stmt->get_result()->fetch_assoc();
+            $stmt->close();
+            if (!$cs) return [];
+
+            // 1. Direct match on reg_id and spec_id
+            $q1 = "
+                SELECT id, code, description, po_pso, target_score
+                FROM po_pso
+                WHERE (reg_id = ? OR regulation = ?) AND specid = ?
+                GROUP BY code
+                ORDER BY po_pso ASC, orderid ASC, id ASC
+            ";
+            $s1 = $this->conn->prepare($q1);
+            $s1->bind_param("isi", $cs['reg_id'], $cs['regulation'], $cs['spec_id']);
+            $s1->execute();
+            $res = $s1->get_result()->fetch_all(MYSQLI_ASSOC);
+            $s1->close();
+            if (!empty($res)) return $res;
+
+            // 2. Match via class spec_id from any existing offerings
+            $q2 = "
+                SELECT p.id, p.code, p.description, p.po_pso, p.target_score
+                FROM po_pso p
+                JOIN classes c ON p.specid = c.spec_id
+                JOIN subjects s ON s.class_id = c.id
+                WHERE s.curr_sub_id = ? AND (p.reg_id = ? OR p.regulation = ?)
+                GROUP BY p.code
+                ORDER BY p.po_pso ASC, p.orderid ASC, p.id ASC
+            ";
+            $s2 = $this->conn->prepare($q2);
+            $s2->bind_param("iis", $curr_sub_id, $cs['reg_id'], $cs['regulation']);
+            $s2->execute();
+            $res = $s2->get_result()->fetch_all(MYSQLI_ASSOC);
+            $s2->close();
+            if (!empty($res)) return $res;
+
+            // 3. Match via dept_id
+            if (!empty($cs['dept_id'])) {
+                $q3 = "
+                    SELECT id, code, description, po_pso, target_score
+                    FROM po_pso
+                    WHERE (reg_id = ? OR regulation = ?) AND specid = ?
+                    GROUP BY code
+                    ORDER BY po_pso ASC, orderid ASC, id ASC
+                ";
+                $s3 = $this->conn->prepare($q3);
+                $s3->bind_param("isi", $cs['reg_id'], $cs['regulation'], $cs['dept_id']);
+                $s3->execute();
+                $res = $s3->get_result()->fetch_all(MYSQLI_ASSOC);
+                $s3->close();
+                if (!empty($res)) return $res;
+            }
+
+            // 4. Fallback to regulation-wide POs
+            $q4 = "
+                SELECT id, code, description, po_pso, target_score
+                FROM po_pso
+                WHERE (reg_id = ? OR regulation = ?)
+                GROUP BY code
+                ORDER BY po_pso ASC, orderid ASC, id ASC
+            ";
+            $s4 = $this->conn->prepare($q4);
+            $s4->bind_param("is", $cs['reg_id'], $cs['regulation']);
+            $s4->execute();
+            $res = $s4->get_result()->fetch_all(MYSQLI_ASSOC);
+            $s4->close();
+        } catch (Exception $e) {
+            $this->logs->errLog("CurriculumSubject::getRelevantPoPsoForCurriculum Error: " . $e->getMessage());
+        }
+        return $res;
+    }
+
+    /**
+     * Get Master Articulation Matrix for a curriculum subject
+     */
+    public function getMasterArticulationMatrix(int $curr_sub_id): array
+    {
+        $res = ['status' => 0, 'cos' => [], 'po_psos' => [], 'mappings' => []];
+        try {
+            $cosRes = $this->getMasterCOs($curr_sub_id);
+            $res['cos'] = $cosRes['data'] ?? [];
+
+            $res['po_psos'] = $this->getRelevantPoPsoForCurriculum($curr_sub_id);
+
+            if (!empty($res['cos']) && !empty($res['po_psos'])) {
+                $coIds = array_column($res['cos'], 'id');
+                $ph = implode(',', array_fill(0, count($coIds), '?'));
+                $types = str_repeat('i', count($coIds));
+
+                $stmt = $this->conn->prepare("
+                    SELECT co_id, po_id, weightage
+                    FROM co_po_mapping
+                    WHERE co_id IN ($ph)
+                ");
+                $stmt->bind_param($types, ...$coIds);
+                $stmt->execute();
+                $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmt->close();
+
+                $mappings = [];
+                foreach ($rows as $r) {
+                    $mappings[$r['co_id'] . '-' . $r['po_id']] = (int)$r['weightage'];
+                }
+                $res['mappings'] = $mappings;
+
+                // If mappings are empty, check if sibling curriculum or offering subject has a matrix
+                if (empty($res['mappings'])) {
+                    require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                    $sync = CourseOutcomeSyncService::getInstance();
+                    $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
+                    if ($cSub && !empty($cSub['subcode']) && !empty($cSub['reg_id'])) {
+                        $logical = $sync->findLogicalMatrixBySubjectCode(trim($cSub['subcode']), (int)$cSub['reg_id']);
+                        if (!empty($logical)) {
+                            $sync->propagateLogicalMatrixBySubjectCode(trim($cSub['subcode']), (int)$cSub['reg_id'], $logical);
+
+                            // Re-fetch mappings now that propagation has populated them
+                            $stmt2 = $this->conn->prepare("
+                                SELECT co_id, po_id, weightage
+                                FROM co_po_mapping
+                                WHERE co_id IN ($ph)
+                            ");
+                            $stmt2->bind_param($types, ...$coIds);
+                            $stmt2->execute();
+                            $rows2 = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
+                            $stmt2->close();
+
+                            $mappings = [];
+                            foreach ($rows2 as $r) {
+                                $mappings[$r['co_id'] . '-' . $r['po_id']] = (int)$r['weightage'];
+                            }
+                            $res['mappings'] = $mappings;
+                        }
+                    }
+                }
+            }
+
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::getMasterArticulationMatrix Error: " . $e->getMessage());
+        }
+        return $res;
+    }
+
+    /**
+     * Save Master Articulation Matrix and cascade to all offerings
+     */
+    public function saveMasterArticulationMatrix(int $curr_sub_id, array $mappings): array
+    {
+        $res = ['status' => 0, 'error' => ''];
+        try {
+            require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+            $syncRes = CourseOutcomeSyncService::getInstance()->syncMasterMatrixToOfferings($curr_sub_id, $mappings);
+
+            if (!empty($syncRes['status'])) {
+                $res['status'] = 1;
+                $res['message'] = "Master Articulation Matrix saved successfully. Cascaded {$syncRes['offerings_updated']} cell update(s) to active class offerings.";
+            } else {
+                throw new Exception($syncRes['error'] ?? "Failed to save matrix");
+            }
+        } catch (Exception $e) {
+            $res['error'] = $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::saveMasterArticulationMatrix Error: " . $e->getMessage());
         }
         return $res;
     }

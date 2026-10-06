@@ -8,7 +8,7 @@ This document describes the Course Outcome (CO) and Program Outcome (PO) attainm
 
 ```mermaid
 graph TD
-    A[SuperAdmin: Define POs & PSOs: po_pso] --> B[Master BOS / Faculty: Define Course Outcomes CO1-CO6: course_outcomes]
+    A[SuperAdmin: Define POs & PSOs: po_pso] --> B[Academic Section / Faculty: Define Course Outcomes CO1-CO6: course_outcomes]
     B --> C[Faculty: Construct CO-PO Articulation Matrix: co_po_mapping]
     B --> LP[Faculty: Lesson Planning & Delivery Reconciliation: lesson_plans & audits]
     C --> D[Faculty: Map Exam Questions to COs & Blooms: question_co_mapping]
@@ -25,7 +25,7 @@ graph TD
 
 ### 2.1 Course Outcomes Setup (`facaddcos.php`)
 - Instructors formulate between 4 and 6 measurable Course Outcomes (CO1 through CO6) for their subject in `course_outcomes`.
-- **BOS Decoupling & Curriculum Linkage**: COs can be inherited from the master catalog via `course_outcomes.curr_sub_id = curriculum_subjects.id` or customized per offering instance (`sub_id`).
+- **Curriculum Master Linkage**: COs can be inherited from the master catalog via `course_outcomes.curr_sub_id = curriculum_subjects.id` or customized per offering instance (`sub_id`).
 - Each outcome specifies:
   - `co_number`: Sequence index (1 to 6).
   - `co_description`: Detailed action-verb outcome statement.

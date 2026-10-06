@@ -70,7 +70,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
                             // If a valid weightage is submitted, add it using addUpdate (handles potential duplicates gracefully)
                             if ($submitted_weightage !== null) {
-                                if ($coObj->addUpdateCoPoMapping($co_id, $po_id, $submitted_weightage)) {
+                                if ($coObj->addUpdateCoPoMapping($co_id, $po_id, $submitted_weightage, $selected_sub_id)) {
                                     $changes_made++;
                                 } else {
                                     $errors_occurred++;
@@ -104,15 +104,80 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $co_ids = array_column($courseOutcomes, 'id');
                     $po_pso_ids = array_column($poPsoItems, 'id');
                     $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
-                    // Set Mode based on whether mappings *now* exist (after potential save)
+
+                    // If empty, auto-check if master/sibling has articulation matrix for same subcode & reg_id
+                    if (empty($currentMappings)) {
+                        require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                        $sync = CourseOutcomeSyncService::getInstance();
+                        $subInfo = $facultyObj->conn->query("
+                            SELECT s.subcode, s.curr_sub_id, c.reg_id 
+                            FROM subjects s 
+                            JOIN classes c ON s.class_id = c.id 
+                            WHERE s.id = " . (int)$selected_sub_id
+                        );
+                        if ($subInfo && $sRow = $subInfo->fetch_assoc()) {
+                            $subcode = trim($sRow['subcode'] ?? '');
+                            $regId = (int)($sRow['reg_id'] ?? 0);
+                            if (!empty($subcode) && $regId > 0) {
+                                $logical = $sync->findLogicalMatrixBySubjectCode($subcode, $regId);
+                                if (!empty($logical)) {
+                                    $sync->propagateLogicalMatrixBySubjectCode($subcode, $regId, $logical);
+                                    // Refresh COs and mappings after propagation
+                                    $co_result = $coObj->getCOsBySubjectId($selected_sub_id);
+                                    if ($co_result['status']) {
+                                        $courseOutcomes = $co_result['data'];
+                                        $co_ids = array_column($courseOutcomes, 'id');
+                                    }
+                                    $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
+                                }
+                            }
+                        }
+                    }
+
+                    // Set Mode based on whether mappings *now* exist (after potential save or auto-propagation)
                     if (!empty($currentMappings)) {
                         $matrix_mode = 'View'; // If mappings exist, switch to View mode
                     } else {
                         $matrix_mode = 'Add'; // Otherwise, stay in Add mode
                     }
                 } else {
-                    // If COs or POs/PSOs couldn't be fetched, default to Add, but display will likely show error message
-                     $matrix_mode = 'Add';
+                    // If COs or POs/PSOs couldn't be fetched, check if sibling has COs & matrix
+                    require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                    $sync = CourseOutcomeSyncService::getInstance();
+                    $subInfo = $facultyObj->conn->query("
+                        SELECT s.subcode, s.curr_sub_id, c.reg_id 
+                        FROM subjects s 
+                        JOIN classes c ON s.class_id = c.id 
+                        WHERE s.id = " . (int)$selected_sub_id
+                    );
+                    if ($subInfo && $sRow = $subInfo->fetch_assoc()) {
+                        $subcode = trim($sRow['subcode'] ?? '');
+                        $regId = (int)($sRow['reg_id'] ?? 0);
+                        if (!empty($subcode) && $regId > 0) {
+                            $logical = $sync->findLogicalMatrixBySubjectCode($subcode, $regId);
+                            if (!empty($logical)) {
+                                $sync->propagateLogicalMatrixBySubjectCode($subcode, $regId, $logical);
+                                $co_result = $coObj->getCOsBySubjectId($selected_sub_id);
+                                if ($co_result['status']) {
+                                    $courseOutcomes = $co_result['data'];
+                                }
+                                $pops_result = $coObj->getRelevantPoPso($selected_sub_id);
+                                if ($pops_result['status']) {
+                                    $poPsoItems = $pops_result['data'];
+                                }
+                                if (!empty($courseOutcomes) && !empty($poPsoItems)) {
+                                    $co_ids = array_column($courseOutcomes, 'id');
+                                    $po_pso_ids = array_column($poPsoItems, 'id');
+                                    $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
+                                }
+                            }
+                        }
+                    }
+                    if (!empty($currentMappings)) {
+                        $matrix_mode = 'View';
+                    } else {
+                        $matrix_mode = 'Add';
+                    }
                 }
             }
         } // End !empty(sub_id)
@@ -199,10 +264,13 @@ require_once("facheader.php"); // Include faculty menu
         if (!empty($courseOutcomes) && !empty($poPsoItems)):
     ?>
             <div class="card">
-                 <div class="card-header">
-                    <?php echo ($matrix_mode == 'Add' ? 'Add' : 'View'); ?> Articulation Matrix Mappings
-                     <small class="float-end">Weightage: 1=Low, 2=Medium, 3=High</small>
-                 </div>
+                <div class="card-header d-flex justify-content-between align-items-center">
+                    <div>
+                        <strong><?php echo ($matrix_mode == 'Add' ? 'Add' : 'View'); ?> Articulation Matrix Mappings</strong>
+                        <span class="badge bg-info text-dark ms-2" title="Mappings automatically sync to the Central Curriculum Master and all parallel sections"><i class="bi bi-arrow-repeat"></i> Dual-Synced (Master &amp; Sections)</span>
+                    </div>
+                    <small class="text-muted">Weightage: 1=Low, 2=Medium, 3=High</small>
+                </div>
                 <div class="card-body">
                     <?php // Form needed only in Add mode for submission ?>
                     <form action="facarticulationmatrix.php" method="post" <?php if ($matrix_mode == 'Add') echo 'onsubmit="return confirmSubmission();"'; ?>>

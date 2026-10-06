@@ -393,9 +393,24 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                                 <i class="bi bi-pencil"></i> Edit
                                             </a>
 
-                                            <!-- BOS Master Course Outcomes button -->
-                                            <button type="button" class="btn btn-sm btn-outline-primary me-1" onclick="openMasterCOModal(<?= $sub['id'] ?>, '<?= htmlspecialchars(addslashes($sub['subcode'])) ?>', '<?= htmlspecialchars(addslashes($sub['sub_fullname'])) ?>')" title="Manage BOS Master Course Outcomes">
-                                                <i class="bi bi-award"></i> BOS COs
+                                            <!-- Master Course Outcomes button -->
+                                            <button type="button" class="btn btn-sm btn-outline-primary me-1 btn-master-co" 
+                                                    data-bs-toggle="modal" data-bs-target="#masterCOModal"
+                                                    data-id="<?= (int)$sub['id'] ?>" 
+                                                    data-subcode="<?= htmlspecialchars($sub['subcode'] ?? '', ENT_QUOTES) ?>" 
+                                                    data-subname="<?= htmlspecialchars($sub['sub_fullname'] ?? '', ENT_QUOTES) ?>" 
+                                                    title="Manage Master Course Outcomes">
+                                                <i class="bi bi-award"></i> Master COs
+                                            </button>
+
+                                            <!-- Master Articulation Matrix button -->
+                                            <button type="button" class="btn btn-sm btn-outline-info me-1 btn-master-matrix" 
+                                                    data-bs-toggle="modal" data-bs-target="#masterMatrixModal"
+                                                    data-id="<?= (int)$sub['id'] ?>" 
+                                                    data-subcode="<?= htmlspecialchars($sub['subcode'] ?? '', ENT_QUOTES) ?>" 
+                                                    data-subname="<?= htmlspecialchars($sub['sub_fullname'] ?? '', ENT_QUOTES) ?>" 
+                                                    title="Manage Master CO-PO Articulation Matrix">
+                                                <i class="bi bi-grid-3x3"></i> Matrix
                                             </button>
 
                                             <!-- Inactivate / Activate toggle form -->
@@ -428,12 +443,14 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
     <?php endif; ?>
 </div>
 
-<!-- Master BOS Course Outcomes Modal -->
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+
+<!-- Master Course Outcomes Modal -->
 <div class="modal fade" id="masterCOModal" tabindex="-1" aria-labelledby="masterCOModalLabel" aria-hidden="true">
     <div class="modal-dialog modal-lg">
         <div class="modal-content shadow">
             <div class="modal-header bg-primary text-white">
-                <h5 class="modal-title" id="masterCOModalLabel"><i class="bi bi-award me-2"></i>Board of Studies (BOS) Master Course Outcomes</h5>
+                <h5 class="modal-title" id="masterCOModalLabel"><i class="bi bi-award me-2"></i>Curriculum Master Course Outcomes</h5>
                 <button type="button" class="btn-close btn-close-white" data-bs-dismiss="modal" aria-label="Close"></button>
             </div>
             <div class="modal-body">
@@ -512,6 +529,48 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
             </div>
             <div class="modal-footer py-2">
                 <button type="button" class="btn btn-secondary btn-sm" data-bs-dismiss="modal">Close</button>
+            </div>
+        </div>
+    </div>
+</div>
+
+<!-- Master Articulation Matrix Modal -->
+<div class="modal fade" id="masterMatrixModal" tabindex="-1" aria-labelledby="masterMatrixModalLabel" aria-hidden="true">
+    <div class="modal-dialog modal-xl">
+        <div class="modal-content shadow">
+            <div class="modal-header bg-info text-dark">
+                <h5 class="modal-title" id="masterMatrixModalLabel"><i class="bi bi-grid-3x3 me-2"></i>Curriculum Master Articulation Matrix (CO-PO/PSO)</h5>
+                <button type="button" class="btn-close" data-bs-dismiss="modal" aria-label="Close"></button>
+            </div>
+            <div class="modal-body">
+                <div class="alert alert-secondary py-2 mb-3">
+                    <strong id="modalMatrixSubjectInfo">Subject Code & Name</strong>
+                    <div class="text-muted small">
+                        This matrix maps Course Outcomes to Program Outcomes (PO1-PO12, PSO1-PSO4) with weightages: <strong>1 = Low, 2 = Medium, 3 = High</strong>.
+                        Saving this matrix will automatically update the Master Catalog and cascade to all active offerings teaching this subject.
+                    </div>
+                </div>
+
+                <div id="modalMatrixAlert"></div>
+
+                <form id="masterMatrixForm" onsubmit="submitMasterMatrix(event)">
+                    <input type="hidden" id="modal_matrix_curr_sub_id" name="curr_sub_id" value="">
+                    <input type="hidden" name="action" value="save_master_matrix">
+
+                    <div id="matrixTableContainer" class="table-responsive mb-3">
+                        <div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading articulation matrix...</div>
+                    </div>
+
+                    <div class="d-flex justify-content-between align-items-center">
+                        <small class="text-muted"><i class="bi bi-info-circle me-1"></i>Leave blank if a CO does not correlate to a specific PO/PSO.</small>
+                        <div>
+                            <button type="button" class="btn btn-secondary btn-sm me-2" data-bs-dismiss="modal">Close</button>
+                            <button type="submit" id="modalMatrixSubmitBtn" class="btn btn-primary btn-sm">
+                                <i class="bi bi-save me-1"></i>Save Master Articulation Matrix
+                            </button>
+                        </div>
+                    </div>
+                </form>
             </div>
         </div>
     </div>
@@ -628,24 +687,26 @@ function lookupSubjectCode() {
         });
 }
 
-// Master BOS Course Outcomes Modal & AJAX Management
-let currentMasterCOModalInstance = null;
+// Master Course Outcomes Modal & AJAX Management
 let activeCurrSubId = null;
+let currentMasterCOList = [];
 
 function openMasterCOModal(currSubId, subCode, subName) {
-    activeCurrSubId = currSubId;
-    document.getElementById('modal_curr_sub_id').value = currSubId;
-    document.getElementById('modalSubjectInfo').textContent = subCode + ' - ' + subName;
+    if (!currSubId) return;
+    activeCurrSubId = parseInt(currSubId, 10);
+    document.getElementById('modal_curr_sub_id').value = activeCurrSubId;
+    if (subCode || subName) {
+        document.getElementById('modalSubjectInfo').textContent = (subCode || '') + ' - ' + (subName || '');
+    }
     document.getElementById('modalCOAlert').innerHTML = '';
     resetMasterCOForm();
-
-    loadMasterCOs(currSubId);
+    loadMasterCOs(activeCurrSubId);
 
     const modalEl = document.getElementById('masterCOModal');
-    if (!currentMasterCOModalInstance) {
-        currentMasterCOModalInstance = new bootstrap.Modal(modalEl);
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
     }
-    currentMasterCOModalInstance.show();
 }
 
 function loadMasterCOs(currSubId) {
@@ -656,21 +717,28 @@ function loadMasterCOs(currSubId) {
         .then(r => r.json())
         .then(res => {
             if (res.status === 1 && res.data && res.data.length > 0) {
+                currentMasterCOList = res.data;
                 let html = '';
-                res.data.forEach(co => {
-                    const descSafe = (co.co_description || '').replace(/"/g, '&quot;').replace(/'/g, "\\'");
+                res.data.forEach((co, idx) => {
                     const bloomSafe = co.bloom_level || 'L3-Apply';
                     const thresh = co.target_threshold_percent || '60.0';
+                    const descSafe = (co.co_description || '')
+                        .replace(/&/g, '&amp;')
+                        .replace(/</g, '&lt;')
+                        .replace(/>/g, '&gt;')
+                        .replace(/"/g, '&quot;')
+                        .replace(/'/g, '&#039;');
+
                     html += `<tr>
                         <td><span class="badge bg-secondary">CO${co.co_number}</span></td>
-                        <td class="text-start">${co.co_description || ''}</td>
+                        <td class="text-start">${descSafe}</td>
                         <td><span class="badge bg-info text-dark">${bloomSafe}</span></td>
                         <td><span class="badge bg-light text-dark border">${thresh}%</span></td>
                         <td>
-                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1 me-1" onclick="editMasterCO(${co.co_number}, '${descSafe}', '${bloomSafe}', ${thresh})" title="Edit CO">
+                            <button type="button" class="btn btn-outline-warning btn-sm py-0 px-1 me-1 btn-edit-master-co" data-idx="${idx}" title="Edit CO">
                                 <i class="bi bi-pencil"></i>
                             </button>
-                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1" onclick="deleteMasterCO(${co.id}, ${co.co_number})" title="Delete CO">
+                            <button type="button" class="btn btn-outline-danger btn-sm py-0 px-1 btn-del-master-co" data-id="${co.id}" data-num="${co.co_number}" title="Delete CO">
                                 <i class="bi bi-trash"></i>
                             </button>
                         </td>
@@ -679,14 +747,17 @@ function loadMasterCOs(currSubId) {
                 tbody.innerHTML = html;
                 const nextNum = res.data.length + 1;
                 document.getElementById('modal_co_number').value = nextNum;
-            } else {
+            } else if (res.status === 1) {
+                currentMasterCOList = [];
                 tbody.innerHTML = '<tr><td colspan="5" class="text-muted py-3">No master course outcomes defined yet. Use the form below to add CO1, CO2, etc.</td></tr>';
                 document.getElementById('modal_co_number').value = 1;
+            } else {
+                tbody.innerHTML = '<tr><td colspan="5" class="text-danger py-3"><i class="bi bi-exclamation-triangle me-1"></i>' + (res.error || 'Failed to load master COs.') + '</td></tr>';
             }
         })
         .catch(err => {
             console.error('Error loading master COs:', err);
-            tbody.innerHTML = '<tr><td colspan="5" class="text-danger py-3">Failed to load outcomes. Please check console.</td></tr>';
+            tbody.innerHTML = '<tr><td colspan="5" class="text-danger py-3">Failed to load outcomes. Please check network/console.</td></tr>';
         });
 }
 
@@ -773,18 +844,139 @@ function resetMasterCOForm() {
     document.getElementById('modal_bloom_level').value = 'L3-Apply';
     document.getElementById('modal_target_threshold').value = '60.0';
     document.getElementById('formCardTitle').innerHTML = '<i class="bi bi-plus-circle me-1"></i>Add / Update Master CO';
-    // Auto-calculate next CO number from current visible table rows
-    const tbody = document.getElementById('masterCOTableBody');
-    const rows = tbody ? tbody.querySelectorAll('tr[class!="text-muted"]') : [];
     let maxCoNum = 0;
-    tbody && tbody.querySelectorAll('td:first-child .badge').forEach(badge => {
-        const num = parseInt((badge.textContent || '').replace('CO', ''), 10);
-        if (!isNaN(num) && num > maxCoNum) maxCoNum = num;
-    });
+    if (currentMasterCOList && currentMasterCOList.length > 0) {
+        currentMasterCOList.forEach(co => {
+            const num = parseInt(co.co_number, 10);
+            if (!isNaN(num) && num > maxCoNum) maxCoNum = num;
+        });
+    }
     document.getElementById('modal_co_number').value = maxCoNum + 1;
 }
 
-// Attach live input debounce for instant auto-population
+let activeMatrixCurrSubId = null;
+
+function openMasterMatrixModal(currSubId, subcode, fullname) {
+    if (!currSubId) return;
+    activeMatrixCurrSubId = parseInt(currSubId, 10);
+    document.getElementById('modal_matrix_curr_sub_id').value = activeMatrixCurrSubId;
+    if (subcode || fullname) {
+        document.getElementById('modalMatrixSubjectInfo').innerHTML = 
+            '<span class="badge bg-dark me-2">' + (subcode || '') + '</span>' + (fullname || '');
+    }
+    document.getElementById('modalMatrixAlert').innerHTML = '';
+    loadMasterMatrix(activeMatrixCurrSubId);
+
+    const modalEl = document.getElementById('masterMatrixModal');
+    if (typeof bootstrap !== 'undefined' && bootstrap.Modal) {
+        const modal = bootstrap.Modal.getOrCreateInstance(modalEl);
+        modal.show();
+    }
+}
+
+function loadMasterMatrix(currSubId) {
+    const container = document.getElementById('matrixTableContainer');
+    container.innerHTML = '<div class="text-center py-4 text-muted"><div class="spinner-border spinner-border-sm me-2"></div>Loading articulation matrix...</div>';
+
+    fetch('curriculum_subject_ajax.php?action=get_master_matrix&curr_sub_id=' + currSubId)
+        .then(r => r.json())
+        .then(res => {
+            if (res.status === 1) {
+                const cos = res.cos || [];
+                const pops = res.po_psos || [];
+                const mappings = res.mappings || {};
+
+                if (cos.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-circle me-1"></i>No Master COs defined yet for this subject. Please define Course Outcomes first using the "Master COs" button.</div>';
+                    document.getElementById('modalMatrixSubmitBtn').disabled = true;
+                    return;
+                }
+
+                if (pops.length === 0) {
+                    container.innerHTML = '<div class="alert alert-warning mb-0"><i class="bi bi-exclamation-circle me-1"></i>No Program Outcomes (POs/PSOs) configured for this regulation and specialization.</div>';
+                    document.getElementById('modalMatrixSubmitBtn').disabled = true;
+                    return;
+                }
+
+                document.getElementById('modalMatrixSubmitBtn').disabled = false;
+
+                let html = '<table class="table table-bordered table-sm align-middle text-center mb-0" style="font-size: 0.85rem;">';
+                html += '<thead class="table-light"><tr><th style="min-width: 80px; width: 90px;">CO #</th>';
+                pops.forEach(p => {
+                    const descSafe = (p.description || '').replace(/"/g, '&quot;');
+                    html += `<th title="${descSafe}" style="min-width: 65px;">${p.code}</th>`;
+                });
+                html += '</tr></thead><tbody>';
+
+                cos.forEach(co => {
+                    const coDescSafe = (co.co_description || '').replace(/"/g, '&quot;');
+                    html += `<tr><td class="fw-bold bg-light" title="${coDescSafe}"><span class="badge bg-primary">CO${co.co_number}</span></td>`;
+                    pops.forEach(p => {
+                        const key = `${co.id}-${p.id}`;
+                        const val = mappings[key] !== undefined ? mappings[key] : '';
+                        html += `<td>
+                            <select name="mapping[${co.id}][${p.id}]" class="form-select form-select-sm text-center py-0 px-1 border-secondary">
+                                <option value="" ${val === '' ? 'selected' : ''}>-</option>
+                                <option value="1" ${val === 1 ? 'selected' : ''}>1</option>
+                                <option value="2" ${val === 2 ? 'selected' : ''}>2</option>
+                                <option value="3" ${val === 3 ? 'selected' : ''}>3</option>
+                            </select>
+                        </td>`;
+                    });
+                    html += '</tr>';
+                });
+
+                html += '</tbody></table>';
+                container.innerHTML = html;
+            } else {
+                container.innerHTML = '<div class="alert alert-danger mb-0">' + (res.error || 'Failed to load articulation matrix.') + '</div>';
+                document.getElementById('modalMatrixSubmitBtn').disabled = true;
+            }
+        })
+        .catch(err => {
+            console.error('Error loading master matrix:', err);
+            container.innerHTML = '<div class="alert alert-danger mb-0">Network error while loading matrix.</div>';
+            document.getElementById('modalMatrixSubmitBtn').disabled = true;
+        });
+}
+
+function submitMasterMatrix(e) {
+    e.preventDefault();
+    const btn = document.getElementById('modalMatrixSubmitBtn');
+    const alertBox = document.getElementById('modalMatrixAlert');
+    btn.disabled = true;
+    btn.innerHTML = '<span class="spinner-border spinner-border-sm me-1"></span>Saving &amp; Cascading...';
+
+    const formData = new FormData(document.getElementById('masterMatrixForm'));
+
+    fetch('curriculum_subject_ajax.php', {
+        method: 'POST',
+        body: formData
+    })
+    .then(r => r.json())
+    .then(res => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i>Save Master Articulation Matrix';
+
+        if (res.status === 1) {
+            alertBox.innerHTML = '<div class="alert alert-success alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-check-circle me-1"></i>' + (res.message || 'Master Articulation Matrix saved successfully.') +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+            loadMasterMatrix(activeMatrixCurrSubId);
+        } else {
+            alertBox.innerHTML = '<div class="alert alert-danger alert-dismissible fade show py-2 mb-2">' +
+                '<i class="bi bi-exclamation-triangle me-1"></i>' + (res.error || 'Failed to save matrix.') +
+                '<button type="button" class="btn-close py-2" data-bs-dismiss="alert"></button></div>';
+        }
+    })
+    .catch(err => {
+        btn.disabled = false;
+        btn.innerHTML = '<i class="bi bi-save me-1"></i>Save Master Articulation Matrix';
+        alertBox.innerHTML = '<div class="alert alert-danger py-2 mb-2">Network error while saving matrix.</div>';
+    });
+}
+
+// Attach live input debounce for instant auto-population and modal events
 let lookupTimerAcademic = null;
 document.addEventListener('DOMContentLoaded', function() {
     const subCodeEl = document.getElementById('subcode');
@@ -797,5 +989,67 @@ document.addEventListener('DOMContentLoaded', function() {
             }
         });
     }
+
+    // Modal show events via Bootstrap
+    const coModalEl = document.getElementById('masterCOModal');
+    if (coModalEl) {
+        coModalEl.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            if (btn && btn.dataset && btn.dataset.id) {
+                openMasterCOModal(btn.dataset.id, btn.dataset.subcode, btn.dataset.subname);
+            }
+        });
+    }
+
+    const matrixModalEl = document.getElementById('masterMatrixModal');
+    if (matrixModalEl) {
+        matrixModalEl.addEventListener('show.bs.modal', function(event) {
+            const btn = event.relatedTarget;
+            if (btn && btn.dataset && btn.dataset.id) {
+                openMasterMatrixModal(btn.dataset.id, btn.dataset.subcode, btn.dataset.subname);
+            }
+        });
+    }
+
+    // Delegated click listeners for table action buttons and edit/delete in modals
+    document.addEventListener('click', function(e) {
+        // Master CO button in table
+        const coBtn = e.target.closest('.btn-master-co');
+        if (coBtn) {
+            openMasterCOModal(coBtn.dataset.id, coBtn.dataset.subcode, coBtn.dataset.subname);
+            return;
+        }
+
+        // Master Matrix button in table
+        const matrixBtn = e.target.closest('.btn-master-matrix');
+        if (matrixBtn) {
+            openMasterMatrixModal(matrixBtn.dataset.id, matrixBtn.dataset.subcode, matrixBtn.dataset.subname);
+            return;
+        }
+
+        // Edit Master CO inside modal
+        const editCoBtn = e.target.closest('.btn-edit-master-co');
+        if (editCoBtn) {
+            const idx = parseInt(editCoBtn.dataset.idx, 10);
+            const co = currentMasterCOList[idx];
+            if (co) {
+                editMasterCO(co.co_number, co.co_description, co.bloom_level, co.target_threshold_percent);
+            }
+            return;
+        }
+
+        // Delete Master CO inside modal
+        const delCoBtn = e.target.closest('.btn-del-master-co');
+        if (delCoBtn) {
+            const coId = parseInt(delCoBtn.dataset.id, 10);
+            const coNum = parseInt(delCoBtn.dataset.num, 10);
+            deleteMasterCO(coId, coNum);
+            return;
+        }
+    });
 });
 </script>
+
+<?php
+require_once("academicsectionfooter.php");
+?>

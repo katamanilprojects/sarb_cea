@@ -41,22 +41,21 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
                 $msg = (!empty($res_arr['err'])) ? $res_arr['err'] : "Failed to add subject. Please try again.";
             }
         } else {
-            // Multi-batch subject: generate standard suffixed records (Group A, Group B, ...)
-            $letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-            $groupNames = ['Group A', 'Group B', 'Group C', 'Group D', 'Group E', 'Group F'];
+            // Multi-batch subject: generate standard records with same subcode and (Group - Letter) fullname
+            $groupLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
             $successCount = 0;
             $errors = [];
 
             for ($b = 0; $b < $numBatches; $b++) {
-                $suffix = $letters[$b];
-                $grpLabel = $groupNames[$b];
+                $grpLetter = $groupLetters[$b];
+                $grpSuffix = " (Group - " . $grpLetter . ")";
 
                 $batchData = $_POST;
-                $batchData['subcode'] = trim($_POST['subcode']) . $suffix;
-                $batchData['sub_fullname'] = trim($_POST['sub_fullname']) . " (" . $grpLabel . ")";
+                $batchData['subcode'] = trim($_POST['subcode']); // Preserve exact curriculum subcode
+                $batchData['sub_fullname'] = trim($_POST['sub_fullname']) . $grpSuffix;
                 // Short name with group suffix, bounded to 20 chars
                 $baseShort = trim($_POST['sub_shortname']);
-                $batchData['sub_shortname'] = substr($baseShort . "-" . strtoupper($suffix), 0, 20);
+                $batchData['sub_shortname'] = substr($baseShort . "-" . $grpLetter, 0, 20);
 
                 $bOk = $subObj->createOffering(
                     $class_id,
@@ -66,18 +65,18 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
                     $batchData['sub_shortname'],
                     $batchData['sub_fullname'],
                     $batchData['sub_type'],
-                    '' // batch distinction is via subcode suffix
+                    $grpLetter // group_name stored as 'A', 'B', etc. for UNIQUE KEY (class_id, subcode, group_name)
                 );
-                $bRes = ['status' => $bOk ? 1 : 0, 'err' => $bOk ? '' : 'Failed for ' . $batchData['subcode']];
+                $bRes = ['status' => $bOk ? 1 : 0, 'err' => $bOk ? '' : 'Failed for ' . $batchData['subcode'] . ' (Group - ' . $grpLetter . ')'];
                 if (!empty($bRes['status']) && $bRes['status'] == 1) {
                     $successCount++;
                 } else {
-                    $errors[] = (!empty($bRes['err'])) ? $bRes['err'] : "Failed for " . $batchData['subcode'];
+                    $errors[] = (!empty($bRes['err'])) ? $bRes['err'] : "Failed for " . $batchData['subcode'] . ' (Group - ' . $grpLetter . ')';
                 }
             }
 
             if ($successCount === $numBatches) {
-                $msg = "All " . $numBatches . " batches added successfully (" . implode(", ", array_slice($groupNames, 0, $numBatches)) . ").";
+                $msg = "All " . $numBatches . " batches added successfully (Group " . implode(", Group ", array_slice($groupLetters, 0, $numBatches)) . ").";
             } elseif ($successCount > 0) {
                 $msg = $successCount . " of " . $numBatches . " batches added. Errors: " . implode("; ", $errors);
             } else {
@@ -118,8 +117,6 @@ if (!empty($subjectList)) {
     foreach ($subjectList as $s) {
         $clean = strtoupper(trim($s['subcode']));
         $existingSubcodes[$clean] = true;
-        $baseCode = preg_replace('/[a-fA-F]$/', '', $clean);
-        $existingSubcodes[$baseCode] = true;
     }
 }
 ?>
@@ -245,7 +242,7 @@ if (!empty($subjectList)) {
                         <li><strong>Automated Batch / Group Generator:</strong>
                             <ul>
                                 <li class="text-muted small">For Labs or practical courses divided into groups, select <strong>2, 3, or 4 Batches</strong> from the dropdown.</li>
-                                <li class="text-muted small">The system will <strong>automatically generate</strong> standard-compliant entries (e.g. <code>ABC123a: Lab (Group A)</code> and <code>ABC123b: Lab (Group B)</code>) in a single click.</li>
+                                <li class="text-muted small">The system will <strong>automatically generate</strong> standard-compliant entries (e.g. <code>ABC123: Lab (Group - A)</code> and <code>ABC123: Lab (Group - B)</code>) in a single click.</li>
                                 <li class="text-muted small">Ensures 100% compatibility with Attendance Marking, Faculty Allocation, Timetable Scheduling, and CIA Analysis.</li>
                             </ul>
                         </li>
@@ -290,11 +287,7 @@ if (!empty($subjectList)) {
                                 echo "<td {$style} class='fw-bold'>" . htmlspecialchars($subject['subject_sno']) . "</td>";
                                 echo "<td {$style}><span class='badge bg-primary fs-7'>" . htmlspecialchars($subject['subcode']) . "</span></td>";
                                 echo "<td {$style}>" . htmlspecialchars($subject['sub_shortname']) . "</td>";
-                                echo "<td {$style} class='text-start fw-semibold'>" . htmlspecialchars($subject['raw_sub_fullname'] ?? $subject['sub_fullname']);
-                                if (!empty($subject['group_name'])) {
-                                    echo " <span class='badge bg-info text-dark ms-1'>Group " . htmlspecialchars($subject['group_name']) . "</span>";
-                                }
-                                echo "</td>";
+                                echo "<td {$style} class='text-start fw-semibold'>" . htmlspecialchars($subject['sub_fullname']) . "</td>";
                                 echo "<td {$style}><span class='badge bg-light text-dark border'>" . htmlspecialchars($subject['sub_type']) . "</span></td>";
                                 echo "<td {$style}>" . (!empty($subject['course_category']) ? '<span class="badge bg-secondary">' . htmlspecialchars($subject['course_category']) . '</span>' : '<span class="text-muted">-</span>') . "</td>";
                                 echo "<td {$style}>";
@@ -409,13 +402,12 @@ function updateBatchPreview() {
         return;
     }
 
-    const letters = ['a', 'b', 'c', 'd', 'e', 'f'];
-    const groupNames = ['Group A', 'Group B', 'Group C', 'Group D', 'Group E', 'Group F'];
+    const groupLetters = ['A', 'B', 'C', 'D', 'E', 'F'];
     let html = '<div class="fw-bold mb-1"><i class="bi bi-diagram-3 me-1 text-primary"></i>Will automatically generate ' + numBatches + ' batch subjects:</div><ul class="mb-0 ps-3">';
 
     for (let i = 0; i < numBatches; i++) {
-        const subCode = code + letters[i];
-        const subName = name + ' (' + groupNames[i] + ')';
+        const subCode = code;
+        const subName = name + ' (Group - ' + groupLetters[i] + ')';
         html += '<li><code>' + subCode + '</code>: ' + subName + '</li>';
     }
     html += '</ul>';

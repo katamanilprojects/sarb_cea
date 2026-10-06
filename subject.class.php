@@ -21,18 +21,10 @@ class Subject extends DBCredentials {
             {$alias}.subcode,
             {$alias}.sub_type,
             {$alias}.group_name,
+            {$alias}.sub_fullname,
+            {$alias}.sub_shortname,
             {$alias}.sub_fullname AS raw_sub_fullname,
-            {$alias}.sub_shortname AS raw_sub_shortname,
-            CASE
-                WHEN {$alias}.group_name IS NOT NULL AND {$alias}.group_name != ''
-                THEN CONCAT({$alias}.sub_fullname, ' (Group - ', {$alias}.group_name, ')')
-                ELSE {$alias}.sub_fullname
-            END AS sub_fullname,
-            CASE
-                WHEN {$alias}.group_name IS NOT NULL AND {$alias}.group_name != ''
-                THEN CONCAT({$alias}.sub_shortname, ' (', {$alias}.group_name, ')')
-                ELSE {$alias}.sub_shortname
-            END AS sub_shortname
+            {$alias}.sub_shortname AS raw_sub_shortname
         ";
     }
 
@@ -152,7 +144,13 @@ class Subject extends DBCredentials {
                 $classId, $currSubIdVal, $sno, $subcode, $shortname, $fullname, $subType, $groupName
             );
             $ok = $stmt->execute();
+            $newSubjectId = $this->conn->insert_id;
             $stmt->close();
+
+            if ($ok && $currSubIdVal && $newSubjectId) {
+                require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
+                CourseOutcomeSyncService::getInstance()->provisionNewOfferingCOsAndMatrix((int)$newSubjectId, (int)$currSubIdVal);
+            }
             return $ok;
         } catch (Exception $e) {
             $this->logs->errLog("Subject::createOffering - " . $e->getMessage());
