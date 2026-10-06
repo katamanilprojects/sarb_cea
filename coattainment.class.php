@@ -403,7 +403,7 @@ trait COAttainmentTrait
                 $coListQuery = "SELECT id, co_number, co_description FROM course_outcomes WHERE sub_id IN ({$in['sql']}) ORDER BY co_number";
                 $coList = $this->fetchAssoc($coListQuery, $in['params']);
                 if (empty($coList)) {
-                    $coListQuery = "SELECT co.id, co.co_number, co.co_description FROM course_outcomes co JOIN subjects s ON s.curr_sub_id = co.curr_sub_id WHERE s.id IN ({$in['sql']}) AND co.sub_id IS NULL ORDER BY co.co_number";
+                    $coListQuery = "SELECT co.id, co.co_number, co.co_description FROM curriculum_course_outcomes co JOIN subjects s ON s.curr_sub_id = co.curr_sub_id WHERE s.id IN ({$in['sql']}) ORDER BY co.co_number";
                     $coList = $this->fetchAssoc($coListQuery, $in['params']);
                 }
                 foreach ($coList as $coItem) {

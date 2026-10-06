@@ -94,6 +94,11 @@ if (!empty($_POST['secretcode']) && $_POST['secretcode'] == $_SESSION['secretcod
             $msg = (!empty($res_arr['err'])) ? $res_arr['err'] : "Failed to delete subject. Please try again.";
         }
     }
+
+    if (!empty($_POST['whattodo']) && $_POST['whattodo'] == "sync_curriculum_cos") {
+        $syncRes = $subObj->syncClassOfferingsFromCurriculum((int)$class_id);
+        $msg = "Curriculum Sync completed: {$syncRes['cos_copied']} Course Outcome(s) and {$syncRes['mappings_copied']} Articulation cell(s) verified/added for this class.";
+    }
 }
 
 // Generate new secret code
@@ -255,8 +260,22 @@ if (!empty($subjectList)) {
     <br>
     <div class="card shadow-sm">
         <div class="card-header bg-light d-flex justify-content-between align-items-center">
-            <h6 class="mb-0 fw-bold"><i class="bi bi-table me-2"></i>Class Subjects (<?= count($subjectList) ?>)</h6>
-            <span class="badge bg-secondary"><?= htmlspecialchars($_POST['class_fullname'] ?? '') ?></span>
+            <div>
+                <h6 class="mb-0 fw-bold d-inline me-2"><i class="bi bi-table me-2"></i>Class Subjects (<?= count($subjectList) ?>)</h6>
+                <span class="badge bg-secondary"><?= htmlspecialchars($_POST['class_fullname'] ?? '') ?></span>
+            </div>
+            <?php if (!empty($subjectList)): ?>
+            <form action="hodviewsubjects.php" method="post" class="m-0">
+                <input type="hidden" name="class_id" value="<?php echo $_POST["class_id"]; ?>" />
+                <input type="hidden" name="class_fullname" value="<?php echo $_POST["class_fullname"]; ?>" />
+                <input type="hidden" name="spec_fullname" value="<?php echo $_POST["spec_fullname"] ?>" />
+                <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
+                <input type="hidden" name="whattodo" value="sync_curriculum_cos" />
+                <button type="submit" class="btn btn-sm btn-outline-primary" title="Sync / Verify COs & Matrix from Curriculum Master">
+                    <i class="bi bi-arrow-repeat me-1"></i>Sync Missing COs &amp; Matrix from Curriculum
+                </button>
+            </form>
+            <?php endif; ?>
         </div>
         <div class="card-body p-0">
             <div class="table-responsive">

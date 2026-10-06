@@ -501,8 +501,8 @@ class CurriculumSubject extends User
         try {
             $stmt = $this->conn->prepare("
                 SELECT id, curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent
-                FROM course_outcomes 
-                WHERE curr_sub_id = ? AND sub_id IS NULL 
+                FROM curriculum_course_outcomes 
+                WHERE curr_sub_id = ? 
                 ORDER BY co_number ASC
             ");
             $stmt->bind_param("i", $curr_sub_id);
@@ -510,25 +510,45 @@ class CurriculumSubject extends User
             $res['data'] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
 
-            // If empty, auto-discover from sibling curriculum subjects or offering subjects sharing same subcode & reg_id
+            // If empty, auto-discover from sibling curriculum subjects sharing same subcode & reg_id
             if (empty($res['data'])) {
-                require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-                $sync = CourseOutcomeSyncService::getInstance();
                 $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
                 if ($cSub && !empty($cSub['subcode']) && !empty($cSub['reg_id'])) {
-                    $sourceDefs = $sync->getSourceCoDefinitions(trim($cSub['subcode']), (int)$cSub['reg_id']);
-                    if (!empty($sourceDefs)) {
-                        $sync->ensureMasterCOsExist($curr_sub_id, $sourceDefs);
-                        $stmt2 = $this->conn->prepare("
+                    $stmtSib = $this->conn->prepare("
+                        SELECT co.co_number, co.co_description, co.bloom_level, co.target_threshold_percent
+                        FROM curriculum_course_outcomes co
+                        JOIN curriculum_subjects cs ON co.curr_sub_id = cs.id
+                        WHERE cs.subcode = ? AND cs.reg_id = ? AND co.curr_sub_id != ?
+                        ORDER BY co.co_number ASC
+                    ");
+                    $stmtSib->bind_param("sii", $cSub['subcode'], $cSub['reg_id'], $curr_sub_id);
+                    $stmtSib->execute();
+                    $sibCos = $stmtSib->get_result()->fetch_all(MYSQLI_ASSOC);
+                    $stmtSib->close();
+
+                    if (!empty($sibCos)) {
+                        $ins = $this->conn->prepare("
+                            INSERT INTO curriculum_course_outcomes (curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent)
+                            VALUES (?, ?, ?, ?, ?)
+                            ON DUPLICATE KEY UPDATE co_description = VALUES(co_description), bloom_level = VALUES(bloom_level), target_threshold_percent = VALUES(target_threshold_percent)
+                        ");
+                        foreach ($sibCos as $sc) {
+                            $ins->bind_param("iissd", $curr_sub_id, $sc['co_number'], $sc['co_description'], $sc['bloom_level'], $sc['target_threshold_percent']);
+                            $ins->execute();
+                        }
+                        $ins->close();
+
+                        // Re-fetch
+                        $stmt = $this->conn->prepare("
                             SELECT id, curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent
-                            FROM course_outcomes 
-                            WHERE curr_sub_id = ? AND sub_id IS NULL 
+                            FROM curriculum_course_outcomes 
+                            WHERE curr_sub_id = ? 
                             ORDER BY co_number ASC
                         ");
-                        $stmt2->bind_param("i", $curr_sub_id);
-                        $stmt2->execute();
-                        $res['data'] = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
-                        $stmt2->close();
+                        $stmt->bind_param("i", $curr_sub_id);
+                        $stmt->execute();
+                        $res['data'] = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                        $stmt->close();
                     }
                 }
             }
@@ -545,22 +565,52 @@ class CurriculumSubject extends User
     {
         $res = ['status' => 0, 'error' => ''];
         try {
-            require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-            $syncRes = CourseOutcomeSyncService::getInstance()->syncMasterCOToOfferings(
-                $curr_sub_id,
-                $co_number,
-                $co_description,
-                $bloom_level,
-                $target_threshold
-            );
-
-            if (!empty($syncRes['status'])) {
-                $res['status'] = 1;
-                $res['message'] = "Master Course Outcome saved successfully. " . 
-                    ($syncRes['offerings_updated'] > 0 ? "Cascaded to {$syncRes['offerings_updated']} active offering(s)." : "");
-            } else {
-                throw new Exception($syncRes['error'] ?? "Failed to save master CO");
+            $stmt = $this->conn->prepare("
+                INSERT INTO curriculum_course_outcomes (curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent)
+                VALUES (?, ?, ?, ?, ?)
+                ON DUPLICATE KEY UPDATE 
+                    co_description = VALUES(co_description),
+                    bloom_level = VALUES(bloom_level),
+                    target_threshold_percent = VALUES(target_threshold_percent)
+            ");
+            $stmt->bind_param("iissd", $curr_sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
+            if (!$stmt->execute()) {
+                throw new Exception($stmt->error);
             }
+            $stmt->close();
+
+            // Synchronize across sibling curriculum subjects sharing same subcode & reg_id
+            $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
+            if ($cSub && !empty($cSub['subcode']) && !empty($cSub['reg_id'])) {
+                $sibStmt = $this->conn->prepare("
+                    SELECT id FROM curriculum_subjects 
+                    WHERE subcode = ? AND reg_id = ? AND id != ?
+                ");
+                $sibStmt->bind_param("sii", $cSub['subcode'], $cSub['reg_id'], $curr_sub_id);
+                $sibStmt->execute();
+                $sibs = $sibStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                $sibStmt->close();
+
+                if (!empty($sibs)) {
+                    $insSib = $this->conn->prepare("
+                        INSERT INTO curriculum_course_outcomes (curr_sub_id, co_number, co_description, bloom_level, target_threshold_percent)
+                        VALUES (?, ?, ?, ?, ?)
+                        ON DUPLICATE KEY UPDATE 
+                            co_description = VALUES(co_description),
+                            bloom_level = VALUES(bloom_level),
+                            target_threshold_percent = VALUES(target_threshold_percent)
+                    ");
+                    foreach ($sibs as $sb) {
+                        $sibId = (int)$sb['id'];
+                        $insSib->bind_param("iissd", $sibId, $co_number, $co_description, $bloom_level, $target_threshold);
+                        $insSib->execute();
+                    }
+                    $insSib->close();
+                }
+            }
+
+            $res['status'] = 1;
+            $res['message'] = "Master Course Outcome CO{$co_number} saved successfully.";
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("CurriculumSubject::addOrUpdateMasterCO Error: " . $e->getMessage());
@@ -572,7 +622,14 @@ class CurriculumSubject extends User
     {
         $res = ['status' => 0, 'error' => ''];
         try {
-            $stmt = $this->conn->prepare("DELETE FROM course_outcomes WHERE id = ? AND curr_sub_id = ? AND sub_id IS NULL");
+            // Delete mappings first
+            $mStmt = $this->conn->prepare("DELETE FROM curriculum_co_po_mapping WHERE curr_co_id = ?");
+            $mStmt->bind_param("i", $co_id);
+            $mStmt->execute();
+            $mStmt->close();
+
+            // Delete master CO
+            $stmt = $this->conn->prepare("DELETE FROM curriculum_course_outcomes WHERE id = ? AND curr_sub_id = ?");
             $stmt->bind_param("ii", $co_id, $curr_sub_id);
             if ($stmt->execute()) {
                 $res['status'] = 1;
@@ -580,6 +637,7 @@ class CurriculumSubject extends User
             } else {
                 throw new Exception($stmt->error);
             }
+            $stmt->close();
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("CurriculumSubject::deleteMasterCO Error: " . $e->getMessage());
@@ -693,9 +751,9 @@ class CurriculumSubject extends User
                 $types = str_repeat('i', count($coIds));
 
                 $stmt = $this->conn->prepare("
-                    SELECT co_id, po_id, weightage
-                    FROM co_po_mapping
-                    WHERE co_id IN ($ph)
+                    SELECT curr_co_id, po_id, weightage
+                    FROM curriculum_co_po_mapping
+                    WHERE curr_co_id IN ($ph)
                 ");
                 $stmt->bind_param($types, ...$coIds);
                 $stmt->execute();
@@ -704,36 +762,58 @@ class CurriculumSubject extends User
 
                 $mappings = [];
                 foreach ($rows as $r) {
-                    $mappings[$r['co_id'] . '-' . $r['po_id']] = (int)$r['weightage'];
+                    $mappings[$r['curr_co_id'] . '-' . $r['po_id']] = (int)$r['weightage'];
                 }
                 $res['mappings'] = $mappings;
 
-                // If mappings are empty, check if sibling curriculum or offering subject has a matrix
+                // If mappings are empty, try auto-discovering from sibling curriculum subjects
                 if (empty($res['mappings'])) {
-                    require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-                    $sync = CourseOutcomeSyncService::getInstance();
                     $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
                     if ($cSub && !empty($cSub['subcode']) && !empty($cSub['reg_id'])) {
-                        $logical = $sync->findLogicalMatrixBySubjectCode(trim($cSub['subcode']), (int)$cSub['reg_id']);
-                        if (!empty($logical)) {
-                            $sync->propagateLogicalMatrixBySubjectCode(trim($cSub['subcode']), (int)$cSub['reg_id'], $logical);
+                        $sibMatrixStmt = $this->conn->prepare("
+                            SELECT sco.co_number, p.code as po_code, m.weightage
+                            FROM curriculum_co_po_mapping m
+                            JOIN curriculum_course_outcomes sco ON m.curr_co_id = sco.id
+                            JOIN curriculum_subjects scs ON sco.curr_sub_id = scs.id
+                            JOIN po_pso p ON m.po_id = p.id
+                            WHERE scs.subcode = ? AND scs.reg_id = ? AND scs.id != ?
+                            ORDER BY sco.co_number ASC, p.id ASC
+                        ");
+                        $sibMatrixStmt->bind_param("sii", $cSub['subcode'], $cSub['reg_id'], $curr_sub_id);
+                        $sibMatrixStmt->execute();
+                        $sibMappings = $sibMatrixStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+                        $sibMatrixStmt->close();
 
-                            // Re-fetch mappings now that propagation has populated them
-                            $stmt2 = $this->conn->prepare("
-                                SELECT co_id, po_id, weightage
-                                FROM co_po_mapping
-                                WHERE co_id IN ($ph)
-                            ");
-                            $stmt2->bind_param($types, ...$coIds);
-                            $stmt2->execute();
-                            $rows2 = $stmt2->get_result()->fetch_all(MYSQLI_ASSOC);
-                            $stmt2->close();
-
-                            $mappings = [];
-                            foreach ($rows2 as $r) {
-                                $mappings[$r['co_id'] . '-' . $r['po_id']] = (int)$r['weightage'];
+                        if (!empty($sibMappings)) {
+                            $coNumMap = [];
+                            foreach ($res['cos'] as $co) {
+                                $coNumMap[(int)$co['co_number']] = (int)$co['id'];
                             }
-                            $res['mappings'] = $mappings;
+                            $poCodeMap = [];
+                            foreach ($res['po_psos'] as $p) {
+                                $poCodeMap[trim($p['code'])] = (int)$p['id'];
+                            }
+
+                            $insMap = $this->conn->prepare("
+                                INSERT INTO curriculum_co_po_mapping (curr_co_id, po_id, weightage)
+                                VALUES (?, ?, ?)
+                                ON DUPLICATE KEY UPDATE weightage = VALUES(weightage)
+                            ");
+
+                            foreach ($sibMappings as $sm) {
+                                $cNum = (int)$sm['co_number'];
+                                $pCode = trim($sm['po_code']);
+                                $w = (int)$sm['weightage'];
+
+                                if (isset($coNumMap[$cNum]) && isset($poCodeMap[$pCode])) {
+                                    $localCoId = $coNumMap[$cNum];
+                                    $localPoId = $poCodeMap[$pCode];
+                                    $insMap->bind_param("iii", $localCoId, $localPoId, $w);
+                                    $insMap->execute();
+                                    $res['mappings'][$localCoId . '-' . $localPoId] = $w;
+                                }
+                            }
+                            $insMap->close();
                         }
                     }
                 }
@@ -748,25 +828,140 @@ class CurriculumSubject extends User
     }
 
     /**
-     * Save Master Articulation Matrix and cascade to all offerings
+     * Save Master Articulation Matrix for a curriculum subject
      */
     public function saveMasterArticulationMatrix(int $curr_sub_id, array $mappings): array
     {
         $res = ['status' => 0, 'error' => ''];
         try {
-            require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-            $syncRes = CourseOutcomeSyncService::getInstance()->syncMasterMatrixToOfferings($curr_sub_id, $mappings);
-
-            if (!empty($syncRes['status'])) {
-                $res['status'] = 1;
-                $res['message'] = "Master Articulation Matrix saved successfully. Cascaded {$syncRes['offerings_updated']} cell update(s) to active class offerings.";
-            } else {
-                throw new Exception($syncRes['error'] ?? "Failed to save matrix");
+            $cosRes = $this->getMasterCOs($curr_sub_id);
+            $cos = $cosRes['data'] ?? [];
+            if (empty($cos)) {
+                throw new Exception("Please define Course Outcomes before saving articulation matrix.");
             }
+            $validCoIds = array_column($cos, 'id');
+
+            $poPsos = $this->getRelevantPoPsoForCurriculum($curr_sub_id);
+            if (empty($poPsos)) {
+                throw new Exception("No POs/PSOs configured for this regulation.");
+            }
+            $validPoIds = array_column($poPsos, 'id');
+
+            $savedCount = 0;
+            $insStmt = $this->conn->prepare("
+                INSERT INTO curriculum_co_po_mapping (curr_co_id, po_id, weightage)
+                VALUES (?, ?, ?)
+                ON DUPLICATE KEY UPDATE weightage = VALUES(weightage)
+            ");
+
+            $delStmt = $this->conn->prepare("DELETE FROM curriculum_co_po_mapping WHERE curr_co_id = ? AND po_id = ?");
+
+            foreach ($mappings as $coId => $poMappings) {
+                $coId = (int)$coId;
+                if (!in_array($coId, $validCoIds)) continue;
+
+                if (is_array($poMappings)) {
+                    foreach ($poMappings as $poId => $w) {
+                        $poId = (int)$poId;
+                        if (!in_array($poId, $validPoIds)) continue;
+
+                        $val = (is_numeric($w) && in_array((int)$w, [1, 2, 3])) ? (int)$w : 0;
+                        if ($val > 0) {
+                            $insStmt->bind_param("iii", $coId, $poId, $val);
+                            $insStmt->execute();
+                            $savedCount++;
+                        } else {
+                            $delStmt->bind_param("ii", $coId, $poId);
+                            $delStmt->execute();
+                        }
+                    }
+                }
+            }
+            $insStmt->close();
+            $delStmt->close();
+
+            // Synchronize articulation matrix across sibling curriculum subjects sharing same subcode & reg_id
+            $this->syncMasterMatrixToSiblingCurriculumSubjects($curr_sub_id);
+
+            $res['status'] = 1;
+            $res['saved_cells'] = $savedCount;
+            $res['message'] = "Master Articulation Matrix saved successfully ({$savedCount} cells mapped).";
         } catch (Exception $e) {
             $res['error'] = $e->getMessage();
             $this->logs->errLog("CurriculumSubject::saveMasterArticulationMatrix Error: " . $e->getMessage());
         }
         return $res;
+    }
+
+    /**
+     * Synchronizes Master Articulation Matrix across sibling curriculum subjects
+     */
+    public function syncMasterMatrixToSiblingCurriculumSubjects(int $curr_sub_id): void
+    {
+        try {
+            $cSub = $this->getSubjectById($curr_sub_id)['data'] ?? null;
+            if (!$cSub || empty($cSub['subcode']) || empty($cSub['reg_id'])) return;
+
+            // 1. Get logical matrix from this curriculum subject
+            $stmt = $this->conn->prepare("
+                SELECT co.co_number, p.code as po_code, m.weightage
+                FROM curriculum_course_outcomes co
+                JOIN curriculum_co_po_mapping m ON m.curr_co_id = co.id
+                JOIN po_pso p ON m.po_id = p.id
+                WHERE co.curr_sub_id = ?
+            ");
+            $stmt->bind_param("i", $curr_sub_id);
+            $stmt->execute();
+            $mappings = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+            if (empty($mappings)) return;
+
+            // 2. Find sibling curriculum subjects
+            $sibStmt = $this->conn->prepare("
+                SELECT id FROM curriculum_subjects
+                WHERE subcode = ? AND reg_id = ? AND id != ?
+            ");
+            $sibStmt->bind_param("sii", $cSub['subcode'], $cSub['reg_id'], $curr_sub_id);
+            $sibStmt->execute();
+            $sibs = $sibStmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $sibStmt->close();
+
+            foreach ($sibs as $sb) {
+                $sibId = (int)$sb['id'];
+                $sibCos = $this->getMasterCOs($sibId)['data'] ?? [];
+                $sibCoMap = [];
+                foreach ($sibCos as $sc) {
+                    $sibCoMap[(int)$sc['co_number']] = (int)$sc['id'];
+                }
+
+                $sibPos = $this->getRelevantPoPsoForCurriculum($sibId);
+                $sibPoMap = [];
+                foreach ($sibPos as $sp) {
+                    $sibPoMap[trim($sp['code'])] = (int)$sp['id'];
+                }
+
+                $insStmt = $this->conn->prepare("
+                    INSERT INTO curriculum_co_po_mapping (curr_co_id, po_id, weightage)
+                    VALUES (?, ?, ?)
+                    ON DUPLICATE KEY UPDATE weightage = VALUES(weightage)
+                ");
+
+                foreach ($mappings as $map) {
+                    $coNum = (int)$map['co_number'];
+                    $poCode = trim($map['po_code']);
+                    $w = (int)$map['weightage'];
+
+                    if (isset($sibCoMap[$coNum]) && isset($sibPoMap[$poCode])) {
+                        $targetCoId = $sibCoMap[$coNum];
+                        $targetPoId = $sibPoMap[$poCode];
+                        $insStmt->bind_param("iii", $targetCoId, $targetPoId, $w);
+                        $insStmt->execute();
+                    }
+                }
+                $insStmt->close();
+            }
+        } catch (Exception $e) {
+            $this->logs->errLog("CurriculumSubject::syncMasterMatrixToSiblingCurriculumSubjects Error: " . $e->getMessage());
+        }
     }
 }

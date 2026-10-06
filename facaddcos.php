@@ -55,7 +55,7 @@ if (isset($_POST['submit_cos']) && !empty($selected_sub_id)) {
     }
 
     if ($count > 0) {
-        $_SESSION['succ'] = "Successfully saved {$count} Course Outcome(s) with Bloom's Taxonomy Levels and Target Thresholds (Dual-synced).";
+        $_SESSION['succ'] = "Successfully saved {$count} Course Outcome(s) with Bloom's Taxonomy Levels and Target Thresholds.";
     } else {
         $_SESSION['err'] = "No valid Course Outcomes were submitted.";
     }
@@ -68,9 +68,9 @@ if ((!empty($_POST['import_curriculum_cos']) || !empty($_POST['import_bos_cos'])
         unset($_SESSION['secretcode']);
         $importRes = $coObj->importMasterCOsToSubject((int)$selected_sub_id);
         if ($importRes['status'] == 1 && $importRes['copied'] > 0) {
-            $_SESSION['succ'] = "Successfully imported {$importRes['copied']} Master Course Outcome(s) for this subject.";
+            $_SESSION['succ'] = "Successfully imported {$importRes['copied']} Master Course Outcome(s) and articulation matrix from curriculum catalog.";
         } elseif ($importRes['status'] == 1 && $importRes['copied'] == 0) {
-            $_SESSION['succ'] = "Master Course Outcomes are already imported or up-to-date.";
+            $_SESSION['succ'] = "Course Outcomes are already up-to-date with curriculum master.";
         } else {
             $_SESSION['err'] = "Failed to import Course Outcomes: " . ($importRes['error'] ?? 'No master COs defined for this syllabus.');
         }
@@ -89,7 +89,7 @@ if (!empty($_POST['add_co']) && !empty($_POST['co_number']) && !empty($_POST['co
         $bloom_level = !empty($_POST['bloom_level']) ? trim($_POST['bloom_level']) : 'L3-Apply';
         $target_threshold = !empty($_POST['target_threshold_percent']) ? (float)$_POST['target_threshold_percent'] : 60.0;
         $coObj->addCO($selected_sub_id, $co_number, $co_description, $bloom_level, $target_threshold);
-        $_SESSION['succ'] = "Course Outcome CO{$co_number} saved successfully (Dual-synced with Master Catalog and sibling sections).";
+        $_SESSION['succ'] = "Course Outcome CO{$co_number} saved successfully.";
     } else {
         $_SESSION['err'] = "Invalid request. Please try again.";
     }
@@ -97,6 +97,29 @@ if (!empty($_POST['add_co']) && !empty($_POST['co_number']) && !empty($_POST['co
 
 // Fetch existing COs
 $courseOutcomes = $selected_sub_id ? $coObj->getCOsBySubjectId($selected_sub_id) : [];
+
+$selected_subcode = '';
+$can_import_cos = false;
+if (!empty($selected_sub_id)) {
+    if (!empty($facultySubjects['data'])) {
+        foreach ($facultySubjects['data'] as $fs) {
+            if ($fs['id'] == $selected_sub_id) {
+                $selected_subcode = trim($fs['subcode'] ?? '');
+                break;
+            }
+        }
+    }
+    if (empty($selected_subcode)) {
+        $stmtSub = $facultyObj->conn->prepare("SELECT subcode FROM subjects WHERE id = ?");
+        $stmtSub->bind_param("i", $selected_sub_id);
+        $stmtSub->execute();
+        $selected_subcode = trim($stmtSub->get_result()->fetch_assoc()['subcode'] ?? '');
+        $stmtSub->close();
+    }
+    if (!empty($selected_subcode)) {
+        $can_import_cos = $coObj->hasExistingCOWithDifferentSubjectId((int)$selected_sub_id, $selected_subcode);
+    }
+}
 
 // Generate new secret code
 $_SESSION['secretcode'] = bin2hex(random_bytes(32));
@@ -170,15 +193,7 @@ require_once("facheader.php");
                 <div class="d-flex justify-content-between align-items-center mb-2">
                     <div>
                         <span class="badge bg-success"><i class="bi bi-check-circle"></i> Subject-Specific Course Outcomes</span>
-                        <span class="badge bg-info text-dark ms-1" title="Saved outcomes automatically sync to the Central Curriculum Master and all parallel sections"><i class="bi bi-arrow-repeat"></i> Dual-Synced (Master &amp; Sections)</span>
                     </div>
-                    <form method="post" action="facaddcos.php" onsubmit="return confirm('Re-importing will sync your COs with the master catalog template. Continue?');" class="mb-0">
-                        <input type="hidden" name="sub_id" value="<?php echo htmlspecialchars($selected_sub_id); ?>">
-                        <input type="hidden" name="secretcode" value="<?php echo $_SESSION['secretcode']; ?>">
-                        <button type="submit" name="import_curriculum_cos" value="1" class="btn btn-outline-secondary btn-sm">
-                            <i class="bi bi-arrow-repeat"></i> Re-sync from Master Catalog
-                        </button>
-                    </form>
                 </div>
             <?php endif; ?>
 
@@ -281,20 +296,22 @@ require_once("facheader.php");
         <?php
         } else {
             echo '<br>';
-            echo '<div class="card mb-3 border-primary shadow-sm">';
-            echo '  <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-magic"></i> Option 1: Fast-Track Import from Curriculum Catalog</div>';
-            echo '  <div class="card-body">';
-            echo '    <p class="text-muted mb-3">If Course Outcomes are already defined in the curriculum syllabus catalog, you can import them into your subject offering instantly with one click.</p>';
-            echo '    <form method="post" action="facaddcos.php">';
-            echo '      <input type="hidden" name="sub_id" value="' . htmlspecialchars($selected_sub_id) . '">';
-            echo '      <input type="hidden" name="secretcode" value="' . $_SESSION['secretcode'] . '">';
-            echo '      <button type="submit" name="import_curriculum_cos" value="1" class="btn btn-primary"><i class="bi bi-box-arrow-in-down"></i> Import Curriculum Course Outcomes</button>';
-            echo '    </form>';
-            echo '  </div>';
-            echo '</div>';
+            if (!empty($can_import_cos)) {
+                echo '<div class="card mb-3 border-primary shadow-sm">';
+                echo '  <div class="card-header bg-primary text-white fw-bold"><i class="bi bi-box-arrow-in-down me-1"></i> Option 1: Fast-Track Import Existing Course Outcomes</div>';
+                echo '  <div class="card-body">';
+                echo '    <p class="text-muted mb-3">Course Outcomes already exist for subject code <strong>' . htmlspecialchars($selected_subcode) . '</strong> in the curriculum catalog or other class sections. You can import them directly into this class offering with one click.</p>';
+                echo '    <form method="post" action="facaddcos.php">';
+                echo '      <input type="hidden" name="sub_id" value="' . htmlspecialchars($selected_sub_id) . '">';
+                echo '      <input type="hidden" name="secretcode" value="' . $_SESSION['secretcode'] . '">';
+                echo '      <button type="submit" name="import_curriculum_cos" value="1" class="btn btn-primary"><i class="bi bi-box-arrow-in-down"></i> Import Course Outcomes &amp; Matrix</button>';
+                echo '    </form>';
+                echo '  </div>';
+                echo '</div>';
+            }
 
             echo '<div class="card shadow-sm">';
-            echo '<div class="card-header bg-light fw-bold">Option 2: Manually Define Course Outcomes</div>';
+            echo '<div class="card-header bg-light fw-bold">' . (!empty($can_import_cos) ? 'Option 2: Manually Define Course Outcomes' : 'Add Course Outcomes') . '</div>';
             echo '<div class="card-body">';
             echo '<div class="form-group mb-3" id="divnoofcos"><label class="form-label fw-bold">How many COs are defined for this Course?</label><div class="input-group" style="max-width: 320px;"><input type="number" class="form-control" name="noofcos" id="noofcos" min="1" max="10" placeholder="e.g. 5" required /><button type="button" name="getfields" id="getfields" class="btn btn-outline-primary">Generate Fields</button></div></div>';
             echo '<form id="addcosform" method="post"></form>';

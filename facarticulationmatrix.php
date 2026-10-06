@@ -105,79 +105,14 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
                     $po_pso_ids = array_column($poPsoItems, 'id');
                     $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
 
-                    // If empty, auto-check if master/sibling has articulation matrix for same subcode & reg_id
-                    if (empty($currentMappings)) {
-                        require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-                        $sync = CourseOutcomeSyncService::getInstance();
-                        $subInfo = $facultyObj->conn->query("
-                            SELECT s.subcode, s.curr_sub_id, c.reg_id 
-                            FROM subjects s 
-                            JOIN classes c ON s.class_id = c.id 
-                            WHERE s.id = " . (int)$selected_sub_id
-                        );
-                        if ($subInfo && $sRow = $subInfo->fetch_assoc()) {
-                            $subcode = trim($sRow['subcode'] ?? '');
-                            $regId = (int)($sRow['reg_id'] ?? 0);
-                            if (!empty($subcode) && $regId > 0) {
-                                $logical = $sync->findLogicalMatrixBySubjectCode($subcode, $regId);
-                                if (!empty($logical)) {
-                                    $sync->propagateLogicalMatrixBySubjectCode($subcode, $regId, $logical);
-                                    // Refresh COs and mappings after propagation
-                                    $co_result = $coObj->getCOsBySubjectId($selected_sub_id);
-                                    if ($co_result['status']) {
-                                        $courseOutcomes = $co_result['data'];
-                                        $co_ids = array_column($courseOutcomes, 'id');
-                                    }
-                                    $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
-                                }
-                            }
-                        }
-                    }
-
-                    // Set Mode based on whether mappings *now* exist (after potential save or auto-propagation)
+                    // Set Mode based on whether mappings exist
                     if (!empty($currentMappings)) {
                         $matrix_mode = 'View'; // If mappings exist, switch to View mode
                     } else {
                         $matrix_mode = 'Add'; // Otherwise, stay in Add mode
                     }
                 } else {
-                    // If COs or POs/PSOs couldn't be fetched, check if sibling has COs & matrix
-                    require_once __DIR__ . '/services/CourseOutcomeSyncService.php';
-                    $sync = CourseOutcomeSyncService::getInstance();
-                    $subInfo = $facultyObj->conn->query("
-                        SELECT s.subcode, s.curr_sub_id, c.reg_id 
-                        FROM subjects s 
-                        JOIN classes c ON s.class_id = c.id 
-                        WHERE s.id = " . (int)$selected_sub_id
-                    );
-                    if ($subInfo && $sRow = $subInfo->fetch_assoc()) {
-                        $subcode = trim($sRow['subcode'] ?? '');
-                        $regId = (int)($sRow['reg_id'] ?? 0);
-                        if (!empty($subcode) && $regId > 0) {
-                            $logical = $sync->findLogicalMatrixBySubjectCode($subcode, $regId);
-                            if (!empty($logical)) {
-                                $sync->propagateLogicalMatrixBySubjectCode($subcode, $regId, $logical);
-                                $co_result = $coObj->getCOsBySubjectId($selected_sub_id);
-                                if ($co_result['status']) {
-                                    $courseOutcomes = $co_result['data'];
-                                }
-                                $pops_result = $coObj->getRelevantPoPso($selected_sub_id);
-                                if ($pops_result['status']) {
-                                    $poPsoItems = $pops_result['data'];
-                                }
-                                if (!empty($courseOutcomes) && !empty($poPsoItems)) {
-                                    $co_ids = array_column($courseOutcomes, 'id');
-                                    $po_pso_ids = array_column($poPsoItems, 'id');
-                                    $currentMappings = $coObj->getCoPoMappings($co_ids, $po_pso_ids);
-                                }
-                            }
-                        }
-                    }
-                    if (!empty($currentMappings)) {
-                        $matrix_mode = 'View';
-                    } else {
-                        $matrix_mode = 'Add';
-                    }
+                    $matrix_mode = 'Add';
                 }
             }
         } // End !empty(sub_id)
