@@ -33,6 +33,13 @@ if ($action === 'get_regulations') {
     exit();
 }
 
+if ($action === 'get_categories_and_types') {
+    $regId = (int)($_GET['reg_id'] ?? ($_POST['reg_id'] ?? 0));
+    $res = $obj->getCategoriesAndTypesByRegId($regId);
+    echo json_encode($res);
+    exit();
+}
+
 if ($action === 'get_specializations') {
     $progId = (int)($_GET['prog_id'] ?? ($_POST['prog_id'] ?? 0));
     $res = $obj->getSpecializationsByProgramId($progId);

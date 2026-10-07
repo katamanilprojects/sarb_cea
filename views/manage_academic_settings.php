@@ -30,10 +30,40 @@ $categoryTitles = [
         'icon' => 'bi-award',
         'desc' => 'SEE and aggregate passing minimum percentages, 10-point absolute grading bands, and CGPA class award cutoffs.'
     ],
+    'PROMOTION' => [
+        'title' => 'Academic Progression & Promotion Rules',
+        'icon' => 'bi-graph-up-arrow',
+        'desc' => 'Statutory cumulative credit requirements for promotion between academic years (Section 7 UG) and LES entry.'
+    ],
+    'HONORS' => [
+        'title' => 'Honors Degree Regulations',
+        'icon' => 'bi-trophy',
+        'desc' => 'Eligibility CGPA (>=8.0), no active backlogs criteria, 15 additional credits allocation, and MOOCs limits.'
+    ],
+    'MINOR' => [
+        'title' => 'Minor Degree Regulations',
+        'icon' => 'bi-diagram-3',
+        'desc' => 'Interdisciplinary minor tracks, 12 additional credits, eligible disciplines, and registration rules.'
+    ],
+    'MOOCS' => [
+        'title' => 'Online MOOCs & NPTEL Policies',
+        'icon' => 'bi-laptop',
+        'desc' => 'Maximum MOOC credits per semester (40% ceiling), SWAYAM/NPTEL proctored exam transfer, and credit equivalence.'
+    ],
+    'PROJECT' => [
+        'title' => 'Project Work & Dissertation Evaluation',
+        'icon' => 'bi-kanban',
+        'desc' => 'Project Review Committee (PRC) evaluation, dissertation viva, supervisor marks, and plagiarism ceiling (30%).'
+    ],
+    'ACTIVITIES' => [
+        'title' => 'Mandatory Non-Credit Activities & Audit Courses',
+        'icon' => 'bi-activity',
+        'desc' => 'Community service, NSS, Sports, and mandatory non-credit induction/audit courses.'
+    ],
     'GENERAL' => [
-        'title' => 'Project, Internship & System Policies',
+        'title' => 'Internship & System Policies',
         'icon' => 'bi-gear-wide-connected',
-        'desc' => 'Project evaluation (Internal Supervisor/PRC vs External), summer/full semester internship, and mark entry grace window.'
+        'desc' => 'Internship evaluation marks, internal improvement re-registration rules, and mark entry grace window.'
     ]
 ];
 ?>
@@ -48,15 +78,29 @@ $categoryTitles = [
             <p class="text-muted small mb-0">Autonomous regulatory rules, formula multipliers, mark weightages, and thresholds (JNTUA CEA Autonomous).</p>
         </div>
 
-        <div class="d-flex align-items-center gap-2">
+        <div class="d-flex align-items-center gap-2 flex-wrap">
             <label for="regSelector" class="fw-bold text-secondary mb-0">Regulation:</label>
-            <div class="btn-group" role="group">
-                <?php foreach ($availableRegulations as $regCode): ?>
-                    <a href="superadminacademicsettings.php?reg=<?= urlencode($regCode) ?>" 
-                       class="btn btn-sm <?= ($activeRegulation === $regCode) ? 'btn-primary fw-bold' : 'btn-outline-primary' ?>">
-                        <?= htmlspecialchars($regCode) ?>
-                    </a>
-                <?php endforeach; ?>
+            <div class="btn-group flex-wrap" role="group">
+                <?php if (!empty($regulationsMeta)): ?>
+                    <?php foreach ($regulationsMeta as $rm): ?>
+                        <?php 
+                        $isSelected = ($activeRegId > 0 && (int)$rm['id'] === $activeRegId) || ($activeRegId <= 0 && $rm['regulation'] === $activeRegulation);
+                        $isUG = ($rm['program_level'] === 'UG');
+                        ?>
+                        <a href="superadminacademicsettings.php?reg_id=<?= $rm['id'] ?>&reg=<?= urlencode($rm['regulation']) ?>" 
+                           class="btn btn-sm <?= $isSelected ? ($isUG ? 'btn-primary fw-bold' : 'btn-dark fw-bold') : 'btn-outline-secondary' ?>">
+                            <span class="badge <?= $isUG ? 'bg-light text-primary' : 'bg-warning text-dark' ?> me-1"><?= htmlspecialchars($rm['program_level']) ?></span>
+                            <?= htmlspecialchars($rm['prog_shortname']) ?> - <?= htmlspecialchars($rm['regulation']) ?>
+                        </a>
+                    <?php endforeach; ?>
+                <?php else: ?>
+                    <?php foreach ($availableRegulations as $regCode): ?>
+                        <a href="superadminacademicsettings.php?reg=<?= urlencode($regCode) ?>" 
+                           class="btn btn-sm <?= ($activeRegulation === $regCode) ? 'btn-primary fw-bold' : 'btn-outline-primary' ?>">
+                            <?= htmlspecialchars($regCode) ?>
+                        </a>
+                    <?php endforeach; ?>
+                <?php endif; ?>
             </div>
             <?php if ($is_readonly): ?>
                 <span class="badge bg-warning text-dark"><i class="bi bi-lock me-1"></i>Read Only (HOD)</span>
@@ -103,21 +147,35 @@ $categoryTitles = [
     <div class="tab-content" id="settingsTabsContent">
         <!-- 1. Regulatory Parameters Panel -->
         <div class="tab-pane fade show active" id="parameters-pane" role="tabpanel">
-            <form method="POST" action="superadminacademicsettings.php?reg=<?= urlencode($activeRegulation) ?>" id="academicSettingsForm">
+            <form method="POST" action="superadminacademicsettings.php?reg_id=<?= $activeRegId ?>&reg=<?= urlencode($activeRegulation) ?>" id="academicSettingsForm">
                 <input type="hidden" name="secretcode" value="<?= htmlspecialchars($_SESSION['secretcode'] ?? '') ?>">
                 <input type="hidden" name="regulation" value="<?= htmlspecialchars($activeRegulation) ?>">
+                <input type="hidden" name="reg_id" value="<?= $activeRegId ?>">
                 <input type="hidden" name="action" value="save_settings">
 
                 <div class="accordion mb-4" id="settingsAccordion">
                     <?php 
-                    $categoryOrder = ['CIA', 'SEE', 'ATTENDANCE', 'ATTAINMENT', 'GRADING', 'GENERAL'];
+                    $categoryOrder = ['CIA', 'SEE', 'ATTENDANCE', 'ATTAINMENT', 'GRADING', 'PROMOTION', 'HONORS', 'MINOR', 'MOOCS', 'PROJECT', 'ACTIVITIES', 'GENERAL'];
                     foreach ($categoryOrder as $idx => $catKey): 
                         if (!isset($groupedSettings[$catKey])) continue;
                         $catMeta = $categoryTitles[$catKey] ?? ['title' => $catKey, 'desc' => ''];
                         $items = $groupedSettings[$catKey];
                         $accordionId = "collapseCat" . $catKey;
+                        $borderClass = match($catKey) {
+                            'CIA' => 'border-primary',
+                            'SEE' => 'border-info',
+                            'ATTENDANCE' => 'border-warning',
+                            'ATTAINMENT' => 'border-success',
+                            'GRADING' => 'border-dark',
+                            'PROMOTION' => 'border-primary',
+                            'HONORS' => 'border-success',
+                            'MINOR' => 'border-info',
+                            'MOOCS' => 'border-warning',
+                            'PROJECT' => 'border-danger',
+                            default => 'border-secondary'
+                        };
                     ?>
-                        <div class="card mb-3 shadow-sm border-0 border-start border-4 <?= ($catKey === 'CIA' ? 'border-primary' : ($catKey === 'ATTENDANCE' ? 'border-info' : ($catKey === 'ATTAINMENT' ? 'border-success' : 'border-secondary'))) ?>">
+                        <div class="card mb-3 shadow-sm border-0 border-start border-4 <?= $borderClass ?>">
                             <div class="card-header bg-white py-3" id="heading<?= $catKey ?>">
                                 <div class="d-flex justify-content-between align-items-center cursor-pointer" data-bs-toggle="collapse" data-bs-target="#<?= $accordionId ?>">
                                     <div>

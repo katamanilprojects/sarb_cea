@@ -283,9 +283,9 @@ classDiagram
 ## 3. Domain Model Subclasses
 
 ### 3.1 Role Service Models
-- **`SuperAdmin`** (`superadmin.class.php`): System-wide master data manager. Configures academic years, programs, departments, specializations, classes (including section assignment via `generateClassName()`), class timings, and attendance rules. Composes instances of `Programs`, `Departments`, `Regulations`, and `AttendanceRules`.
+- **`SuperAdmin`** (`superadmin.class.php`): System-wide master data manager. Configures academic years, programs, statutory regulations and degree ceilings (with category balancing and canonical course type schemes), departments, specializations, classes (including section assignment via `generateClassName()`), class timings, and attendance rules. Composes instances of `Programs`, `Departments`, `Regulations`, and `AttendanceRules`.
 - **`Admin`** (`admin.class.php`): Institution administrator. Enrolls students, manages faculty profiles, sets student status, maps faculty/students to subjects, and resets passwords with remarks.
-- **`AcademicSection`** (`academicsection.class.php`): Academic affairs office. Manages buildings, examination halls, regulations, master curriculum subject catalogs (`CurriculumSubject`), syllabus files, and student/faculty password resets.
+- **`AcademicSection`** (`academicsection.class.php`): Academic affairs office. Manages buildings, examination halls, statutory regulations reference hub, autonomous course structure & BoS roadmaps, master curriculum subject catalogs (`CurriculumSubject`), syllabus files, and student/faculty password resets.
 - **`HOD`** (`hod.class.php`): Department head. Oversees departmental subjects, assigns faculty to subjects (`faculty_sub`), maps students (`student_sub`), manages timetable schedules, reviews/approves faculty attendance deletion requests, and approves end-of-course syllabus completion audits. Delegates subject queries to `Subject`.
 - **`Faculty`** (`faculty.class.php`): Instructors. Marks daily attendance with frictionless period topic logging, maintains teaching diary entries, logs exceptional attendance, submits attendance deletion requests, and submits syllabus completion compliance audits. Delegates course offering queries to `Subject`.
 
@@ -304,7 +304,7 @@ classDiagram
 - **`FacCIAAnalysis2`** (`facciaanalysis2.class.php`): Active choice-aware analytical calculator for direct/indirect CO-PO attainment matrices and visual charts (legacy `facciaanalysis.class.php` has been cleaned up and removed).
 - **`Timetable`** (`timetable.class.php`): Configures class timing templates, timing schedules per date ranges, weekly class timetables, and teacher allocations.
 - **`Syllabus`** (`syllabus.class.php`): Uploads and retrieves curriculum regulations and syllabus units.
-- **`CurriculumSubject`** (`curriculum_subject.class.php`): Academic section catalog manager for central course templates across regulations.
+- **`CurriculumSubject`** (`curriculum_subject.class.php`): Academic section catalog manager for central course templates across regulations. Supports deterministic AICTE/UGC credit calculation ($C = L + T + 0.5 \times \max(P, PR)$), automatic assessment scheme pre-filling from `regulation_course_types`, multi-semester roadmap queries, and elective track groupings.
 - **`AttendanceRules`** (`attendancerules.class.php`): Manages attendance condonation and shortage criteria based on program regulations.
 
 ### 3.4 Regulatory Policy & Lesson Plan Services

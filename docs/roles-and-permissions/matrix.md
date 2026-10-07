@@ -18,6 +18,7 @@ For the exhaustive file-by-file and database table read/write mapping, consult [
 | **Class Timings Configuration** | ✅ Full | ❌ | ❌ | ❌ | ❌ | ❌ | - |
 | **Class Cohort & Section Creation** | ✅ Full | 👁️ Read | ❌ | ❌ | ❌ | ❌ | - |
 | **Master Curriculum Catalog** | ❌ | ❌ | ✅ Full | 👁️ Read | 👁️ Read | ❌ | - |
+| **Autonomous Course Structure & BoS Engine** | ✅ Full | 👁️ Read | ✅ Full | 👁️ Read | 👁️ Read | ❌ | - |
 | **Campus Buildings & Halls** | ❌ | ❌ | ✅ Full | ❌ | ❌ | ❌ | - |
 | **Syllabus Document Management** | ❌ | ❌ | ✅ Full | 👁️ Read | 👁️ Read | ❌ | - |
 | **Faculty Account Onboarding** | ❌ | ✅ Full | ❌ | 👁️ Read | ❌ | ❌ | - |
@@ -71,7 +72,8 @@ For the exhaustive file-by-file and database table read/write mapping, consult [
 - `superadmindepts.php`
 - `superadminprograms.php`
 - `superadminprogramclasses.php`
-- `superadminregulations.php`
+- `superadminregulations.php` (Master Regulations, Program Ceilings, Cloning & Statutory Controls)
+- `superadminregulationdetails.php` (Category Credit Distribution, Course Types & Assessment Schemes, Settings)
 - `superadminspecs.php`
 - `superadminpopso.php`
 - `adminstudentprofiles.php` (Inspect All Student Dossiers & Vault)
@@ -96,10 +98,11 @@ For the exhaustive file-by-file and database table read/write mapping, consult [
 
 ### 2.3 Academic Section (`$_SESSION['role'] === 'academic_section'`)
 - `academicsectionhome.php`
-- `academicsectioncurriculumsubjects.php`
+- `academicsectioncoursestructure.php` (Autonomous Course Structure & BoS Engine)
+- `academicsectioncurriculumsubjects.php` (Curriculum Subject Catalog, Credits & Auto-Defaults)
 - `academicsectionmanagebuildings.php`, `managebuildings_public.php`
 - `academicsectionsyllabus.php`
-- `academicsectionregulations.php`
+- `academicsectionregulations.php` (Academic Regulations Reference Hub - Read-Only Statutory Reference & Settings View)
 - `academicsectionresults.php` (Exam Notifications & Bulk Results CSV Upload)
 - `adminstudentprofiles.php` (Student Biographical Profiles & Verification)
 - `admincustodyledger.php` (Custodial Document Management & Certificate Processing)

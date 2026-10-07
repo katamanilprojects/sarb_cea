@@ -1,14 +1,14 @@
 # Database Schema Reference
 
-This document provides an exhaustive, field-by-field reference of all 56 tables, columns, data types, nullability, keys, and defaults extracted directly from the system database.
+This document provides an exhaustive, field-by-field reference of all 68 tables, columns, data types, nullability, keys, and defaults extracted directly from the system database.
 
 ---
 
 ## Functional Domain Index
 
-The 56 tables in the database are organized into 9 functional domains:
+The 68 tables in the database are organized into 10 functional domains:
 1. [Identity, Access & Audit Logging](#1-identity-access--audit-logging) (6 tables)
-2. [Academic Programs, Batches & Structure](#2-academic-programs-batches--structure) (8 tables)
+2. [Academic Programs, Batches & Structure](#2-academic-programs-batches--structure) (10 tables)
 3. [Enrollment & Course Allotment](#3-enrollment--course-allotment) (2 tables)
 4. [Daily Attendance, Lesson Plans & Course Audit](#4-daily-attendance-lesson-plans--course-audit) (7 tables)
 5. [Timetable Management](#5-timetable-management) (3 tables)
@@ -16,6 +16,7 @@ The 56 tables in the database are organized into 9 functional domains:
 7. [Outcome-Based Education (OBE) & Attainment](#7-outcome-based-education-obe--attainment) (8 tables)
 8. [Physical Infrastructure, Surveys & Student Feedback](#8-physical-infrastructure-surveys--student-feedback) (7 tables)
 9. [Autonomous Academic Settings & Parameters](#9-autonomous-academic-settings--parameters) (3 tables)
+10. [Institutional Governance: Cohort Batches, Results Publication & Student Dossier](#10-institutional-governance-cohort-batches-results-publication--student-dossier) (10 tables)
 
 ---
 
@@ -136,16 +137,31 @@ Degree programs offered by the institution (e.g., B.Tech, M.Tech, MCA).
 > **Unique Keys**: (`program_code`)
 
 ### 2.3 `regulations`
-Academic regulations governing curriculum, attendance rules, and graduation criteria.
+Academic regulations governing curriculum, statutory degree ceilings, evaluation schemes, attendance rules, and graduation criteria.
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Regulation ID |
-| `regulation` | `varchar(4)` | No | - | - | Regulation code string (e.g., R15, R19, R20, R23) |
+| `regulation` | `varchar(4)` | No | - | - | Regulation code string (e.g., R20, R23, R25, R26) |
 | `prog_id` | `int(11)` | No | MUL | - | Foreign key referencing programs.id |
+| `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
 | `start_year` | `int(4)` | Yes | - | NULL | Academic implementation year of regulation |
 | `is_active` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Superseded / Inactive |
-| `updatedat` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
+| `normal_duration_years` | `tinyint(3) unsigned` | No | - | 4 | Standard degree program duration in years (e.g., 4 for UG, 2 for PG) |
+| `max_duration_years` | `tinyint(3) unsigned` | No | - | 8 | Maximum statutory graduation ceiling before seat forfeiture (e.g., 8 for UG, 4 for PG) |
+| `gap_year_extension_years` | `tinyint(3) unsigned` | No | - | 0 | Additional years allowed for Student Entrepreneur in Residence (e.g., 2 for UG) |
+| `total_semesters` | `tinyint(3) unsigned` | No | - | 8 | Standard prescribed semesters (e.g., 8 for UG, 4 for PG) |
+| `total_degree_credits` | `decimal(5,1)` | No | - | 160.0 | Mandatory credits required for degree award (e.g., 163.0 for B.Tech R23/R26, 75.0 for M.Tech R25) |
+| `lateral_entry_credits` | `decimal(5,1)` | No | - | 0.0 | Mandatory credits for Lateral Entry Scheme (e.g., 120.0 for B.Tech LES) |
+| `honors_credits` | `decimal(5,1)` | No | - | 0.0 | Additional specialized credits for B.Tech Honors degree (e.g., 15.0) |
+| `minor_credits` | `decimal(5,1)` | No | - | 0.0 | Additional interdisciplinary credits for B.Tech Minors degree (e.g., 12.0) |
+| `has_lateral_entry` | `tinyint(1)` | No | - | 0 | 1 = Lateral Entry Scheme supported, 0 = Direct entry only |
+| `has_honors` | `tinyint(1)` | No | - | 0 | 1 = Honors degree pathway enabled, 0 = Disabled |
+| `has_minors` | `tinyint(1)` | No | - | 0 | 1 = Minor degree pathway enabled, 0 = Disabled |
+| `has_gap_year` | `tinyint(1)` | No | - | 0 | 1 = Entrepreneurial Gap Year facility available, 0 = Disabled |
+| `has_internal_improvement`| `tinyint(1)` | No | - | 0 | 1 = Internal evaluation re-registration permitted (e.g., M.Tech R25 max 3 subjects), 0 = No |
+| `effective_admitted_batch` | `varchar(50)` | Yes | - | NULL | Official admitted batch applicability (e.g., '2023-24 onwards') |
+| `les_effective_batch` | `varchar(50)` | Yes | - | NULL | Lateral Entry batch applicability (e.g., '2024-25 onwards') |
 
 > **Foreign Keys**: `prog_id` &rarr; `programs(id)`
 
@@ -228,25 +244,75 @@ Central syllabus subject catalog managed by Academic Section, decoupled from act
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Central curriculum subject ID |
-| `prog_id` | `int(11)` | No | - | - | Foreign key referencing programs.id |
+| `prog_id` | `int(11)` | No | MUL | - | Foreign key referencing programs.id |
 | `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
-| `spec_id` | `int(11)` | No | - | - | Foreign key referencing specialization.id |
+| `spec_id` | `int(11)` | No | MUL | - | Foreign key referencing specialization.id |
 | `yearsem` | `varchar(30)` | No | - | - | Year and semester string (e.g., II Yr - I Sem) |
 | `subject_sno` | `int(3)` | No | - | - | Ordering serial number within the syllabus (1..20) |
 | `subcode` | `varchar(25)` | No | MUL | - | Catalog course code (e.g., 23A05301T) |
 | `sub_fullname` | `varchar(150)` | No | - | - | Full descriptive course title |
 | `sub_shortname` | `varchar(30)` | No | - | - | Course short title / acronym |
-| `sub_type` | `varchar(30)` | No | - | - | Course type (Theory, Lab, Mandatory Course, etc.) |
-| `lecture_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly lecture hours (L) |
-| `tutorial_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly tutorial hours (T) |
-| `practical_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly practical / lab hours (P) |
-| `credits` | `decimal(3,1)` | No | - | 0.0 | Total course credits (C) |
-| `status` | `tinyint(1)` | No | - | 1 | 1 = Active, 0 = Inactive |
+| `sub_type` | `varchar(30)` | No | - | - | Course type code (Theory, Lab, Mandatory Course, Skill Oriented, etc.) |
+| `course_category` | `varchar(20)` | No | - | '' | Statutory curriculum category code (e.g., PC, PE, OE, BS, ES, HM, SEC, PR, QT, MC, CV, IN, DS) |
+| `lecture_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly lecture contact hours ($L$) |
+| `tutorial_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly tutorial contact hours ($T$) |
+| `pr_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly practical contact hours ($PR$) |
+| `practical_hours` | `decimal(3,1)` | No | - | 0.0 | Weekly laboratory/field practical contact hours ($P$) |
+| `credits` | `decimal(3,1)` | No | - | 0.0 | Total course credits ($C = L + T + 0.5 \times \max(P, PR)$) |
+| `status` | `tinyint(1)` | No | - | 1 | 1 = Active in syllabus, 0 = Inactive / Deprecated |
 | `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
 | `updated_at` | `timestamp` | No | - | current_timestamp() | Last update timestamp |
+| `cie_max_marks` | `decimal(5,2)` | No | - | 30.00 | Maximum Continuous Internal Assessment (CIE) marks (e.g., 30 for UG, 40 for PG) |
+| `see_max_marks` | `decimal(5,2)` | No | - | 70.00 | Maximum Semester End Examination (SEE) marks (e.g., 70 for UG, 60 for PG) |
+| `total_marks` | `decimal(5,2)` | No | - | 100.00 | Total evaluated marks (CIE + SEE) |
+| `has_see` | `tinyint(1)` | No | - | 1 | 1 = Has external university examination, 0 = Internal assessment only |
+| `elective_track` | `varchar(50)` | Yes | - | NULL | Optional elective vertical pool / track label (e.g., PE-1, PE-2, Track 1 - AI/ML, Minor Track) |
+| `delivery_mode` | `enum('CONVENTIONAL','BLENDED','ONLINE_MOOC')` | No | - | CONVENTIONAL | Course delivery mode |
+| `prerequisites` | `varchar(255)` | Yes | - | NULL | Optional prerequisite course codes or eligibility notes |
 
 > **Unique Keys**: (`reg_id`,`spec_id`,`yearsem`,`subcode`)
 > **Foreign Keys**: `prog_id` &rarr; `programs(id)`, `reg_id` &rarr; `regulations(id)`, `spec_id` &rarr; `specialization(id)`
+
+### 2.9 `regulation_course_categories`
+Master course categories defined by SuperAdmin for each regulation, establishing statutory credit distribution, percentage limits, and Board of Studies (BoS) compliance ceilings.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Category record ID |
+| `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
+| `category_code` | `varchar(20)` | No | - | - | Category short code (e.g., HM, BS, ES, PC, PE, OE, SEC, PR, QT, MC, CV, IN, DS) |
+| `category_name` | `varchar(100)` | No | - | - | Full formal category name (e.g., Professional Core, Basic Sciences, Quantum Technologies) |
+| `min_allocation_pct` | `decimal(5,2)` | Yes | - | 0.00 | Minimum statutory curriculum percentage allocation |
+| `max_allocation_pct` | `decimal(5,2)` | Yes | - | 0.00 | Maximum statutory curriculum percentage allocation |
+| `target_credits` | `decimal(5,1)` | Yes | - | 0.0 | Prescribed target credit ceiling for the degree regulation |
+| `description` | `varchar(255)` | Yes | - | NULL | Statutory context, regulatory clause, and curriculum guidelines |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+> **Unique Keys**: (`reg_id`,`category_code`)
+> **Foreign Keys**: `reg_id` &rarr; `regulations(id)`
+
+### 2.10 `regulation_course_types`
+Master course delivery types and examination evaluation schemes defined per regulation by SuperAdmin, governing marks distribution and assessment rules.
+
+| Column | Type | Nullable | Key | Default | Description |
+|---|---|---|---|---|---|
+| `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Course type record ID |
+| `reg_id` | `int(11)` | No | MUL | - | Foreign key referencing regulations.id |
+| `type_code` | `varchar(30)` | No | - | - | Course type code (e.g., Theory, Lab, Integrated, Project Work, Skill Enhancement) |
+| `type_name` | `varchar(100)` | No | - | - | Descriptive course type title |
+| `evaluation_scheme` | `enum('THEORY','LAB','INTEGRATED','PROJECT','AUDIT_NON_CREDIT','OTHER')` | No | - | THEORY | Canonical assessment evaluation scheme |
+| `cie_max_marks` | `decimal(5,2)` | Yes | - | 30.00 | Default Continuous Internal Assessment (CIE) maximum marks |
+| `see_max_marks` | `decimal(5,2)` | Yes | - | 70.00 | Default Semester End Examination (SEE) maximum marks |
+| `total_marks` | `decimal(5,2)` | Yes | - | 100.00 | Total marks for the course type |
+| `has_see` | `tinyint(1)` | No | - | 1 | 1 = Conducts end examination, 0 = Internal only |
+| `is_credit_course` | `tinyint(1)` | No | - | 1 | 1 = Counts toward degree credits, 0 = Non-credit audit course |
+| `description` | `varchar(255)` | Yes | - | NULL | Question paper pattern and internal evaluation scheme description |
+| `created_at` | `timestamp` | No | - | current_timestamp() | Creation timestamp |
+| `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
+
+> **Unique Keys**: (`reg_id`,`type_code`)
+> **Foreign Keys**: `reg_id` &rarr; `regulations(id)`
 
 
 ## 3. Enrollment & Course Allotment
@@ -903,22 +969,24 @@ Comprehensive student appraisal of teaching faculty across 19 instructional and 
 Centralized autonomous regulatory policy engine, parameter versioning, thresholds, and audit logging for institutional governance.
 
 ### 9.1 `academic_settings`
-Centralized repository of academic regulations and policy configuration parameters (CIA/SEE weightages, condonation/detention thresholds, attainment benchmarks).
+Centralized repository of academic regulations and policy configuration parameters (CIA/SEE weightages, condonation/detention thresholds, attainment benchmarks, promotion, honors, minors, MOOCs, project dissertation rules). Dual-scoped by `reg_id` (foreign key) and `regulation_code`.
 
 | Column | Type | Nullable | Key | Default | Description |
 |---|---|---|---|---|---|
 | `id` | `int(11)` | No | PRI | AUTO_INCREMENT | Setting parameter ID |
-| `regulation_code` | `varchar(10)` | No | MUL | - | Regulation identifier (e.g., R19, R20, R23) |
-| `category` | `enum('CIA','SEE','ATTENDANCE','ATTAINMENT','GRADING','GENERAL')` | No | MUL | - | Regulatory policy category |
-| `setting_key` | `varchar(64)` | No | - | - | Parameter configuration key (e.g., `cia_theory_weightage_best`) |
+| `reg_id` | `int(11)` | Yes | - | NULL | Foreign key referencing regulations.id for regulation-level scoping |
+| `regulation_code` | `varchar(10)` | No | MUL | - | Regulation identifier (e.g., R20, R23, R25, R26) |
+| `category` | `enum('CIA','SEE','ATTENDANCE','ATTAINMENT','GRADING','GENERAL','PROMOTION','HONORS','MINOR','MOOCS','PROJECT','ACTIVITIES')` | No | MUL | - | Regulatory policy category |
+| `setting_key` | `varchar(64)` | No | - | - | Parameter configuration key (e.g., `see_min_pass_percentage`, `dissertation_total_marks`) |
 | `setting_value` | `text` | No | - | - | Serialized setting value (scalar or JSON payload) |
-| `data_type` | `enum('STRING','INT','FLOAT','BOOL','JSON')` | No | - | STRING | Type specification for automatic application casting |
+| `data_type` | `enum('STRING','INT','FLOAT','BOOL','JSON')` | No | - | STRING | Type specification for automatic application casting via SettingsService |
 | `description` | `varchar(255)` | Yes | - | NULL | Academic regulation context and autonomous policy clause |
-| `is_editable` | `tinyint(1)` | No | - | 1 | 1 = Configurable via UI, 0 = System locked |
+| `is_editable` | `tinyint(1)` | No | - | 1 | 1 = Configurable via SuperAdmin UI, 0 = System locked |
 | `updated_by` | `int(11)` | Yes | - | NULL | User ID of administrator who performed update |
 | `updated_at` | `timestamp` | No | - | current_timestamp() | Last modification timestamp |
 
 > **Unique Keys**: (`regulation_code`,`setting_key`)
+> **Foreign Keys**: `reg_id` &rarr; `regulations(id)`
 
 ### 9.2 `academic_settings_audit`
 Complete immutable audit trail tracking parameter mutations in academic rules, prior values, new values, modifier user IDs, and client IP addresses.

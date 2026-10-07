@@ -87,7 +87,7 @@ define('DB_NAME', 'u182589698_jntuaceasarb');
    mysql -u u182589698_jntuaceasarb -p u182589698_jntuaceasarb < schema_backup.sql
    ```
 
-3. Verify that all 66 tables and constraints are loaded successfully:
+3. Verify that all 68 tables and constraints are loaded successfully:
    ```sql
    USE u182589698_jntuaceasarb;
    SHOW TABLES;

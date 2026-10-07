@@ -32,11 +32,38 @@ require_once __DIR__ . '/services/SettingsService.php';
 
 $settingsService = \Services\SettingsService::getInstance();
 
+$regulationsMeta = $settingsService->getRegulationsWithMetadata();
 $availableRegulations = $settingsService->getAvailableRegulations();
-$activeRegulation = strtoupper(trim($_GET['reg'] ?? 'R23'));
-if (!in_array($activeRegulation, $availableRegulations, true)) {
+
+$activeRegId = (int)($_GET['reg_id'] ?? $_POST['reg_id'] ?? 0);
+$activeRegulation = strtoupper(trim($_GET['reg'] ?? ''));
+
+$activeRegMeta = null;
+if ($activeRegId > 0) {
+    foreach ($regulationsMeta as $rm) {
+        if ((int)$rm['id'] === $activeRegId) {
+            $activeRegMeta = $rm;
+            $activeRegulation = $rm['regulation'];
+            break;
+        }
+    }
+}
+
+if (empty($activeRegulation)) {
     $activeRegulation = 'R23';
 }
+
+if (!$activeRegMeta) {
+    foreach ($regulationsMeta as $rm) {
+        if ($rm['regulation'] === $activeRegulation) {
+            $activeRegMeta = $rm;
+            $activeRegId = (int)$rm['id'];
+            break;
+        }
+    }
+}
+
+$targetScope = ($activeRegId > 0) ? $activeRegId : $activeRegulation;
 
 $succMsg = '';
 $errMsg = '';
@@ -51,7 +78,9 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_readonly) {
         $errMsg = "Security validation failed (CSRF token mismatch). Please reload and try again.";
     } elseif ($action === 'save_settings') {
         $submittedSettings = $_POST['settings'] ?? [];
-        $targetReg = strtoupper(trim($_POST['regulation'] ?? $activeRegulation));
+        $targetRegId = (int)($_POST['reg_id'] ?? $activeRegId);
+        $targetRegCode = strtoupper(trim($_POST['regulation'] ?? $activeRegulation));
+        $targetReg = ($targetRegId > 0) ? $targetRegId : $targetRegCode;
         $userId = (int)($_SESSION['userid'] ?? $_SESSION['user_id'] ?? 1);
         $clientIp = $_SERVER['REMOTE_ADDR'] ?? '127.0.0.1';
 
@@ -151,7 +180,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST' && !$is_readonly) {
 $_SESSION['secretcode'] = bin2hex(random_bytes(32));
 
 // Load settings grouped by category for view
-$groupedSettings = $settingsService->getAllGroupedByCategory($activeRegulation);
+$groupedSettings = $settingsService->getAllGroupedByCategory($targetScope);
 $auditLogs = $settingsService->getAuditLogs(null, $activeRegulation, 50);
 
 // Load the presentation view

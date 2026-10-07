@@ -74,6 +74,12 @@ $subjectsList = [];
 if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId) && !empty($selectedYearSem)) {
     $subjectsList = $obj->getSubjectsByContext($selectedProgId, $selectedRegId, $selectedSpecId, $selectedYearSem)['data'] ?? [];
 }
+
+// Fetch dynamic regulation categories and course types if reg_id is available
+$dynamicConfig = ['categories' => [], 'types' => []];
+if (!empty($selectedRegId)) {
+    $dynamicConfig = $obj->getCategoriesAndTypesByRegId($selectedRegId);
+}
 ?>
 
 <div class="container my-3">
@@ -220,12 +226,40 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                         <!-- Subject Type -->
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Subject Type <span class="text-danger">*</span></label>
-                            <select name="sub_type" id="sub_type" class="form-select form-select-sm" required>
+                            <select name="sub_type" id="sub_type" class="form-select form-select-sm" required onchange="onTypeChange()">
                                 <?php
-                                $subTypes = ["Theory", "Lab", "Mandatory Course", "Skill Oriented Course", "Honors / Minors", "Project", "Comprehensive Viva", "Audit Course", "Seminar"];
+                                $typeMetaMap = [];
+                                if (!empty($dynamicConfig['types'])) {
+                                    foreach ($dynamicConfig['types'] as $dt) {
+                                        $typeMetaMap[$dt['type_code']] = $dt;
+                                    }
+                                }
+
+                                $subTypes = [];
+                                if (!empty($dynamicConfig['types'])) {
+                                    foreach ($dynamicConfig['types'] as $dt) {
+                                        $subTypes[$dt['type_code']] = $dt['type_name'] . ' (' . $dt['evaluation_scheme'] . ')';
+                                    }
+                                } else {
+                                    $defaultTypes = ["Theory", "Lab", "Integrated", "Mandatory Course", "Skill Oriented Course", "Honors / Minors", "Project", "Comprehensive Viva", "Audit Course", "Seminar"];
+                                    foreach ($defaultTypes as $dt) {
+                                        $subTypes[$dt] = $dt;
+                                    }
+                                }
+
                                 $currentType = $editSubject['sub_type'] ?? 'Theory';
-                                foreach ($subTypes as $st): ?>
-                                    <option value="<?= $st ?>" <?= ($currentType === $st) ? 'selected' : '' ?>><?= $st ?></option>
+                                if (!empty($currentType) && !array_key_exists($currentType, $subTypes)) {
+                                    $subTypes[$currentType] = $currentType;
+                                }
+
+                                foreach ($subTypes as $tCode => $tLabel): 
+                                    $tm = $typeMetaMap[$tCode] ?? null;
+                                ?>
+                                    <option value="<?= htmlspecialchars($tCode) ?>" 
+                                            <?= ($currentType === $tCode) ? 'selected' : '' ?>
+                                            <?= $tm ? 'data-cie="' . (float)$tm['cie_max_marks'] . '" data-see="' . (float)$tm['see_max_marks'] . '" data-total="' . (float)$tm['total_marks'] . '" data-has-see="' . (int)$tm['has_see'] . '"' : '' ?>>
+                                        <?= htmlspecialchars($tLabel) ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -234,26 +268,37 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                         <div class="col-md-3">
                             <label class="form-label fw-bold">Course Category</label>
                             <select name="course_category" id="course_category" class="form-select form-select-sm">
+                                <option value="">-- Select Category --</option>
                                 <?php
-                                $categories = [
-                                    "" => "-- Select Category --",
-                                    "BS" => "BS - Basic Science",
-                                    "ES" => "ES - Engineering Science",
-                                    "HS" => "HS - Humanities & Social Sciences",
-                                    "PC" => "PC - Professional Core",
-                                    "PE" => "PE - Professional Elective",
-                                    "OE" => "OE - Open Elective",
-                                    "MC" => "MC - Mandatory Course",
-                                    "PR" => "PR - Project / Internship",
-                                    "SC" => "SC - Skill Oriented Course",
-                                    "AC" => "AC - Audit Course"
-                                ];
+                                $categories = [];
+                                if (!empty($dynamicConfig['categories'])) {
+                                    foreach ($dynamicConfig['categories'] as $dc) {
+                                        $categories[$dc['category_code']] = $dc['category_code'] . ' - ' . $dc['category_name'];
+                                    }
+                                } else {
+                                    $categories = [
+                                        "BS" => "BS - Basic Science",
+                                        "ES" => "ES - Engineering Science",
+                                        "HS" => "HS - Humanities & Social Sciences",
+                                        "PC" => "PC - Professional Core",
+                                        "PE" => "PE - Professional Elective",
+                                        "OE" => "OE - Open Elective",
+                                        "MC" => "MC - Mandatory Course",
+                                        "PR" => "PR - Project / Internship",
+                                        "SC" => "SC - Skill Oriented Course",
+                                        "AC" => "AC - Audit Course"
+                                    ];
+                                }
+
                                 $currentCat = strtoupper(trim($editSubject['course_category'] ?? ''));
                                 if (!empty($currentCat) && !array_key_exists($currentCat, $categories)) {
                                     $categories[$currentCat] = $currentCat;
                                 }
+
                                 foreach ($categories as $catCode => $catLabel): ?>
-                                    <option value="<?= $catCode ?>" <?= ($currentCat === $catCode) ? 'selected' : '' ?>><?= htmlspecialchars($catLabel) ?></option>
+                                    <option value="<?= htmlspecialchars($catCode) ?>" <?= ($currentCat === $catCode) ? 'selected' : '' ?>>
+                                        <?= htmlspecialchars($catLabel) ?>
+                                    </option>
                                 <?php endforeach; ?>
                             </select>
                         </div>
@@ -266,35 +311,73 @@ if (!empty($selectedProgId) && !empty($selectedRegId) && !empty($selectedSpecId)
                                    value="<?= htmlspecialchars($editSubject['sub_fullname'] ?? '') ?>">
                         </div>
 
-                        <!-- L - T - Pr - P - C (Hours and Credits) -->
+                        <!-- L - T - Pr - P - C (Hours and Credits with Live Auto-Calculation) -->
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Lecture (L)</label>
                             <input type="number" step="0.5" min="0" max="20" name="lecture_hours" id="lecture_hours" 
-                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['lecture_hours'] ?? '3.0') ?>" required>
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['lecture_hours'] ?? '3.0') ?>" required oninput="calcCredits()">
                         </div>
 
                         <div class="col-md-2">
                             <label class="form-label fw-bold">Tutorial (T)</label>
                             <input type="number" step="0.5" min="0" max="10" name="tutorial_hours" id="tutorial_hours" 
-                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['tutorial_hours'] ?? '0.0') ?>" required>
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['tutorial_hours'] ?? '0.0') ?>" required oninput="calcCredits()">
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label fw-bold">Practical (Pr)</label>
                             <input type="number" step="0.5" min="0" max="20" name="pr_hours" id="pr_hours" 
-                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['pr_hours'] ?? '0.0') ?>" required>
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['pr_hours'] ?? '0.0') ?>" required oninput="calcCredits()">
                         </div>
 
                         <div class="col-md-3">
                             <label class="form-label fw-bold">Practical Lab (P)</label>
                             <input type="number" step="0.5" min="0" max="20" name="practical_hours" id="practical_hours" 
-                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['practical_hours'] ?? '0.0') ?>" required>
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['practical_hours'] ?? '0.0') ?>" required oninput="calcCredits()">
                         </div>
 
                         <div class="col-md-2">
-                            <label class="form-label fw-bold">Credits (C)</label>
+                            <label class="form-label fw-bold text-primary">Credits (C) <span class="badge bg-primary-subtle text-primary small">Auto</span></label>
                             <input type="number" step="0.5" min="0" max="30" name="credits" id="credits" 
-                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['credits'] ?? '3.0') ?>" required>
+                                   class="form-control form-control-sm fw-bold text-primary" value="<?= htmlspecialchars($editSubject['credits'] ?? '3.0') ?>" required>
+                        </div>
+
+                        <!-- Autonomous Marks Scheme & Delivery Details -->
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">CIE Marks</label>
+                            <input type="number" step="1" name="cie_max_marks" id="cie_max_marks" 
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['cie_max_marks'] ?? '30') ?>" oninput="calcTotalMarks()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">SEE Marks</label>
+                            <input type="number" step="1" name="see_max_marks" id="see_max_marks" 
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['see_max_marks'] ?? '70') ?>" oninput="calcTotalMarks()">
+                        </div>
+                        <div class="col-md-2">
+                            <label class="form-label fw-bold small">Total Marks</label>
+                            <input type="number" step="1" name="total_marks" id="total_marks" 
+                                   class="form-control form-control-sm" value="<?= htmlspecialchars($editSubject['total_marks'] ?? '100') ?>">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Elective Track / Vertical</label>
+                            <input type="text" name="elective_track" id="elective_track" 
+                                   class="form-control form-control-sm" placeholder="e.g. AI & ML Track / Track 1" value="<?= htmlspecialchars($editSubject['elective_track'] ?? '') ?>">
+                        </div>
+                        <div class="col-md-3">
+                            <label class="form-label fw-bold small">Delivery Mode</label>
+                            <select name="delivery_mode" id="delivery_mode" class="form-select form-select-sm">
+                                <?php
+                                $curMode = $editSubject['delivery_mode'] ?? 'CONVENTIONAL';
+                                ?>
+                                <option value="CONVENTIONAL" <?= ($curMode === 'CONVENTIONAL') ? 'selected' : '' ?>>Conventional (Classroom)</option>
+                                <option value="BLENDED" <?= ($curMode === 'BLENDED') ? 'selected' : '' ?>>Blended Mode</option>
+                                <option value="ONLINE_MOOC" <?= ($curMode === 'ONLINE_MOOC') ? 'selected' : '' ?>>Online / MOOC (SWAYAM)</option>
+                            </select>
+                        </div>
+                        <div class="col-md-12">
+                            <label class="form-label fw-bold small">Prerequisites</label>
+                            <input type="text" name="prerequisites" id="prerequisites" 
+                                   class="form-control form-control-sm" placeholder="e.g. 23A05101T Programming in C" value="<?= htmlspecialchars($editSubject['prerequisites'] ?? '') ?>">
                         </div>
                     </div>
 
@@ -657,9 +740,29 @@ function lookupSubjectCode() {
                 }
                 if (d.sub_fullname) document.getElementById('sub_fullname').value = d.sub_fullname;
                 if (d.sub_shortname) document.getElementById('sub_shortname').value = d.sub_shortname;
-                if (d.sub_type) document.getElementById('sub_type').value = d.sub_type;
+                if (d.sub_type) {
+                    const typeSel = document.getElementById('sub_type');
+                    if (typeSel) {
+                        let optExists = Array.from(typeSel.options).some(o => o.value === d.sub_type);
+                        if (!optExists && d.sub_type) {
+                            const newOpt = new Option(d.sub_type, d.sub_type, true, true);
+                            typeSel.add(newOpt);
+                        } else {
+                            typeSel.value = d.sub_type;
+                        }
+                    }
+                }
                 if (d.course_category !== undefined && document.getElementById('course_category')) {
-                    document.getElementById('course_category').value = d.course_category;
+                    const catSel = document.getElementById('course_category');
+                    if (catSel) {
+                        let catExists = Array.from(catSel.options).some(o => o.value === d.course_category);
+                        if (!catExists && d.course_category) {
+                            const newOpt = new Option(d.course_category, d.course_category, true, true);
+                            catSel.add(newOpt);
+                        } else {
+                            catSel.value = d.course_category;
+                        }
+                    }
                 }
                 if (d.lecture_hours !== undefined) document.getElementById('lecture_hours').value = d.lecture_hours;
                 if (d.tutorial_hours !== undefined) document.getElementById('tutorial_hours').value = d.tutorial_hours;
@@ -670,6 +773,24 @@ function lookupSubjectCode() {
                 if (d.credits !== undefined) document.getElementById('credits').value = d.credits;
                 if (d.subject_sno !== undefined && document.getElementById('subject_sno')) {
                     document.getElementById('subject_sno').value = d.subject_sno;
+                }
+                if (d.cie_max_marks !== undefined && document.getElementById('cie_max_marks')) {
+                    document.getElementById('cie_max_marks').value = d.cie_max_marks;
+                }
+                if (d.see_max_marks !== undefined && document.getElementById('see_max_marks')) {
+                    document.getElementById('see_max_marks').value = d.see_max_marks;
+                }
+                if (d.total_marks !== undefined && document.getElementById('total_marks')) {
+                    document.getElementById('total_marks').value = d.total_marks;
+                }
+                if (d.elective_track !== undefined && document.getElementById('elective_track')) {
+                    document.getElementById('elective_track').value = d.elective_track;
+                }
+                if (d.delivery_mode !== undefined && document.getElementById('delivery_mode')) {
+                    document.getElementById('delivery_mode').value = d.delivery_mode;
+                }
+                if (d.prerequisites !== undefined && document.getElementById('prerequisites')) {
+                    document.getElementById('prerequisites').value = d.prerequisites;
                 }
             } else {
                 if (statusEl) {
@@ -1048,6 +1169,48 @@ document.addEventListener('DOMContentLoaded', function() {
         }
     });
 });
+
+function calcCredits() {
+    const lEl = document.getElementById('lecture_hours');
+    const tEl = document.getElementById('tutorial_hours');
+    const prEl = document.getElementById('pr_hours');
+    const pEl = document.getElementById('practical_hours');
+    const credEl = document.getElementById('credits');
+    if (!lEl || !credEl) return;
+
+    const l = parseFloat(lEl.value) || 0;
+    const t = parseFloat(tEl.value) || 0;
+    const pr = parseFloat(prEl ? prEl.value : 0) || 0;
+    const p = parseFloat(pEl ? pEl.value : 0) || 0;
+    const pract = Math.max(pr, p);
+    const c = l + t + (0.5 * pract);
+    credEl.value = c.toFixed(1);
+}
+
+function calcTotalMarks() {
+    const cieEl = document.getElementById('cie_max_marks');
+    const seeEl = document.getElementById('see_max_marks');
+    const totEl = document.getElementById('total_marks');
+    if (!cieEl || !seeEl || !totEl) return;
+
+    const cie = parseFloat(cieEl.value) || 0;
+    const see = parseFloat(seeEl.value) || 0;
+    totEl.value = (cie + see).toFixed(0);
+}
+
+function onTypeChange() {
+    const sel = document.getElementById('sub_type');
+    if (!sel) return;
+    const opt = sel.options[sel.selectedIndex];
+    if (opt && opt.dataset.cie) {
+        const cieEl = document.getElementById('cie_max_marks');
+        const seeEl = document.getElementById('see_max_marks');
+        const totEl = document.getElementById('total_marks');
+        if (cieEl) cieEl.value = opt.dataset.cie;
+        if (seeEl) seeEl.value = opt.dataset.see;
+        if (totEl) totEl.value = opt.dataset.total;
+    }
+}
 </script>
 
 <?php

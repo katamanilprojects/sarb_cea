@@ -72,6 +72,46 @@ class SuperAdmin extends User
         return $this->regulations->deleteRegulation($id);
     }
 
+    public function getRegulationById(int $id)
+    {
+        return $this->regulations->getRegulationById($id);
+    }
+
+    public function cloneRegulation(int $sourceRegId, int $targetRegId): array
+    {
+        return $this->regulations->cloneRegulation($sourceRegId, $targetRegId);
+    }
+
+    public function getCourseCategoriesByRegId(int $regId): array
+    {
+        return $this->regulations->getCourseCategoriesByRegId($regId);
+    }
+
+    public function saveCourseCategory(array $data): array
+    {
+        return $this->regulations->saveCourseCategory($data);
+    }
+
+    public function deleteCourseCategory(int $id, int $regId): array
+    {
+        return $this->regulations->deleteCourseCategory($id, $regId);
+    }
+
+    public function getCourseTypesByRegId(int $regId): array
+    {
+        return $this->regulations->getCourseTypesByRegId($regId);
+    }
+
+    public function saveCourseType(array $data): array
+    {
+        return $this->regulations->saveCourseType($data);
+    }
+
+    public function deleteCourseType(int $id, int $regId): array
+    {
+        return $this->regulations->deleteCourseType($id, $regId);
+    }
+
     public function getAllAttendanceRules()
     {
         return $this->attendance_rules->getAllAttendanceRules();

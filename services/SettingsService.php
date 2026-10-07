@@ -118,21 +118,22 @@ class SettingsService
     /**
      * Normalize regulation code (trim, uppercase, fallback to R23 if empty).
      */
-    public function normalizeRegulation(?string $regulation): string
+    public function normalizeRegulation(int|string|null $regulation): string
     {
-        if ($regulation === null || trim($regulation) === '') {
+        if ($regulation === null || trim((string)$regulation) === '') {
             return self::DEFAULT_REGULATION;
         }
-        return strtoupper(trim($regulation));
+        return strtoupper(trim((string)$regulation));
     }
 
     /**
      * Preloads all settings for a specific regulation into memory.
      * Guarantees zero redundant SQL queries in subsequent requests.
+     * Supports both numeric reg_id (e.g. 4, 6) and string code (e.g. 'R23', 'R25').
      *
-     * @param string $regulation
+     * @param int|string $regulation
      */
-    public function loadRegulation(string $regulation): void
+    public function loadRegulation(int|string $regulation): void
     {
         $reg = $this->normalizeRegulation($regulation);
         if (!empty($this->isLoaded[$reg])) {
@@ -142,10 +143,22 @@ class SettingsService
         $this->cache[$reg] = [];
         $this->metadataCache[$reg] = [];
 
-        $sql = "SELECT `id`, `regulation_code`, `category`, `setting_key`, `setting_value`, 
-                       `data_type`, `description`, `is_editable`, `updated_by`, `updated_at` 
-                FROM `academic_settings` 
-                WHERE `regulation_code` = ?";
+        $isNumeric = is_numeric($reg);
+        if ($isNumeric) {
+            $sql = "SELECT `id`, `reg_id`, `regulation_code`, `category`, `setting_key`, `setting_value`, 
+                           `data_type`, `description`, `is_editable`, `updated_by`, `updated_at` 
+                    FROM `academic_settings` 
+                    WHERE `reg_id` = ?";
+            $paramType = "i";
+            $paramVal = (int)$reg;
+        } else {
+            $sql = "SELECT `id`, `reg_id`, `regulation_code`, `category`, `setting_key`, `setting_value`, 
+                           `data_type`, `description`, `is_editable`, `updated_by`, `updated_at` 
+                    FROM `academic_settings` 
+                    WHERE `regulation_code` = ?";
+            $paramType = "s";
+            $paramVal = $reg;
+        }
 
         $rows = [];
         if ($this->db instanceof mysqli) {
@@ -153,14 +166,14 @@ class SettingsService
             if (!$stmt) {
                 throw new RuntimeException("Prepare failed in loadRegulation: " . $this->db->error);
             }
-            $stmt->bind_param("s", $reg);
+            $stmt->bind_param($paramType, $paramVal);
             $stmt->execute();
             $result = $stmt->get_result();
             $rows = $result->fetch_all(MYSQLI_ASSOC);
             $stmt->close();
         } else {
             $stmt = $this->db->prepare($sql);
-            $stmt->execute([$reg]);
+            $stmt->execute([$paramVal]);
             $rows = $stmt->fetchAll(PDO::FETCH_ASSOC);
         }
 
@@ -342,10 +355,61 @@ class SettingsService
         }
 
         if (empty($regs)) {
-            $regs = ['R23', 'R20', 'R19'];
+            $regs = ['R25', 'R23', 'R20', 'R19'];
         }
 
         return $regs;
+    }
+
+    /**
+     * Get list of regulations enriched with program, degree duration, and settings counts.
+     */
+    public function getRegulationsWithMetadata(): array
+    {
+        $sql = "SELECT r.id, r.regulation, r.prog_id, p.prog_shortname, p.program_level, 
+                       r.total_degree_credits, r.normal_duration_years, r.total_semesters,
+                       COUNT(s.id) as settings_count 
+                FROM regulations r 
+                JOIN programs p ON r.prog_id = p.id 
+                LEFT JOIN academic_settings s ON (s.reg_id = r.id OR (s.reg_id IS NULL AND s.regulation_code COLLATE utf8mb4_unicode_ci = r.regulation COLLATE utf8mb4_unicode_ci))
+                GROUP BY r.id 
+                ORDER BY p.program_level DESC, p.prog_shortname ASC, r.regulation DESC";
+        $data = [];
+        if ($this->db instanceof mysqli) {
+            $res = $this->db->query($sql);
+            if ($res) {
+                $data = $res->fetch_all(MYSQLI_ASSOC);
+            }
+        }
+        return $data;
+    }
+
+    /**
+     * Get Grade Bands JSON parsed as array
+     */
+    public function getGradeBands(int|string|null $regulation = self::DEFAULT_REGULATION): array
+    {
+        $val = $this->get('grade_bands_json', (string)$regulation);
+        if (is_array($val)) return $val;
+        if (is_string($val)) {
+            $decoded = json_decode($val, true);
+            if (is_array($decoded)) return $decoded;
+        }
+        return [];
+    }
+
+    /**
+     * Get Class Award JSON parsed as array
+     */
+    public function getClassAwards(int|string|null $regulation = self::DEFAULT_REGULATION): array
+    {
+        $val = $this->get('class_award_json', (string)$regulation);
+        if (is_array($val)) return $val;
+        if (is_string($val)) {
+            $decoded = json_decode($val, true);
+            if (is_array($decoded)) return $decoded;
+        }
+        return [];
     }
 
     /**

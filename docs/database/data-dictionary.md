@@ -238,22 +238,87 @@ Different degree levels and subject types store marks in dedicated specialized c
 
 ---
 
-## 12. Autonomous Academic Settings Engine
+## 12. Autonomous Academic Settings Engine & Statutory Framework
 
-### 12.1 Regulatory Categories (`academic_settings.category`)
-- `CIA`: Continuous internal assessment calculation rules (weightage of best/worst test, assignment components).
-- `SEE`: Semester end exam maximum marks, passing minimum thresholds.
-- `ATTENDANCE`: Minimum attendance for condonation, detention cutoffs, medical exemptions.
-- `ATTAINMENT`: Default target benchmark percentages (e.g. 60%), level percentage cutoffs (50%, 60%, 70%).
-- `GRADING`: Letter grade boundaries and grade point scales.
-- `GENERAL`: Institutional academic calendar and semester scheduling parameters.
+### 12.1 Regulatory Policy Categories (`academic_settings.category`)
+- `CIA`: Continuous internal assessment calculation rules (theory CIA 30 UG / 40 PG, lab CIA, mid weights 80:20, continuous assessment 10 marks).
+- `SEE`: Semester end exam maximum marks (70 UG / 60 PG), question paper patterns (either/or), passing minimum thresholds (35% UG, 40% PG).
+- `ATTENDANCE`: Minimum attendance per course (40% UG, 50% PG), aggregate attendance (75%), condonation floor (65%).
+- `ATTAINMENT`: Direct/indirect OBE attainment weights (80:20), direct CIA/SEE weights (40:60), target benchmark (60%), NBA level cutoffs (50%, 60%, 70%).
+- `GRADING`: Letter grade boundaries (A+/S, A, B, C, D, E, F), 10-point grade scales, aggregate pass percentage (40% UG, 50% PG), class award CGPA cutoffs.
+- `GENERAL`: Institutional marks entry grace days (15), industry internship marks (100), comprehensive viva marks (100), co-curricular credits (1 cr), internal improvement subject caps (max 3 theory courses).
+- `PROMOTION`: Multi-year academic promotion rules (Year 1 &rarr; 2: attendance; Year 2 &rarr; 3: 40% of credits up to III sem; Year 3 &rarr; 4: 40% of credits up to V sem).
+- `HONORS`: B.Tech Honors degree requirements (additional 15 credits, min 7.0 CGPA up to III sem without backlogs, 75% attendance, max 2 subjects/sem from V sem).
+- `MINOR`: B.Tech Minor degree requirements (additional 12 credits pursued across 4 Open Electives verticals/tracks).
+- `MOOCS`: Credit mobility regulations, SWAYAM/SWAYAM Plus semester credit transfer limit (max 40% of electives), assignment vs exam weights (40:60), min 40% SEE and 50% aggregate.
+- `PROJECT`: Project & dissertation rules (PG 300 marks: Review-II 100 CIE + Review-III 100 CIE + Viva-Voce 100 SEE; UG 200 marks: 60 internal + 140 external viva; Turnitin plagiarism threshold $\le 30\%$, publication mandate).
+- `ACTIVITIES`: Guidelines and credit weights for student co-curricular activities, conferences, and scientific publications.
 
 ### 12.2 Data Types (`academic_settings.data_type`)
-- `STRING`: Alphanumeric values.
-- `INT`: Integer configuration numbers.
-- `FLOAT`: Decimal weightages (e.g., `0.80`, `0.20`, `60.00`).
-- `BOOL`: Boolean flags (`1` or `0`).
-- `JSON`: Complex structured policies (e.g., component mark distributions, rubrics).
+- `STRING`: Alphanumeric values and policy labels.
+- `INT`: Integer configuration quantities (e.g., questions count, grace days, max subjects).
+- `FLOAT`: Decimal weightages and percentages (e.g., `0.80`, `0.20`, `35.00`, `40.00`, `50.00`, `75.00`).
+- `BOOL`: Boolean flags (`1` = enabled, `0` = disabled).
+- `JSON`: Complex structured policies (e.g., `grade_bands_json`, `class_award_json`).
+
+### 12.3 Statutory Degree Ceilings & Pathways (`regulations`)
+| Parameter Column | Description | B.Tech R23 / R26 (UG) | M.Tech R25 (PG) |
+|---|---|:---:|:---:|
+| `normal_duration_years` | Standard prescribed duration | 4 Years | 2 Years |
+| `max_duration_years` | Maximum statutory completion limit | 8 Years | 4 Years |
+| `total_semesters` | Prescribed chronological semesters | 8 Semesters | 4 Semesters |
+| `total_degree_credits` | Mandatory credits for degree award | **163.0 Credits** | **75.0 Credits** |
+| `has_lateral_entry` | Lateral Entry Scheme (LES) support | Enabled (1) | Disabled (0) |
+| `lateral_entry_credits` | Credits required for LES degree | 120.0 Credits | N/A |
+| `has_honors` | Honors degree specialization pathway | Enabled (1) | Disabled (0) |
+| `honors_credits` | Additional credits for Honors | 15.0 Credits | N/A |
+| `has_minors` | Interdisciplinary Minors pathway | Enabled (1) | Disabled (0) |
+| `minor_credits` | Additional credits for Minors | 12.0 Credits | N/A |
+| `has_gap_year` | Student Entrepreneur in Residence | Enabled (1 - max 2 yrs) | Disabled (0) |
+| `has_internal_improvement` | Internal evaluation marks re-registration | Disabled (0) | **Enabled (1 - max 3 subjects)** |
+
+### 12.4 Master Course Categories (`regulation_course_categories`)
+- **UG Curriculum (B.Tech R23 / R26 - 163.0 Total Target Credits)**:
+  - `HM` (Humanities and Social Sciences): 13.0 cr (8.00% – 9.00%)
+  - `BS` (Basic Sciences): 20.0 cr (12.00% – 16.00%)
+  - `ES` (Engineering Sciences): 23.5 cr (10.00% – 18.00%)
+  - `PC` (Professional Core): 54.5 cr (30.00% – 36.00%)
+  - `PE` (Professional Electives): 15.0 cr (9.00% – 11.00%)
+  - `OE` (Open Electives / Minor Verticals): 12.0 cr (7.00% – 8.50%)
+  - `SEC` (Skill Enhancement Courses): 6.0 cr (3.50% – 5.00%)
+  - `PR` (Internships & Project Work): 16.0 cr (8.00% – 11.00%)
+  - `QT` (Quantum Technologies - Compulsory): 3.0 cr (1.50% – 2.00%)
+  - `MC` (Mandatory Courses - Non-Credit): 0.0 cr
+- **PG Curriculum (M.Tech R25 - 75.0 Total Target Credits)**:
+  - `PC` (Foundational & Professional Core): 24.0 cr (30.00% – 35.00%)
+  - `PE` (Professional Electives): 15.0 cr (18.00% – 22.00%)
+  - `OE` (Open Electives): 3.0 cr (3.50% – 5.00%)
+  - `MC` (Mandatory Credit Courses - Research Methodology & IPR, Quantum Tech): 4.0 cr (4.00% – 6.00%)
+  - `SE` (Skill Enhancement Courses): 4.0 cr (4.50% – 6.00%)
+  - `CV` (Comprehensive Viva Voce): 2.0 cr (2.00% – 3.00%)
+  - `IN` (Short Term Industry Summer Internship): 3.0 cr (3.50% – 5.00%)
+  - `DS` (Dissertation / Project Work): 20.0 cr (25.00% – 30.00%)
+  - `AC` (Audit Courses - Non-Credit): 0.0 cr
+
+### 12.5 Course Types & Canonical Evaluation Schemes (`regulation_course_types`)
+- `THEORY`: Classroom lectures evaluated via mid-term tests and end-semester examinations.
+  - UG (R23/R26): 30 CIE (two mids, 80:20 weight) + 70 SEE (either/or).
+  - PG (R25): 40 CIE (30 mid + 10 continuous) + 60 SEE (5 either/or $\times$ 12).
+- `LAB`: Hands-on practical/experimental laboratory courses.
+  - UG: 30 CIE (15 day-to-day + 15 internal test) + 70 SEE (proc 20, exp 30, viva 20).
+  - PG: 40 CIE (10 day-to-day + 10 record + 20 test) + 60 SEE (proc 10, exp 25, res 10, viva 15).
+- `INTEGRATED`: Theory-cum-Laboratory hybrid course evaluated with dedicated theory and lab components.
+- `PROJECT`: Project work, dissertations, seminars, comprehensive viva, and industrial internships.
+- `AUDIT_NON_CREDIT`: Non-credit mandatory courses (Environmental Science, Constitution, Technical Paper/IPR).
+  - Evaluated internally only (30 marks UG, 40 marks PG, no SEE). Min pass 40% UG / 50% PG.
+- `OTHER`: Specialized workshops and institutional non-standard offerings.
+
+### 12.6 Course Credit Calculation & Contact Hours Semantics
+Under CBCS and AICTE guidelines, course credits ($C$) are computed deterministically from contact hours:
+$$C = L + T + 0.5 \times \max(P, PR)$$
+- $1 \text{ hour Lecture } (L) \text{ per week} = 1 \text{ credit}$
+- $1 \text{ hour Tutorial } (T) \text{ per week} = 1 \text{ credit}$
+- $2 \text{ hours Practical / Lab / Field Work } (P, PR) \text{ per week} = 1 \text{ credit}$ ($0.5 \text{ credit per hour}$)
 
 ---
 

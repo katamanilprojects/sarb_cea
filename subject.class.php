@@ -35,7 +35,9 @@ class Subject extends DBCredentials {
         $data = [];
         try {
             $stmt = $this->conn->prepare(
-                "SELECT " . self::sqlProjection('s') . ", cs.course_category
+                "SELECT " . self::sqlProjection('s') . ", 
+                        cs.course_category, cs.credits, cs.lecture_hours, cs.tutorial_hours, cs.practical_hours,
+                        cs.cie_max_marks, cs.see_max_marks, cs.total_marks, cs.has_see, cs.elective_track, cs.delivery_mode, cs.prerequisites
                  FROM subjects s
                  LEFT JOIN curriculum_subjects cs ON s.curr_sub_id = cs.id
                  WHERE s.class_id = ?
@@ -60,12 +62,14 @@ class Subject extends DBCredentials {
         try {
             $stmt = $this->conn->prepare(
                 "SELECT " . self::sqlProjection('s') . ",
+                        cs.course_category, cs.credits, cs.cie_max_marks, cs.see_max_marks, cs.total_marks,
                         fs.id AS faculty_sub_id,
                         c.acad_year,
                         c.classname AS class_name,
                         c.start_date,
                         c.end_date
                  FROM subjects s
+                 LEFT JOIN curriculum_subjects cs ON s.curr_sub_id = cs.id
                  JOIN faculty_sub fs ON fs.sub_id = s.id
                  JOIN classes c ON s.class_id = c.id
                  WHERE fs.faculty_id = ?
@@ -87,8 +91,12 @@ class Subject extends DBCredentials {
     public function getSubjectById($subjectId) {
         try {
             $stmt = $this->conn->prepare(
-                "SELECT " . self::sqlProjection('s') . "
-                 FROM subjects s WHERE s.id = ? LIMIT 1"
+                "SELECT " . self::sqlProjection('s') . ",
+                        cs.course_category, cs.credits, cs.lecture_hours, cs.tutorial_hours, cs.practical_hours,
+                        cs.cie_max_marks, cs.see_max_marks, cs.total_marks, cs.has_see, cs.elective_track, cs.delivery_mode, cs.prerequisites
+                 FROM subjects s 
+                 LEFT JOIN curriculum_subjects cs ON s.curr_sub_id = cs.id
+                 WHERE s.id = ? LIMIT 1"
             );
             $stmt->bind_param("i", $subjectId);
             $stmt->execute();

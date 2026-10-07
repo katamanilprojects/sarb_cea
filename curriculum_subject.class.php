@@ -66,6 +66,49 @@ class CurriculumSubject extends User
         return $res;
     }
 
+    public function getCategoriesAndTypesByRegId(int $regId): array
+    {
+        $res = [
+            'status' => 1,
+            'categories' => [],
+            'types' => []
+        ];
+
+        if ($regId <= 0) {
+            return $res;
+        }
+
+        try {
+            // Categories
+            $stmtCat = $this->conn->prepare("SELECT id, category_code, category_name, min_allocation_pct, max_allocation_pct, target_credits, description 
+                                             FROM regulation_course_categories 
+                                             WHERE reg_id = ? 
+                                             ORDER BY category_code ASC");
+            if ($stmtCat) {
+                $stmtCat->bind_param("i", $regId);
+                $stmtCat->execute();
+                $res['categories'] = $stmtCat->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmtCat->close();
+            }
+
+            // Types
+            $stmtType = $this->conn->prepare("SELECT id, type_code, type_name, evaluation_scheme, cie_max_marks, see_max_marks, total_marks, has_see, is_credit_course, description 
+                                              FROM regulation_course_types 
+                                              WHERE reg_id = ? 
+                                              ORDER BY type_code ASC");
+            if ($stmtType) {
+                $stmtType->bind_param("i", $regId);
+                $stmtType->execute();
+                $res['types'] = $stmtType->get_result()->fetch_all(MYSQLI_ASSOC);
+                $stmtType->close();
+            }
+        } catch (Exception $e) {
+            $this->logs->errLog("CurriculumSubject - getCategoriesAndTypesByRegId: " . $e->getMessage());
+        }
+
+        return $res;
+    }
+
     public function getAllSpecializations()
     {
         $superadmin = new SuperAdmin();
@@ -268,7 +311,7 @@ class CurriculumSubject extends User
             $regId = (int)$regId;
 
             // First check in curriculum_subjects matching the same regulation
-            $sql = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits
+            $sql = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits, cie_max_marks, see_max_marks, total_marks, has_see, elective_track, delivery_mode, prerequisites
                     FROM curriculum_subjects
                     WHERE subcode = ? AND reg_id = ?
                     ORDER BY id DESC LIMIT 1";
@@ -289,7 +332,7 @@ class CurriculumSubject extends User
             $stmt->close();
 
             // If not found in curriculum_subjects, search any regulation in curriculum_subjects
-            $sql2 = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits
+            $sql2 = "SELECT subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits, cie_max_marks, see_max_marks, total_marks, has_see, elective_track, delivery_mode, prerequisites
                      FROM curriculum_subjects
                      WHERE subcode = ?
                      ORDER BY id DESC LIMIT 1";
@@ -324,6 +367,13 @@ class CurriculumSubject extends User
                     $row3['pr_hours'] = 0.0;
                     $row3['practical_hours'] = 0.0;
                     $row3['credits'] = 0.0;
+                    $row3['cie_max_marks'] = 30;
+                    $row3['see_max_marks'] = 70;
+                    $row3['total_marks'] = 100;
+                    $row3['has_see'] = 1;
+                    $row3['elective_track'] = '';
+                    $row3['delivery_mode'] = 'OFFLINE';
+                    $row3['prerequisites'] = '';
                     $res['data'] = $row3;
                     $res['status'] = 1;
                     $stmt3->close();
@@ -369,6 +419,41 @@ class CurriculumSubject extends User
             $practicalHours = (float)($data['practical_hours'] ?? 0.0);
             $credits = (float)($data['credits'] ?? 0.0);
 
+            $cieMaxMarks = isset($data['cie_max_marks']) && $data['cie_max_marks'] !== '' ? (float)$data['cie_max_marks'] : null;
+            $seeMaxMarks = isset($data['see_max_marks']) && $data['see_max_marks'] !== '' ? (float)$data['see_max_marks'] : null;
+            $totalMarks = isset($data['total_marks']) && $data['total_marks'] !== '' ? (float)$data['total_marks'] : null;
+            $hasSee = isset($data['has_see']) ? (int)$data['has_see'] : null;
+            $electiveTrack = !empty($data['elective_track']) ? trim($data['elective_track']) : null;
+            $deliveryMode = !empty($data['delivery_mode']) ? trim($data['delivery_mode']) : 'CONVENTIONAL';
+            $prerequisites = !empty($data['prerequisites']) ? trim($data['prerequisites']) : null;
+
+            // Auto-derive default marks and SEE settings from regulation_course_types if not provided
+            if ($cieMaxMarks === null || $seeMaxMarks === null || $totalMarks === null) {
+                $tStmt = $this->conn->prepare("SELECT cie_max_marks, see_max_marks, total_marks, has_see FROM regulation_course_types WHERE reg_id = ? AND (type_code = ? OR type_name = ?) LIMIT 1");
+                if ($tStmt) {
+                    $tStmt->bind_param("iss", $regId, $subType, $subType);
+                    $tStmt->execute();
+                    $tRow = $tStmt->get_result()->fetch_assoc();
+                    $tStmt->close();
+                    if ($tRow) {
+                        if ($cieMaxMarks === null) $cieMaxMarks = (float)$tRow['cie_max_marks'];
+                        if ($seeMaxMarks === null) $seeMaxMarks = (float)$tRow['see_max_marks'];
+                        if ($totalMarks === null) $totalMarks = (float)$tRow['total_marks'];
+                        if ($hasSee === null) $hasSee = (int)$tRow['has_see'];
+                    }
+                }
+            }
+            if ($cieMaxMarks === null) $cieMaxMarks = 30.0;
+            if ($seeMaxMarks === null) $seeMaxMarks = 70.0;
+            if ($totalMarks === null) $totalMarks = $cieMaxMarks + $seeMaxMarks;
+            if ($hasSee === null) $hasSee = ($seeMaxMarks > 0) ? 1 : 0;
+
+            // Auto-calculate credits if not specified or zero: C = L + T + 0.5 * practical
+            if ($credits <= 0.0) {
+                $pract = max($practicalHours, $prHours);
+                $credits = round($lectureHours + $tutorialHours + (0.5 * $pract), 1);
+            }
+
             if (empty($progId) || empty($regId) || empty($specId) || empty($yearsem) || empty($subcode) || empty($subFullname) || empty($subShortname)) {
                 $res['error'] = 'Please fill all required fields.';
                 return $res;
@@ -378,13 +463,20 @@ class CurriculumSubject extends User
                 // Update
                 $sql = "UPDATE curriculum_subjects 
                         SET subject_sno = ?, subcode = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, course_category = ?, 
-                            lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?, status = 1
+                            lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?,
+                            cie_max_marks = ?, see_max_marks = ?, total_marks = ?, has_see = ?, elective_track = ?, delivery_mode = ?, prerequisites = ?, status = 1
                         WHERE id = ?";
                 $stmt = $this->conn->prepare($sql);
                 if (!$stmt) {
                     throw new Exception("Prepare failed: " . $this->conn->error);
                 }
-                $stmt->bind_param("isssssdddddi", $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits, $id);
+                $stmt->bind_param(
+                    "isssssddddddddisssi", 
+                    $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, 
+                    $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits,
+                    $cieMaxMarks, $seeMaxMarks, $totalMarks, $hasSee, $electiveTrack, $deliveryMode, $prerequisites,
+                    $id
+                );
                 if (!$stmt->execute()) {
                     throw new Exception("Execute failed: " . $stmt->error);
                 }
@@ -406,10 +498,17 @@ class CurriculumSubject extends User
                     $existingId = (int)$existing['id'];
                     $updateSql = "UPDATE curriculum_subjects 
                                   SET subject_sno = ?, sub_fullname = ?, sub_shortname = ?, sub_type = ?, course_category = ?, 
-                                      lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?, status = 1
+                                      lecture_hours = ?, tutorial_hours = ?, pr_hours = ?, practical_hours = ?, credits = ?,
+                                      cie_max_marks = ?, see_max_marks = ?, total_marks = ?, has_see = ?, elective_track = ?, delivery_mode = ?, prerequisites = ?, status = 1
                                   WHERE id = ?";
                     $uStmt = $this->conn->prepare($updateSql);
-                    $uStmt->bind_param("issssdddddi", $subjectSno, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits, $existingId);
+                    $uStmt->bind_param(
+                        "issssddddddddisssi", 
+                        $subjectSno, $subFullname, $subShortname, $subType, $courseCategory, 
+                        $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits,
+                        $cieMaxMarks, $seeMaxMarks, $totalMarks, $hasSee, $electiveTrack, $deliveryMode, $prerequisites,
+                        $existingId
+                    );
                     $uStmt->execute();
                     $uStmt->close();
                     $res['status'] = 1;
@@ -420,13 +519,20 @@ class CurriculumSubject extends User
                     $checkStmt->close();
                     // Insert
                     $sql = "INSERT INTO curriculum_subjects 
-                            (prog_id, reg_id, spec_id, yearsem, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, lecture_hours, tutorial_hours, pr_hours, practical_hours, credits, status)
-                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
+                            (prog_id, reg_id, spec_id, yearsem, subject_sno, subcode, sub_fullname, sub_shortname, sub_type, course_category, 
+                             lecture_hours, tutorial_hours, pr_hours, practical_hours, credits, 
+                             cie_max_marks, see_max_marks, total_marks, has_see, elective_track, delivery_mode, prerequisites, status)
+                            VALUES (?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, ?, 1)";
                     $stmt = $this->conn->prepare($sql);
                     if (!$stmt) {
                         throw new Exception("Prepare failed: " . $this->conn->error);
                     }
-                    $stmt->bind_param("iiisisssssddddd", $progId, $regId, $specId, $yearsem, $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits);
+                    $stmt->bind_param(
+                        "iiisisssssddddddddisss", 
+                        $progId, $regId, $specId, $yearsem, $subjectSno, $subcode, $subFullname, $subShortname, $subType, $courseCategory, 
+                        $lectureHours, $tutorialHours, $prHours, $practicalHours, $credits,
+                        $cieMaxMarks, $seeMaxMarks, $totalMarks, $hasSee, $electiveTrack, $deliveryMode, $prerequisites
+                    );
                     if (!$stmt->execute()) {
                         throw new Exception("Execute failed: " . $stmt->error);
                     }
@@ -963,5 +1069,337 @@ class CurriculumSubject extends User
         } catch (Exception $e) {
             $this->logs->errLog("CurriculumSubject::syncMasterMatrixToSiblingCurriculumSubjects Error: " . $e->getMessage());
         }
+    }
+
+    /**
+     * Retrieve complete semester-by-semester Course Structure for a program branch and regulation.
+     */
+    public function getCourseStructureByBranch(int $progId, int $regId, int $specId): array
+    {
+        $res = [
+            'status' => 0,
+            'program' => null,
+            'regulation' => null,
+            'specialization' => null,
+            'semesters' => [],
+            'grand_totals' => [
+                'total_courses' => 0,
+                'total_credits' => 0.0,
+                'total_lecture' => 0.0,
+                'total_tutorial' => 0.0,
+                'total_practical' => 0.0,
+                'total_cie' => 0.0,
+                'total_see' => 0.0,
+                'total_marks' => 0.0
+            ],
+            'category_summary' => [],
+            'error' => ''
+        ];
+
+        try {
+            if (empty($this->conn)) {
+                $res['error'] = 'Database connection failed.';
+                return $res;
+            }
+
+            // 1. Fetch metadata
+            $progStmt = $this->conn->prepare("SELECT * FROM programs WHERE id = ?");
+            $progStmt->bind_param("i", $progId);
+            $progStmt->execute();
+            $res['program'] = $progStmt->get_result()->fetch_assoc();
+            $progStmt->close();
+
+            $regStmt = $this->conn->prepare("SELECT * FROM regulations WHERE id = ?");
+            $regStmt->bind_param("i", $regId);
+            $regStmt->execute();
+            $res['regulation'] = $regStmt->get_result()->fetch_assoc();
+            $regStmt->close();
+
+            $specStmt = $this->conn->prepare("SELECT * FROM specialization WHERE id = ?");
+            $specStmt->bind_param("i", $specId);
+            $specStmt->execute();
+            $res['specialization'] = $specStmt->get_result()->fetch_assoc();
+            $specStmt->close();
+
+            if (empty($res['regulation']) || empty($res['specialization'])) {
+                $res['error'] = 'Invalid regulation or specialization specified.';
+                return $res;
+            }
+
+            // 2. Fetch all curriculum subjects for this branch
+            $sql = "SELECT cs.*, 
+                           COALESCE(rct.evaluation_scheme, 'THEORY') as evaluation_scheme
+                    FROM curriculum_subjects cs
+                    LEFT JOIN regulation_course_types rct ON (rct.reg_id = cs.reg_id AND rct.type_code COLLATE utf8mb4_unicode_ci = cs.sub_type COLLATE utf8mb4_unicode_ci)
+                    WHERE cs.prog_id = ? AND cs.reg_id = ? AND cs.spec_id = ? AND cs.status = 1
+                    ORDER BY cs.subject_sno ASC, cs.subcode ASC";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param("iii", $progId, $regId, $specId);
+            $stmt->execute();
+            $allSubjects = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            // Canonical chronological semester ordering
+            $semOrderUG = [
+                'I Yr - I Sem' => 1,
+                'I Yr - II Sem' => 2,
+                'II Yr - I Sem' => 3,
+                'II Yr - II Sem' => 4,
+                'III Yr - I Sem' => 5,
+                'III Yr - II Sem' => 6,
+                'IV Yr - I Sem' => 7,
+                'IV Yr - II Sem' => 8
+            ];
+            $semOrderPG = [
+                'I Sem' => 1,
+                'II Sem' => 2,
+                'III Sem' => 3,
+                'IV Sem' => 4,
+                'I Yr - I Sem' => 1,
+                'I Yr - II Sem' => 2,
+                'II Yr - I Sem' => 3,
+                'II Yr - II Sem' => 4
+            ];
+            $isUG = (($res['program']['program_level'] ?? 'UG') === 'UG');
+            $semOrderMap = $isUG ? $semOrderUG : $semOrderPG;
+
+            // Group subjects by yearsem
+            $grouped = [];
+            foreach ($allSubjects as $sub) {
+                $sem = trim($sub['yearsem']);
+                if (!isset($grouped[$sem])) {
+                    $order = $semOrderMap[$sem] ?? 99;
+                    $grouped[$sem] = [
+                        'semester_name' => $sem,
+                        'order' => $order,
+                        'subjects' => [],
+                        'totals' => [
+                            'courses_count' => 0,
+                            'lecture_hours' => 0.0,
+                            'tutorial_hours' => 0.0,
+                            'practical_hours' => 0.0,
+                            'credits' => 0.0,
+                            'cie_marks' => 0.0,
+                            'see_marks' => 0.0,
+                            'total_marks' => 0.0
+                        ]
+                    ];
+                }
+
+                $grouped[$sem]['subjects'][] = $sub;
+                $grouped[$sem]['totals']['courses_count']++;
+                $grouped[$sem]['totals']['lecture_hours'] += (float)$sub['lecture_hours'];
+                $grouped[$sem]['totals']['tutorial_hours'] += (float)$sub['tutorial_hours'];
+                $grouped[$sem]['totals']['practical_hours'] += (float)($sub['practical_hours'] ?: $sub['pr_hours']);
+                $grouped[$sem]['totals']['credits'] += (float)$sub['credits'];
+                $grouped[$sem]['totals']['cie_marks'] += (float)$sub['cie_max_marks'];
+                $grouped[$sem]['totals']['see_marks'] += (float)$sub['see_max_marks'];
+                $grouped[$sem]['totals']['total_marks'] += (float)$sub['total_marks'];
+
+                // Grand totals
+                $res['grand_totals']['total_courses']++;
+                $res['grand_totals']['total_credits'] += (float)$sub['credits'];
+                $res['grand_totals']['total_lecture'] += (float)$sub['lecture_hours'];
+                $res['grand_totals']['total_tutorial'] += (float)$sub['tutorial_hours'];
+                $res['grand_totals']['total_practical'] += (float)($sub['practical_hours'] ?: $sub['pr_hours']);
+                $res['grand_totals']['total_cie'] += (float)$sub['cie_max_marks'];
+                $res['grand_totals']['total_see'] += (float)$sub['see_max_marks'];
+                $res['grand_totals']['total_marks'] += (float)$sub['total_marks'];
+
+                // Category Summary
+                $cat = strtoupper(trim($sub['course_category'] ?: 'OTHER'));
+                if (!isset($res['category_summary'][$cat])) {
+                    $res['category_summary'][$cat] = [
+                        'category_code' => $cat,
+                        'courses_count' => 0,
+                        'total_credits' => 0.0
+                    ];
+                }
+                $res['category_summary'][$cat]['courses_count']++;
+                $res['category_summary'][$cat]['total_credits'] += (float)$sub['credits'];
+            }
+
+            // Sort semesters by order
+            uasort($grouped, function($a, $b) {
+                return $a['order'] <=> $b['order'];
+            });
+
+            $res['semesters'] = $grouped;
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $res['error'] = 'Failed to load course structure: ' . $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::getCourseStructureByBranch - " . $e->getMessage());
+        }
+
+        return $res;
+    }
+
+    /**
+     * Compute statutory category credit compliance comparing allocated credits vs SuperAdmin limits.
+     */
+    public function getCategoryCompliance(int $progId, int $regId, int $specId): array
+    {
+        $res = [
+            'status' => 0,
+            'categories' => [],
+            'overall' => [
+                'total_degree_credits' => 0.0,
+                'total_allocated_credits' => 0.0,
+                'difference' => 0.0,
+                'is_compliant' => false
+            ],
+            'error' => ''
+        ];
+
+        try {
+            // 1. Get regulation details
+            $regStmt = $this->conn->prepare("SELECT total_degree_credits FROM regulations WHERE id = ?");
+            $regStmt->bind_param("i", $regId);
+            $regStmt->execute();
+            $regRow = $regStmt->get_result()->fetch_assoc();
+            $regStmt->close();
+            $totalDegreeCredits = (float)($regRow['total_degree_credits'] ?? 160.0);
+            $res['overall']['total_degree_credits'] = $totalDegreeCredits;
+
+            // 2. Statutory categories defined by SuperAdmin
+            $stmtCat = $this->conn->prepare("
+                SELECT id, category_code, category_name, min_allocation_pct, max_allocation_pct, target_credits, description
+                FROM regulation_course_categories
+                WHERE reg_id = ?
+                ORDER BY category_code ASC
+            ");
+            $stmtCat->bind_param("i", $regId);
+            $stmtCat->execute();
+            $targetCats = $stmtCat->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmtCat->close();
+
+            // 3. Actual allocated credits in curriculum_subjects
+            $stmtAct = $this->conn->prepare("
+                SELECT UPPER(TRIM(course_category)) as category_code, 
+                       COUNT(*) as course_count, 
+                       SUM(credits) as allocated_credits 
+                FROM curriculum_subjects 
+                WHERE prog_id = ? AND reg_id = ? AND spec_id = ? AND status = 1 
+                GROUP BY UPPER(TRIM(course_category))
+            ");
+            $stmtAct->bind_param("iii", $progId, $regId, $specId);
+            $stmtAct->execute();
+            $actRows = $stmtAct->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmtAct->close();
+
+            $allocatedMap = [];
+            $totalAllocated = 0.0;
+            foreach ($actRows as $ar) {
+                $cCode = $ar['category_code'];
+                $allocatedMap[$cCode] = [
+                    'course_count' => (int)$ar['course_count'],
+                    'credits' => (float)$ar['allocated_credits']
+                ];
+                $totalAllocated += (float)$ar['allocated_credits'];
+            }
+            $res['overall']['total_allocated_credits'] = $totalAllocated;
+            $res['overall']['difference'] = round($totalAllocated - $totalDegreeCredits, 2);
+            $res['overall']['is_compliant'] = (abs($totalAllocated - $totalDegreeCredits) < 0.05);
+
+            // 4. Merge target and actual
+            $merged = [];
+            $seenCodes = [];
+            foreach ($targetCats as $tc) {
+                $code = strtoupper(trim($tc['category_code']));
+                $seenCodes[$code] = true;
+                $targetCr = (float)$tc['target_credits'];
+                $allocCr = (float)($allocatedMap[$code]['credits'] ?? 0.0);
+                $diff = round($allocCr - $targetCr, 2);
+                $allocPct = ($totalDegreeCredits > 0) ? round(($allocCr / $totalDegreeCredits) * 100, 1) : 0.0;
+                
+                $status = 'COMPLIANT';
+                if ($diff < -0.05) {
+                    $status = 'DEFICIT';
+                } elseif ($diff > 0.05) {
+                    $status = 'EXCESS';
+                }
+
+                $merged[] = [
+                    'category_code' => $code,
+                    'category_name' => $tc['category_name'],
+                    'min_pct' => (float)$tc['min_allocation_pct'],
+                    'max_pct' => (float)$tc['max_allocation_pct'],
+                    'target_credits' => $targetCr,
+                    'allocated_credits' => $allocCr,
+                    'course_count' => (int)($allocatedMap[$code]['course_count'] ?? 0),
+                    'difference' => $diff,
+                    'allocated_pct' => $allocPct,
+                    'status' => $status
+                ];
+            }
+
+            // Check if any actual categories were not in regulation categories
+            foreach ($allocatedMap as $code => $act) {
+                if (!isset($seenCodes[$code]) && !empty($code)) {
+                    $allocCr = $act['credits'];
+                    $allocPct = ($totalDegreeCredits > 0) ? round(($allocCr / $totalDegreeCredits) * 100, 1) : 0.0;
+                    $merged[] = [
+                        'category_code' => $code,
+                        'category_name' => 'Uncategorized / Other',
+                        'min_pct' => 0.0,
+                        'max_pct' => 0.0,
+                        'target_credits' => 0.0,
+                        'allocated_credits' => $allocCr,
+                        'course_count' => $act['course_count'],
+                        'difference' => $allocCr,
+                        'allocated_pct' => $allocPct,
+                        'status' => 'UNLISTED'
+                    ];
+                }
+            }
+
+            $res['categories'] = $merged;
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $res['error'] = 'Failed to calculate compliance: ' . $e->getMessage();
+            $this->logs->errLog("CurriculumSubject::getCategoryCompliance - " . $e->getMessage());
+        }
+
+        return $res;
+    }
+
+    /**
+     * Group Elective Courses by tracks, verticals, or specializations.
+     */
+    public function getElectiveTracks(int $progId, int $regId, int $specId): array
+    {
+        $res = ['status' => 0, 'tracks' => [], 'error' => ''];
+        try {
+            $sql = "SELECT cs.* 
+                    FROM curriculum_subjects cs
+                    WHERE cs.prog_id = ? AND cs.reg_id = ? AND cs.spec_id = ? AND cs.status = 1
+                      AND (cs.course_category IN ('PE', 'OE', 'SEC', 'HONORS', 'MINOR') OR (cs.elective_track IS NOT NULL AND cs.elective_track != ''))
+                    ORDER BY cs.course_category ASC, cs.elective_track ASC, cs.yearsem ASC, cs.subcode ASC";
+            $stmt = $this->conn->prepare($sql);
+            $stmt->bind_param("iii", $progId, $regId, $specId);
+            $stmt->execute();
+            $rows = $stmt->get_result()->fetch_all(MYSQLI_ASSOC);
+            $stmt->close();
+
+            $grouped = [];
+            foreach ($rows as $r) {
+                $category = strtoupper(trim($r['course_category'] ?: 'ELECTIVE'));
+                $track = trim($r['elective_track'] ?: 'General Track');
+                $key = $category . ' - ' . $track;
+                if (!isset($grouped[$key])) {
+                    $grouped[$key] = [
+                        'category' => $category,
+                        'track_name' => $track,
+                        'subjects' => []
+                    ];
+                }
+                $grouped[$key]['subjects'][] = $r;
+            }
+            $res['tracks'] = array_values($grouped);
+            $res['status'] = 1;
+        } catch (Exception $e) {
+            $res['error'] = 'Failed to fetch elective tracks: ' . $e->getMessage();
+        }
+        return $res;
     }
 }

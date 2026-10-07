@@ -1,6 +1,6 @@
 # Database Relationships & Entity-Relationship Diagrams
 
-This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted directly from the system database schema (66 tables, covering 10 functional domains).
+This document illustrates the database relationships, entity-relationship (ER) diagrams, exact foreign key constraints, and table join rules extracted directly from the system database schema (68 tables, covering 10 functional domains).
 
 ---
 
@@ -75,6 +75,10 @@ erDiagram
     specialization ||--o{ classes : "spec_id"
     regulations ||--o{ classes : "reg_id"
     
+    regulations ||--o{ regulation_course_categories : "reg_id"
+    regulations ||--o{ regulation_course_types : "reg_id"
+    regulations ||--o{ academic_settings : "reg_id"
+
     programs ||--o{ curriculum_subjects : "prog_id"
     regulations ||--o{ curriculum_subjects : "reg_id"
     specialization ||--o{ curriculum_subjects : "spec_id"
@@ -91,8 +95,9 @@ erDiagram
 ```
 
 ### Key Junction Mechanics:
+- **Regulation to Categories & Types**: SuperAdmin defines statutory parameters, degree credit targets (`regulations`), statutory category credit limits (`regulation_course_categories.reg_id = regulations.id`), and canonical assessment schemes (`regulation_course_types.reg_id = regulations.id`). Policy parameters are scoped via `academic_settings.reg_id = regulations.id`.
 - **Class-to-Subject**: A class contains multiple subjects (`subjects.class_id = classes.id`). Classes also support optional sections (`classes.section`) and batch cohort tracking (`classes.batch_id`).
-- **Subject-to-Curriculum Master**: Subject offerings optionally link to the master catalog (`subjects.curr_sub_id = curriculum_subjects.id`), allowing standardized credits, lecture hours, and syllabus names across academic years. Elective groups and multi-batches are separated by `subjects.group_name`.
+- **Subject-to-Curriculum Master**: Subject offerings optionally link to the master catalog (`subjects.curr_sub_id = curriculum_subjects.id`), allowing standardized credits, lecture hours, delivery modes, and syllabus names across academic years. Elective groups and multi-batches are separated by `subjects.group_name`.
 - **Student-to-Subject (`student_sub`)**: A junction table mapping individual enrolled students to specific subjects (`student_sub.stu_id = students.id` and `student_sub.sub_id = subjects.id`). This allows accurate handling of elective subjects where only a subset of students in a class attend.
 - **Faculty-to-Subject (`faculty_sub`)**: A junction table assigning instructors to courses (`faculty_sub.faculty_id = faculties.id` and `faculty_sub.sub_id = subjects.id`).
 

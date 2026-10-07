@@ -14,11 +14,12 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[Coding Standards & Conventions](./architecture/coding-standards.md)**: PHPDoc conventions, standardized method return arrays, database transaction patterns, and MySQLi prepared statements.
 
 ### 2. [Database Documentation](./database/)
-- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 66 tables, organized by 10 functional domains.
+- **[Database Schema Reference](./database/schema.md)**: Complete reference of all 68 tables, organized by 10 functional domains.
 - **[Entity-Relationship Diagrams & Keys](./database/relationships.md)**: Mermaid ER diagrams, explicit foreign keys, and exact table join mechanisms (`users.username` joins, mapping tables).
 - **[Data Dictionary](./database/data-dictionary.md)**: Status flags, enumeration values (`assessment_components`), criteria operators, Bloom's taxonomy definitions, 15 feature toggle states, academic settings categories, grade scales, and custody statuses.
 
 ### 3. [Workflows & Business Logic](./workflows/)
+- **[Academic Regulations & Autonomous Course Structure Engine](./workflows/academic-regulations-and-course-structure.md)**: Statutory degree ceilings, category credit balancing math, course types, auto credit formula ($C = L + T + 0.5P$), semester roadmaps, live category compliance, and BoS dossier export.
 - **[Batch-Centric Governance & Full-Cycle OBE Hierarchy](./workflows/batch-obe-governance.md)**: Permanent student cohorts, Vision & Mission, PEOs, dual articulation mapping (PEO-Mission & PO-PEO), and multi-tier macro-attainment backtracking.
 - **[Results Publication & Automated SEE Marks Ingestion](./workflows/results-publication.md)**: Exam notifications, bulk CSV results upload, automatic grade points conversion, student grade cards, dynamic SGPA, and 1-click auto-syncing of external exam marks.
 - **[Student Profile, Document Vault, Custody Ledger & Certificates](./workflows/student-profile-and-certificates.md)**: Student biographical dossier, digital document vault, physical original certificate tracking, and statutory certificate generation (Custodial, TC, Study & Conduct, Bonafide, No Dues).
@@ -31,7 +32,7 @@ This documentation suite provides a complete, accurate, and practical guide to t
 - **[Student Feedback & Institutional Surveys](./workflows/feedback-surveys.md)**: Course Outcomes indirect feedback, 5-domain Course End Surveys (CES), faculty appraisals, strict anonymity safeguards, and PDF/Excel exports.
 
 ### 4. [Roles & Permissions](./roles-and-permissions/)
-- **[Master User, Feature, File & Database Table Mapping](./roles-and-permissions/user_feature_file_table_mapping.md)**: Exhaustive ground-truth mapping across all 6 roles, all 15 feature modules, 198 physical PHP controllers/views/services, and 66 read/write database tables.
+- **[Master User, Feature, File & Database Table Mapping](./roles-and-permissions/user_feature_file_table_mapping.md)**: Exhaustive ground-truth mapping across all 6 roles, all 15 feature modules, 198 physical PHP controllers/views/services, and 68 read/write database tables.
 - **[Role Permission Matrix](./roles-and-permissions/matrix.md)**: Cross-cutting feature and page access matrix across all six roles (`superadmin`, `admin`, `academic_section`, `hod`, `faculty`, `student`).
 - **[Role Guides](./roles-and-permissions/role-guides.md)**: Comprehensive guide detailing responsibilities, script entrypoints, and underlying class methods for each role.
 
@@ -73,7 +74,7 @@ graph TD
     
     Domain --> BaseUser[User Class: user.class.php]
     BaseUser --> BaseDB[DBCredentials Class: dbcredentials.class.php]
-    BaseDB --> MariaDB[(MariaDB / MySQL Database - 66 Tables)]
+    BaseDB --> MariaDB[(MariaDB / MySQL Database - 68 Tables)]
     BaseDB --> Logs[Dual Logging: logs/ & DB tables]
 ```
 

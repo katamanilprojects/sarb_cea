@@ -12,10 +12,14 @@ For the exhaustive file-by-file and database table read/write mapping, consult [
 The SuperAdmin role is responsible for institutional master data setup, degree governance, academic policy parameters, feature toggle management, and cohort configurations before an academic session commences.
 
 ### 1.2 Key Responsibilities & Model Methods
-- **Autonomous Academic Policy Engine**: Configures regulation-specific academic settings in `superadminacademicsettings.php` via `SettingsService` (e.g., CIA theory weightages 80:20 vs 75:25, attendance detention/condonation thresholds, OBE target attainment benchmarks).
+- **Statutory Academic Regulations & Governance (`superadminregulations.php`, `superadminregulationdetails.php`)**:
+  - Defines degree programs and autonomous academic regulations with statutory degree ceilings (`normal_duration_years`, `total_degree_credits`, `lateral_entry_credits`, `honors_credits`, `minor_credits`, `has_gap_year`, `has_internal_improvement`, `max_continuous_gap_years`, etc.).
+  - **Category Credit Distribution**: Manages statutory course categories (`regulation_course_categories`) with required credits, min/max limits, and live statutory validation badge (`Balanced`, `Deficit`, or `Excess`) ensuring $\sum \text{Required Credits} = \text{Total Degree Credits}$.
+  - **Course Types & Assessment Schemes**: Configures `regulation_course_types` across canonical categories (`THEORY`, `LAB`, `INTEGRATED`, `PROJECT`, `COMPREHENSIVE_VIVA`, `INTERNSHIP`, `AUDIT_NON_CREDIT`) with default CIE/SEE marks, CIE pass marks, SEE pass marks, and aggregate pass marks.
+  - **1-Click Regulation Cloning Engine**: Clones complete regulatory packages (parameters, categories, course types, and policy settings) from existing regulations (e.g., seeding R26 B.Tech from R23 B.Tech).
+- **Autonomous Academic Policy Engine**: Configures regulation-specific academic settings in `superadminacademicsettings.php` via `SettingsService` across all 12 policy domains (`PROMOTION`, `HONORS`, `MINOR`, `MOOCS`, `PROJECT`, `ACTIVITIES`, `CIA`, `ATTENDANCE`, `GRADING`, `MALPRACTICE`, `DETENTION`, `GENERAL`).
 - **Feature Toggle Governance**: In `superadminfeatures.php`, dynamically controls global enablement and per-role visibility (`VISIBLE`, `HIDDEN`, `READONLY`) of 11 system feature modules via `FeatureManager`.
 - **Academic Years**: `SuperAdmin::addAcademicYear()`, `SuperAdmin::getAcademicYears()`. Configures active terms (`2024-2025`, `2025-2026`).
-- **Programs & Regulations**: Defines degrees (B.Tech, M.Tech, MCA) and autonomous academic regulations (R20, R23) via `Programs` and `Regulations` models.
 - **Departments & Specializations**: Creates academic departments and branch specializations (e.g., CSE - Artificial Intelligence & Machine Learning).
 - **Class Timings**: Establishes master bell schedules in `superadminclasstimings.php` with start/end times.
 - **Classes & Sections**: Generates cohort sections mapped to regulation, specialization, and optional section via `SuperAdmin::generateClassName($spec_shortname, $yearsem, $section = '')` (e.g., "CSE - III-I - Sec A"), assigning graduating batch cohorts (`batch_id`).
@@ -74,6 +78,18 @@ The Admin role represents the Principal and Institutional Registrar. The Princip
 The Academic Section role oversees examination infrastructure, centralized curriculum syllabus catalogs, examination results publication, student biographical verification, custody ledger management, and institution-wide attendance auditing.
 
 ### 3.2 Key Responsibilities & Model Methods
+- **Autonomous Course Structure & BoS Engine (`academicsectioncoursestructure.php`)**:
+  - Builds structured semester-by-semester curriculum roadmaps (8 semesters for UG B.Tech, 4 semesters for PG M.Tech) across programs, regulations, departments, and specializations.
+  - **Live Category Compliance Card**: Interactively calculates accumulated category credits against SuperAdmin statutory quotas, warning of deficits or excesses before Board of Studies approval.
+  - **Elective Tracks & Verticals**: Organizes Professional Elective tracks (PE-1 to PE-5) and Open Electives (OE-1 to OE-4) for interdisciplinary specialization pathways.
+  - **Board of Studies (BoS) Dossier Export**: Generates standardized, printable curriculum blueprints and BoS meeting documentation.
+- **Academic Regulations Reference Hub (`academicsectionregulations.php`, `views/academic_regulations_hub.php`)**:
+  - Centralized, read-only institutional reference displaying statutory degree parameters, category credit distributions, course types, assessment schemes, and active policy rules.
+- **Master Curriculum Subject Catalog (`academicsectioncurriculumsubjects.php`)**:
+  - Manages the master course catalog across regulations using `CurriculumSubject`.
+  - **Deterministic AICTE/UGC Credit Calculation**: Computes credits automatically on entry via $C = L + T + 0.5 \times \max(P, PR)$.
+  - **Assessment Scheme Auto-Defaults**: Selecting a course category and course type automatically pre-fills standard CIE max marks, SEE max marks, and evaluation attributes from `regulation_course_types`.
+  - Captures elective tracks, delivery modes (`OFFLINE`, `ONLINE`, `HYBRID`), and prerequisite course codes.
 - **Examination Results Publication & SEE Marks Auto-Sync (`academicsectionresults.php`)**:
   - Creates examination release notifications (`ExamResultsService::createNotification()`) tied to degree program, regulation, semester, and academic year.
   - Processes bulk CSV uploads of official examination results (`ExamResultsService::importResultsCsv()`).
@@ -85,9 +101,6 @@ The Academic Section role oversees examination infrastructure, centralized curri
   - Operates the safe custody ledger for physical original certificates deposited by students.
   - Records temporary loan checkouts with return promise dates and handles exit clearances.
   - Approves and issues verified statutory certificates (`StudentProfileService::updateCertificateStatus()`) with official QR serial numbers.
-- **Master Curriculum Subject Catalog**:
-  - Manages the master course catalog across regulations in `academicsectioncurriculumsubjects.php` using `CurriculumSubject`.
-  - Defines course codes, full and short titles, weekly lecture (L), tutorial (T), practical (P) hours, and credits (C).
 - **Campus Buildings & Examination Halls**:
   - Creates physical buildings and halls in `academicsectionmanagebuildings.php`.
   - Invokes `AcademicSection::getAllBuildings()`, `AcademicSection::addBuilding()`, and `AcademicSection::addHall()`.
